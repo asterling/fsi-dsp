@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-22T21:54:31.916Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-22T21:59:45.308Z"
 progress:
   total_phases: 9
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Project State
@@ -50,6 +50,7 @@ Plan: 2 of 2
 | Phase 01 P02 | 3min | 2 tasks | 4 files |
 | Phase 01 P01 | 4min | 2 tasks | 7 files |
 | Phase 02 P01 | 4min | 2 tasks | 19 files |
+| Phase 02 P02 | 3min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Externalized cluster config to auto.tfvars pattern (secrets in terraform.tfvars, metadata in clusters.auto.tfvars)
 - [Phase 02]: Scenario directories are fully self-contained with cloud-native backends (azurerm, s3+dynamodb, gcs)
 - [Phase 02]: GCS backend uses built-in locking (no DynamoDB equivalent needed for GCP)
+- [Phase 02]: Reusable workflow uses mode input (plan/apply) to select job execution path
+- [Phase 02]: Post-apply validation conditional on kafka-rest-endpoint input (graceful skip if not configured)
+- [Phase 02]: Old CI workflows deprecated with environments/** path (no longer triggers)
 
 ### Pending Todos
 
@@ -88,6 +92,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-22T21:54:31.914Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-03-22T21:59:45.306Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None
