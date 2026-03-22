@@ -34,12 +34,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Cluster IDs, REST endpoints, and CRNs are loaded from a centralized config file -- no hardcoded values remain in Terraform locals
   4. ADRs exist for OAuth vs API keys, topic naming rationale, and DR tier classification -- each with deployment-model-specific guidance
   5. Breaking change runbook in schema-guide.md provides step-by-step multi-topic migration instructions
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Extend topic module with compliance SLA tier and externalize cluster config
+- [ ] 01-02-PLAN.md -- Schema CI validation pipeline, override detection, and breaking change runbook
+- [ ] 01-03-PLAN.md -- ADRs for OAuth vs API keys, topic naming, and DR tier classification
 
 ### Phase 2: CC Multi-Cloud Scenarios
 **Goal**: Operators can deploy a fully governed Kafka environment on CC-AWS or CC-GCP using a self-contained scenario directory -- identical governance to existing CC-Azure
@@ -180,7 +180,7 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Governance Foundation | 0/3 | Not started | - |
+| 1. Shared Governance Foundation | 0/3 | Planned | - |
 | 2. CC Multi-Cloud Scenarios | 0/2 | Not started | - |
 | 3. Access Control and Compliance | 0/3 | Not started | - |
 | 4. DR Automation Framework | 0/3 | Not started | - |
