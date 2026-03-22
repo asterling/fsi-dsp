@@ -1,7 +1,10 @@
 terraform {
   required_version = ">= 1.5"
   required_providers {
-    confluent = { source = "confluentinc/confluent"; version = "~> 2.0" }
+    confluent = {
+      source  = "confluentinc/confluent"
+      version = "~> 2.0"
+    }
   }
 
   # Azure backend (change to s3/gcs per .env TERRAFORM_BACKEND)
@@ -20,36 +23,57 @@ provider "confluent" {
   cloud_api_secret = var.confluent_cloud_api_secret
 }
 
-variable "confluent_cloud_api_key"    { type = string; sensitive = true }
-variable "confluent_cloud_api_secret" { type = string; sensitive = true }
-variable "kafka_api_key"              { type = string; sensitive = true }
-variable "kafka_api_secret"           { type = string; sensitive = true }
-variable "sr_api_key"                 { type = string; sensitive = true }
-variable "sr_api_secret"              { type = string; sensitive = true }
-variable "dr_kafka_api_key"           { type = string; sensitive = true }
-variable "dr_kafka_api_secret"        { type = string; sensitive = true }
+variable "confluent_cloud_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "confluent_cloud_api_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "kafka_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "kafka_api_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "sr_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "sr_api_secret" {
+  type      = string
+  sensitive = true
+}
+
+variable "dr_kafka_api_key" {
+  type      = string
+  sensitive = true
+}
+
+variable "dr_kafka_api_secret" {
+  type      = string
+  sensitive = true
+}
 
 locals {
-  # ── Fill from .env.example ──
-  kafka_cluster_id    = "lkc-xxxxx"                                          # CC_KAFKA_CLUSTER_ID
-  kafka_rest_endpoint = "https://pkc-xxxxx.eastus2.azure.confluent.cloud:443" # CC_KAFKA_REST_ENDPOINT
-  kafka_cluster_crn   = "crn://confluent.cloud/organization=org-xxxxx/environment=env-xxxxx/cloud-cluster=lkc-xxxxx"
-  sr_cluster_id       = "lsrc-xxxxx"                                         # CC_SR_CLUSTER_ID
-  sr_rest_endpoint    = "https://psrc-xxxxx.eastus2.azure.confluent.cloud"   # CC_SR_REST_ENDPOINT
-  sr_cluster_crn      = "crn://confluent.cloud/organization=org-xxxxx/environment=env-xxxxx/schema-registry=lsrc-xxxxx"
-  dr_kafka_cluster_id    = "lkc-yyyyy"                                       # CC_DR_KAFKA_CLUSTER_ID
-  dr_kafka_rest_endpoint = "https://pkc-yyyyy.westus2.azure.confluent.cloud:443"
-  cluster_link_name      = "cluster-link-bidir-prod-dr"                      # CC_CLUSTER_LINK_NAME
-
+  # Cluster metadata loaded from variables (populated by clusters.auto.tfvars)
   infra = {
-    kafka_cluster_id       = local.kafka_cluster_id
-    kafka_rest_endpoint    = local.kafka_rest_endpoint
-    kafka_cluster_crn      = local.kafka_cluster_crn
-    sr_cluster_id          = local.sr_cluster_id
-    sr_rest_endpoint       = local.sr_rest_endpoint
-    sr_cluster_crn         = local.sr_cluster_crn
-    cluster_link_name      = local.cluster_link_name
-    dr_kafka_cluster_id    = local.dr_kafka_cluster_id
-    dr_kafka_rest_endpoint = local.dr_kafka_rest_endpoint
+    kafka_cluster_id       = var.kafka_cluster_id
+    kafka_rest_endpoint    = var.kafka_rest_endpoint
+    kafka_cluster_crn      = var.kafka_cluster_crn
+    sr_cluster_id          = var.sr_cluster_id
+    sr_rest_endpoint       = var.sr_rest_endpoint
+    sr_cluster_crn         = var.sr_cluster_crn
+    cluster_link_name      = var.cluster_link_name
+    dr_kafka_cluster_id    = var.dr_kafka_cluster_id
+    dr_kafka_rest_endpoint = var.dr_kafka_rest_endpoint
   }
 }
