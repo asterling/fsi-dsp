@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [ ] 01-01-PLAN.md -- Extend topic module with compliance SLA tier and externalize cluster config
 - [ ] 01-02-PLAN.md -- Schema CI validation pipeline, override detection, and breaking change runbook
-- [ ] 01-03-PLAN.md -- ADRs for OAuth vs API keys, topic naming, and DR tier classification
+- [x] 01-03-PLAN.md -- ADRs for OAuth vs API keys, topic naming, and DR tier classification
 
 ### Phase 2: CC Multi-Cloud Scenarios
 **Goal**: Operators can deploy a fully governed Kafka environment on CC-AWS or CC-GCP using a self-contained scenario directory -- identical governance to existing CC-Azure

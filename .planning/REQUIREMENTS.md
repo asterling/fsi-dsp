@@ -90,9 +90,9 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ### Governance Documentation
 
-- [ ] **GOV-01**: ADR for OAuth vs API keys authentication decision with deployment-model-specific guidance
-- [ ] **GOV-02**: ADR for topic naming rationale explaining `{domain}.{application}.{version}.{entity}` convention
-- [ ] **GOV-03**: ADR for DR tier classification (RPO/RTO targets per SLA tier, backend selection criteria)
+- [x] **GOV-01**: ADR for OAuth vs API keys authentication decision with deployment-model-specific guidance
+- [x] **GOV-02**: ADR for topic naming rationale explaining `{domain}.{application}.{version}.{entity}` convention
+- [x] **GOV-03**: ADR for DR tier classification (RPO/RTO targets per SLA tier, backend selection criteria)
 
 ## v2 Requirements
 
@@ -200,9 +200,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMP-02 | Phase 3 | Pending |
 | COMP-03 | Phase 9 | Pending |
 | COMP-04 | Phase 3 | Pending |
-| GOV-01 | Phase 1 | Pending |
-| GOV-02 | Phase 1 | Pending |
-| GOV-03 | Phase 1 | Pending |
+| GOV-01 | Phase 1 | Complete |
+| GOV-02 | Phase 1 | Complete |
+| GOV-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 60 total
