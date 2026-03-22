@@ -25,12 +25,12 @@ variable "application" {
   }
 }
 
-variable "version" {
+variable "schema_version" {
   description = "Schema version identifier (e.g., v1, v2)"
   type        = string
 
   validation {
-    condition     = can(regex("^v[0-9]+$", var.version))
+    condition     = can(regex("^v[0-9]+$", var.schema_version))
     error_message = "Version must follow the pattern v1, v2, etc."
   }
 }
@@ -63,8 +63,8 @@ variable "sla_tier" {
   type        = string
 
   validation {
-    condition     = contains(["critical", "standard", "best-effort"], var.sla_tier)
-    error_message = "SLA tier must be one of: critical, standard, best-effort."
+    condition     = contains(["critical", "standard", "best-effort", "compliance"], var.sla_tier)
+    error_message = "SLA tier must be one of: critical, standard, best-effort, compliance."
   }
 }
 

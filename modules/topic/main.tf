@@ -9,7 +9,7 @@
 #     source      = "../../modules/topic"
 #     domain      = "cncb"
 #     application = "core"
-#     version     = "v1"
+#     schema_version = "v1"
 #     entity      = "account-transaction"
 #     owner       = "cncb-team@fsi.org"
 #     sla_tier    = "critical"
@@ -34,7 +34,7 @@ terraform {
 # ---------------------------------------------------------------------------
 locals {
   # Assemble topic name from components
-  topic_name = "${var.domain}.${var.application}.${var.version}.${var.entity}"
+  topic_name = "${var.domain}.${var.application}.${var.schema_version}.${var.entity}"
 
   # Schema subject follows TopicNameStrategy
   value_subject = "${local.topic_name}-value"
@@ -45,6 +45,7 @@ locals {
     critical    = "FULL_TRANSITIVE"
     standard    = "BACKWARD_TRANSITIVE"
     best-effort = "BACKWARD"
+    compliance  = "FULL_TRANSITIVE"    # Same as critical for audit integrity
   }
   compatibility = coalesce(
     var.compatibility_override,
@@ -56,6 +57,7 @@ locals {
     critical    = 12
     standard    = 6
     best-effort = 3
+    compliance  = 12                   # Same as critical for throughput
   }
   partitions = coalesce(
     var.partitions_override,
@@ -67,6 +69,8 @@ locals {
     critical    = 604800000  # 7 days
     standard    = 259200000  # 3 days
     best-effort = 86400000   # 1 day
+    # Compliance tier uses infinite retention; actual data lifecycle managed by archival platform
+    compliance  = -1                   # Infinite retention for OFAC/AML/CFT regulatory compliance
   }
   retention_ms = coalesce(
     var.retention_ms_override,
@@ -134,13 +138,7 @@ resource "confluent_schema" "value" {
   schema       = file(var.schema_file)
 
   metadata {
-    dynamic "properties" {
-      for_each = local.schema_metadata
-      content {
-        key   = properties.key
-        value = properties.value
-      }
-    }
+    properties = local.schema_metadata
   }
 
   # Compatibility is set at the subject level
