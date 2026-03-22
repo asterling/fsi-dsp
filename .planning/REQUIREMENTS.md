@@ -1,7 +1,7 @@
 # Requirements: FSI Kafka Platform
 
 **Defined:** 2026-03-21
-**Core Value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run — and onboard their first topic in under a day.
+**Core Value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
 
 ## v1 Requirements
 
@@ -86,7 +86,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [ ] **COMP-01**: Compliance SLA tier added with configurable retention up to 7 years for OFAC/AML/CFT topics
 - [ ] **COMP-02**: Data classification enforcement ensures `confidential` topics receive encryption rules, restricted consumer list, and enhanced logging
 - [ ] **COMP-03**: FIPS 140-2 compliance automated for CP on RHEL (FIPS-validated JVM, TLS libraries, CFK on FIPS-enabled OpenShift)
-- [ ] **COMP-04**: Audit trail documentation maps PR → review → merge → apply → verify for regulatory examiner consumption
+- [ ] **COMP-04**: Audit trail documentation maps PR -> review -> merge -> apply -> verify for regulatory examiner consumption
 
 ### Governance Documentation
 
@@ -101,7 +101,7 @@ Deferred to future milestone. Tracked but not in current roadmap.
 ### Advanced Governance
 
 - **ADVGOV-01**: Data contract enforcement via Confluent Stream Governance (CEL-based field rules for encryption, validation, migration)
-- **ADVGOV-02**: Topic lifecycle management (created → active → deprecated → decommissioned) with consumer migration workflow
+- **ADVGOV-02**: Topic lifecycle management (created -> active -> deprecated -> decommissioned) with consumer migration workflow
 - **ADVGOV-03**: Schema catalog integration exporting SR subjects + metadata to Alation/Collibra/DataHub
 - **ADVGOV-04**: Cost optimization reporting per domain/team via Confluent Cloud billing API
 
@@ -143,13 +143,72 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| *(populated by roadmapper)* | | |
+| IAC-01 | Phase 2 | Pending |
+| IAC-02 | Phase 2 | Pending |
+| IAC-03 | Phase 8 | Pending |
+| IAC-04 | Phase 9 | Pending |
+| IAC-05 | Phase 9 | Pending |
+| IAC-06 | Phase 2 | Pending |
+| IAC-07 | Phase 1 | Pending |
+| IAC-08 | Phase 2 | Pending |
+| IAC-09 | Phase 1 | Pending |
+| IAC-10 | Phase 2 | Pending |
+| SCHEMA-01 | Phase 1 | Pending |
+| SCHEMA-02 | Phase 1 | Pending |
+| SCHEMA-03 | Phase 1 | Pending |
+| SCHEMA-04 | Phase 1 | Pending |
+| RBAC-01 | Phase 3 | Pending |
+| RBAC-02 | Phase 3 | Pending |
+| RBAC-03 | Phase 3 | Pending |
+| RBAC-04 | Phase 3 | Pending |
+| DR-01 | Phase 4 | Pending |
+| DR-02 | Phase 4 | Pending |
+| DR-03 | Phase 4 | Pending |
+| DR-04 | Phase 4 | Pending |
+| DR-05 | Phase 8 | Pending |
+| DR-06 | Phase 9 | Pending |
+| DR-07 | Phase 4 | Pending |
+| DR-08 | Phase 4 | Pending |
+| DR-09 | Phase 4 | Pending |
+| DR-10 | Phase 4 | Pending |
+| DR-11 | Phase 4 | Pending |
+| DR-12 | Phase 4 | Pending |
+| OBS-01 | Phase 5 | Pending |
+| OBS-02 | Phase 5 | Pending |
+| OBS-03 | Phase 5 | Pending |
+| OBS-04 | Phase 5 | Pending |
+| OBS-05 | Phase 5 | Pending |
+| OBS-06 | Phase 5 | Pending |
+| OBS-07 | Phase 5 | Pending |
+| OBS-08 | Phase 5 | Pending |
+| OBS-09 | Phase 5 | Pending |
+| OBS-10 | Phase 5 | Pending |
+| FLINK-01 | Phase 6 | Pending |
+| FLINK-02 | Phase 8 | Pending |
+| FLINK-03 | Phase 9 | Pending |
+| FLINK-04 | Phase 6 | Pending |
+| FLINK-05 | Phase 6 | Pending |
+| FLINK-06 | Phase 6 | Pending |
+| FLINK-07 | Phase 6 | Pending |
+| ONBOARD-01 | Phase 7 | Pending |
+| ONBOARD-02 | Phase 7 | Pending |
+| ONBOARD-03 | Phase 7 | Pending |
+| ONBOARD-04 | Phase 7 | Pending |
+| ONBOARD-05 | Phase 7 | Pending |
+| ONBOARD-06 | Phase 7 | Pending |
+| COMP-01 | Phase 3 | Pending |
+| COMP-02 | Phase 3 | Pending |
+| COMP-03 | Phase 9 | Pending |
+| COMP-04 | Phase 3 | Pending |
+| GOV-01 | Phase 1 | Pending |
+| GOV-02 | Phase 1 | Pending |
+| GOV-03 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 60 total
-- Mapped to phases: 0
-- Unmapped: 60 ⚠️
+- Mapped to phases: 60
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after initial definition*
+*Last updated: 2026-03-21 after roadmap creation*
