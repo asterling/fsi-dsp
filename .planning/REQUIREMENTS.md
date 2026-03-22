@@ -22,10 +22,10 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ### Schema Governance
 
-- [ ] **SCHEMA-01**: CI pipeline validates schema compatibility before merge using SR compatibility API (not just at registration time)
-- [ ] **SCHEMA-02**: CI prevents namespace collisions by validating `.avsc` namespace matches `org.fsi.{domain}.{application}.{entity}` and subject does not already exist
-- [ ] **SCHEMA-03**: CI blocks `compatibility_override` unless paired with documented exception reference (ADR or JIRA link)
-- [ ] **SCHEMA-04**: Breaking change runbook in schema-guide.md walks teams through multi-topic migration for incompatible schema changes
+- [x] **SCHEMA-01**: CI pipeline validates schema compatibility before merge using SR compatibility API (not just at registration time)
+- [x] **SCHEMA-02**: CI prevents namespace collisions by validating `.avsc` namespace matches `org.fsi.{domain}.{application}.{entity}` and subject does not already exist
+- [x] **SCHEMA-03**: CI blocks `compatibility_override` unless paired with documented exception reference (ADR or JIRA link)
+- [x] **SCHEMA-04**: Breaking change runbook in schema-guide.md walks teams through multi-topic migration for incompatible schema changes
 
 ### Access Control
 
@@ -153,10 +153,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IAC-08 | Phase 2 | Pending |
 | IAC-09 | Phase 1 | Pending |
 | IAC-10 | Phase 2 | Pending |
-| SCHEMA-01 | Phase 1 | Pending |
-| SCHEMA-02 | Phase 1 | Pending |
-| SCHEMA-03 | Phase 1 | Pending |
-| SCHEMA-04 | Phase 1 | Pending |
+| SCHEMA-01 | Phase 1 | Complete |
+| SCHEMA-02 | Phase 1 | Complete |
+| SCHEMA-03 | Phase 1 | Complete |
+| SCHEMA-04 | Phase 1 | Complete |
 | RBAC-01 | Phase 3 | Pending |
 | RBAC-02 | Phase 3 | Pending |
 | RBAC-03 | Phase 3 | Pending |

@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [ ] 01-01-PLAN.md -- Extend topic module with compliance SLA tier and externalize cluster config
-- [ ] 01-02-PLAN.md -- Schema CI validation pipeline, override detection, and breaking change runbook
+- [x] 01-02-PLAN.md -- Schema CI validation pipeline, override detection, and breaking change runbook
 - [x] 01-03-PLAN.md -- ADRs for OAuth vs API keys, topic naming, and DR tier classification
 
 ### Phase 2: CC Multi-Cloud Scenarios
