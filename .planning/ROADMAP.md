@@ -54,7 +54,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Create CC scenario directories for Azure (migrated), AWS, and GCP with native backends and quickstart READMEs
+- [x] 02-01-PLAN.md -- Create CC scenario directories for Azure (migrated), AWS, and GCP with native backends and quickstart READMEs
 - [ ] 02-02-PLAN.md -- Post-apply validation script and CI pipeline refactor with reusable workflow
 
 ### Phase 3: Access Control and Compliance

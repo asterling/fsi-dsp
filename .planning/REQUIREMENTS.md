@@ -9,14 +9,14 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ### Infrastructure as Code
 
-- [ ] **IAC-01**: Operator can deploy CC on AWS with Terraform (topic, schema, RBAC, DR mirror) via self-contained scenario directory
-- [ ] **IAC-02**: Operator can deploy CC on GCP with Terraform (topic, schema, RBAC, DR mirror) via self-contained scenario directory
+- [x] **IAC-01**: Operator can deploy CC on AWS with Terraform (topic, schema, RBAC, DR mirror) via self-contained scenario directory
+- [x] **IAC-02**: Operator can deploy CC on GCP with Terraform (topic, schema, RBAC, DR mirror) via self-contained scenario directory
 - [ ] **IAC-03**: Operator can deploy CFK on OpenShift with Helm/operator manifests (KafkaCluster, SchemaRegistry, Connect, KafkaTopic CRDs)
 - [ ] **IAC-04**: Operator can deploy Confluent Platform on RHEL with Ansible roles (Kafka, SR, Connect, MDS RBAC)
 - [ ] **IAC-05**: Operator can deploy Confluent Private Cloud scenario with Terraform modules
-- [ ] **IAC-06**: Each scenario directory is self-contained with README, IaC files, variable examples, and quickstart instructions
+- [x] **IAC-06**: Each scenario directory is self-contained with README, IaC files, variable examples, and quickstart instructions
 - [x] **IAC-07**: Shared module library enforces identical topic naming, schema compatibility, RBAC, and SLA-tier defaults across all deployment models
-- [ ] **IAC-08**: Terraform state backend is parameterized per cloud provider (S3 for AWS, Azure Blob for Azure, GCS for GCP)
+- [x] **IAC-08**: Terraform state backend is parameterized per cloud provider (S3 for AWS, Azure Blob for Azure, GCS for GCP)
 - [x] **IAC-09**: Cluster IDs, REST endpoints, and CRNs are externalized to centralized config instead of hardcoded locals
 - [ ] **IAC-10**: Post-apply validation confirms topic exists, schema registered, RBAC applied, and mirror created (Terraform test blocks or smoke script)
 
@@ -143,14 +143,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| IAC-01 | Phase 2 | Pending |
-| IAC-02 | Phase 2 | Pending |
+| IAC-01 | Phase 2 | Complete |
+| IAC-02 | Phase 2 | Complete |
 | IAC-03 | Phase 8 | Pending |
 | IAC-04 | Phase 9 | Pending |
 | IAC-05 | Phase 9 | Pending |
-| IAC-06 | Phase 2 | Pending |
+| IAC-06 | Phase 2 | Complete |
 | IAC-07 | Phase 1 | Complete |
-| IAC-08 | Phase 2 | Pending |
+| IAC-08 | Phase 2 | Complete |
 | IAC-09 | Phase 1 | Complete |
 | IAC-10 | Phase 2 | Pending |
 | SCHEMA-01 | Phase 1 | Complete |
