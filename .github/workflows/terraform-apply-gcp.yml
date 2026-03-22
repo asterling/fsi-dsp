@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Apply: CC-GCP Scenario
+# Triggers on merge to main when GCP scenario, modules, or schemas change.
+# Calls the reusable terraform-scenario.yml workflow with apply mode.
+# =============================================================================
+name: "Apply: CC-GCP"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cc-gcp/**'
+      - 'modules/**'
+      - 'schemas/**'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-gcp
+      environment-name: fsi-cc-gcp
+      mode: apply
+    secrets: inherit

@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Apply: CC-AWS Scenario
+# Triggers on merge to main when AWS scenario, modules, or schemas change.
+# Calls the reusable terraform-scenario.yml workflow with apply mode.
+# =============================================================================
+name: "Apply: CC-AWS"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cc-aws/**'
+      - 'modules/**'
+      - 'schemas/**'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-aws
+      environment-name: fsi-cc-aws
+      mode: apply
+    secrets: inherit

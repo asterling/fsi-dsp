@@ -1,0 +1,247 @@
+# =============================================================================
+# FSI Kafka Platform -- Reusable Terraform Scenario Workflow
+# =============================================================================
+# Called by per-scenario workflows (terraform-plan-azure.yml, etc.)
+# Provides shared lint/validate/plan/apply/post-apply-validation logic.
+# =============================================================================
+name: Terraform Scenario
+
+on:
+  workflow_call:
+    inputs:
+      scenario-dir:
+        required: true
+        type: string
+        description: "Path to scenario directory (e.g., scenarios/cc-aws)"
+      environment-name:
+        required: false
+        type: string
+        default: ""
+        description: "GitHub environment for protection rules (apply only)"
+      tf-version:
+        required: false
+        type: string
+        default: "1.7.0"
+      mode:
+        required: true
+        type: string
+        description: "'plan' for PR validation, 'apply' for merge-to-main"
+      kafka-rest-endpoint:
+        required: false
+        type: string
+        default: ""
+        description: "Kafka REST endpoint for post-apply validation"
+      kafka-cluster-id:
+        required: false
+        type: string
+        default: ""
+        description: "Kafka cluster ID for post-apply validation"
+      sr-rest-endpoint:
+        required: false
+        type: string
+        default: ""
+        description: "Schema Registry REST endpoint for post-apply validation"
+      dr-kafka-rest-endpoint:
+        required: false
+        type: string
+        default: ""
+        description: "DR Kafka REST endpoint (optional)"
+      dr-kafka-cluster-id:
+        required: false
+        type: string
+        default: ""
+        description: "DR Kafka cluster ID (optional)"
+      reference-topics:
+        required: false
+        type: string
+        default: "corebanking.transactions.v1.account-transaction fraud.detection.v1.alert-signal compliance.screening.v1.match-result"
+        description: "Space-separated topic names to validate"
+    secrets:
+      CONFLUENT_CLOUD_API_KEY:
+        required: true
+      CONFLUENT_CLOUD_API_SECRET:
+        required: true
+      KAFKA_API_KEY:
+        required: true
+      KAFKA_API_SECRET:
+        required: true
+      SR_API_KEY:
+        required: true
+      SR_API_SECRET:
+        required: true
+      DR_KAFKA_API_KEY:
+        required: false
+      DR_KAFKA_API_SECRET:
+        required: false
+
+jobs:
+  # ── Lint & Validate ──
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.tf-version }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: ${{ inputs.scenario-dir }}
+
+      - name: Validate Topic Naming Convention
+        run: |
+          echo "Checking topic naming convention in Terraform files..."
+          for dir in environments/*/  scenarios/*/; do
+            if [ -d "$dir" ]; then
+              grep -h 'domain\s*=' "$dir"*.tf 2>/dev/null \
+                | sed 's/.*=\s*"\(.*\)"/\1/' \
+                | while read -r domain; do
+                    if ! echo "$domain" | grep -qP '^[a-z][a-z0-9-]{1,30}$'; then
+                      echo "ERROR: Invalid domain name: $domain (in $dir)"
+                      exit 1
+                    fi
+                  done
+            fi
+          done
+          echo "Naming convention check passed"
+
+      - name: Validate Avro Schemas
+        run: python3 ci/scripts/validate-schemas.py --schemas-dir schemas/
+
+      - name: Check Schema Compatibility (SR)
+        if: inputs.mode == 'plan'
+        env:
+          SR_ENDPOINT: ${{ inputs.sr-rest-endpoint }}
+          SR_API_KEY: ${{ secrets.SR_API_KEY }}
+          SR_API_SECRET: ${{ secrets.SR_API_SECRET }}
+        run: python3 ci/scripts/validate-schemas.py --schemas-dir schemas/ --check-compatibility
+        continue-on-error: true
+
+      - name: Check Compatibility Overrides
+        if: inputs.mode == 'plan'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash ci/scripts/check-overrides.sh
+
+      - name: Terraform Init
+        run: terraform init -backend=false
+        working-directory: ${{ inputs.scenario-dir }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ${{ inputs.scenario-dir }}
+
+  # ── Plan (PR validation) ──
+  plan:
+    name: Terraform Plan
+    if: inputs.mode == 'plan'
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.tf-version }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ inputs.scenario-dir }}
+        env:
+          TF_VAR_confluent_cloud_api_key: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          TF_VAR_confluent_cloud_api_secret: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color -out=tfplan 2>&1 | tee plan-output.txt
+        working-directory: ${{ inputs.scenario-dir }}
+        env:
+          TF_VAR_confluent_cloud_api_key: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          TF_VAR_confluent_cloud_api_secret: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+          TF_VAR_kafka_api_key: ${{ secrets.KAFKA_API_KEY }}
+          TF_VAR_kafka_api_secret: ${{ secrets.KAFKA_API_SECRET }}
+          TF_VAR_sr_api_key: ${{ secrets.SR_API_KEY }}
+          TF_VAR_sr_api_secret: ${{ secrets.SR_API_SECRET }}
+          TF_VAR_dr_kafka_api_key: ${{ secrets.DR_KAFKA_API_KEY }}
+          TF_VAR_dr_kafka_api_secret: ${{ secrets.DR_KAFKA_API_SECRET }}
+
+      - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const planPath = '${{ inputs.scenario-dir }}/plan-output.txt';
+            const plan = fs.readFileSync(planPath, 'utf8');
+            const truncated = plan.length > 60000
+              ? plan.substring(0, 60000) + '\n... (truncated)'
+              : plan;
+
+            const scenario = '${{ inputs.scenario-dir }}'.split('/').pop();
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `### Terraform Plan (\`${scenario}\`)\n\`\`\`\n${truncated}\n\`\`\`\n\n**Review required before merge.**`
+            });
+
+  # ── Apply (merge-to-main) ──
+  apply:
+    name: Terraform Apply
+    if: inputs.mode == 'apply'
+    needs: lint
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment-name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.tf-version }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: ${{ inputs.scenario-dir }}
+        env:
+          TF_VAR_confluent_cloud_api_key: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          TF_VAR_confluent_cloud_api_secret: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
+        working-directory: ${{ inputs.scenario-dir }}
+        env:
+          TF_VAR_confluent_cloud_api_key: ${{ secrets.CONFLUENT_CLOUD_API_KEY }}
+          TF_VAR_confluent_cloud_api_secret: ${{ secrets.CONFLUENT_CLOUD_API_SECRET }}
+          TF_VAR_kafka_api_key: ${{ secrets.KAFKA_API_KEY }}
+          TF_VAR_kafka_api_secret: ${{ secrets.KAFKA_API_SECRET }}
+          TF_VAR_sr_api_key: ${{ secrets.SR_API_KEY }}
+          TF_VAR_sr_api_secret: ${{ secrets.SR_API_SECRET }}
+          TF_VAR_dr_kafka_api_key: ${{ secrets.DR_KAFKA_API_KEY }}
+          TF_VAR_dr_kafka_api_secret: ${{ secrets.DR_KAFKA_API_SECRET }}
+
+      - name: Extract Topic Names
+        id: topics
+        run: |
+          TOPICS=$(terraform output -json 2>/dev/null | jq -r 'to_entries[] | select(.key | endswith("_topic_name")) | .value.value // empty' 2>/dev/null || echo "")
+          if [ -z "$TOPICS" ]; then
+            # Fallback: reference topics from input or default
+            TOPICS="${{ inputs.reference-topics }}"
+          fi
+          echo "topics=$TOPICS" >> "$GITHUB_OUTPUT"
+        working-directory: ${{ inputs.scenario-dir }}
+
+      - name: Post-Apply Validation
+        if: inputs.kafka-rest-endpoint != '' && inputs.kafka-cluster-id != ''
+        run: |
+          bash scripts/validate-apply.sh \
+            "${{ inputs.kafka-rest-endpoint }}" "${{ inputs.kafka-cluster-id }}" \
+            "${{ inputs.sr-rest-endpoint }}" \
+            "${{ secrets.KAFKA_API_KEY }}" "${{ secrets.KAFKA_API_SECRET }}" \
+            "${{ secrets.SR_API_KEY }}" "${{ secrets.SR_API_SECRET }}" \
+            ${{ inputs.dr-kafka-rest-endpoint != '' && format('--dr-rest {0} --dr-cluster {1} --dr-key {2} --dr-secret {3}', inputs.dr-kafka-rest-endpoint, inputs.dr-kafka-cluster-id, secrets.DR_KAFKA_API_KEY, secrets.DR_KAFKA_API_SECRET) || '' }} \
+            --topics ${{ steps.topics.outputs.topics }}

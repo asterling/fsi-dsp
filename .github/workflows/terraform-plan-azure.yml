@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Plan: CC-Azure Scenario
+# Triggers on PRs that change the Azure scenario, shared modules, or schemas.
+# Calls the reusable terraform-scenario.yml workflow.
+# =============================================================================
+name: "Plan: CC-Azure"
+
+on:
+  pull_request:
+    paths:
+      - 'scenarios/cc-azure/**'
+      - 'modules/**'
+      - 'schemas/**'
+      - 'ci/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-azure
+      mode: plan
+    secrets: inherit

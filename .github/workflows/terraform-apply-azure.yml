@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Apply: CC-Azure Scenario
+# Triggers on merge to main when Azure scenario, modules, or schemas change.
+# Calls the reusable terraform-scenario.yml workflow with apply mode.
+# =============================================================================
+name: "Apply: CC-Azure"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scenarios/cc-azure/**'
+      - 'modules/**'
+      - 'schemas/**'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-azure
+      environment-name: fsi-cc-azure
+      mode: apply
+    secrets: inherit

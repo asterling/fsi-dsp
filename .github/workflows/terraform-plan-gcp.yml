@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Plan: CC-GCP Scenario
+# Triggers on PRs that change the GCP scenario, shared modules, or schemas.
+# Calls the reusable terraform-scenario.yml workflow.
+# =============================================================================
+name: "Plan: CC-GCP"
+
+on:
+  pull_request:
+    paths:
+      - 'scenarios/cc-gcp/**'
+      - 'modules/**'
+      - 'schemas/**'
+      - 'ci/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-gcp
+      mode: plan
+    secrets: inherit

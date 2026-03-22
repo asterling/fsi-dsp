@@ -1,0 +1,26 @@
+# =============================================================================
+# FSI Kafka Platform -- Plan: CC-AWS Scenario
+# Triggers on PRs that change the AWS scenario, shared modules, or schemas.
+# Calls the reusable terraform-scenario.yml workflow.
+# =============================================================================
+name: "Plan: CC-AWS"
+
+on:
+  pull_request:
+    paths:
+      - 'scenarios/cc-aws/**'
+      - 'modules/**'
+      - 'schemas/**'
+      - 'ci/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    uses: ./.github/workflows/terraform-scenario.yml
+    with:
+      scenario-dir: scenarios/cc-aws
+      mode: plan
+    secrets: inherit
