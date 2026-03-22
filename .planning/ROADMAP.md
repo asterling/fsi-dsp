@@ -51,11 +51,11 @@ Plans:
   3. Each scenario directory contains README, Terraform files, variable examples, and quickstart instructions sufficient for first-time use
   4. Terraform state backend is parameterized per provider (S3 for AWS, GCS for GCP, Azure Blob for Azure) with no hardcoded backend config
   5. Post-apply validation confirms topic exists, schema registered, RBAC applied, and mirror created -- failing validation produces actionable error messages
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Create CC scenario directories for Azure (migrated), AWS, and GCP with native backends and quickstart READMEs
+- [ ] 02-02-PLAN.md -- Post-apply validation script and CI pipeline refactor with reusable workflow
 
 ### Phase 3: Access Control and Compliance
 **Goal**: FSI teams get production-grade access control and compliance enforcement that works identically across CC deployment models and lays the RBAC pattern for future CFK/CP scenarios
@@ -180,8 +180,8 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Governance Foundation | 0/3 | Planned | - |
-| 2. CC Multi-Cloud Scenarios | 0/2 | Not started | - |
+| 1. Shared Governance Foundation | 3/3 | Complete | 2026-03-22 |
+| 2. CC Multi-Cloud Scenarios | 0/2 | Planned | - |
 | 3. Access Control and Compliance | 0/3 | Not started | - |
 | 4. DR Automation Framework | 0/3 | Not started | - |
 | 5. Observability Templates | 0/3 | Not started | - |
