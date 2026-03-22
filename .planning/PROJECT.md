@@ -44,7 +44,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [ ] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests
 - [ ] Confluent Platform on RHEL scenario with Ansible/systemd deployment
 - [ ] Confluent Private Cloud scenario directory
-- [ ] Shared module library consumed by all scenarios (topic, schema, RBAC, observability)
+- [x] Shared module library consumed by all scenarios (topic, schema, RBAC, observability) — Validated in Phase 1
 
 **Flink Runtime:**
 - [ ] Flink cluster deployment per scenario (CC Flink, CFK Flink, standalone Flink)
@@ -74,22 +74,22 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [ ] Alert threshold configuration per SLA tier
 
 **Concerns Remediation (from CONCERNS.md):**
-- [ ] Externalize hardcoded cluster IDs into centralized config
+- [x] Externalize hardcoded cluster IDs into centralized config — Validated in Phase 1
 - [ ] Post-apply Terraform validation (topic exists, schema registered, RBAC applied)
 - [ ] Credential rotation automation with zero-downtime support
-- [ ] Schema evolution enforcement in CI (block dangerous compatibility overrides)
+- [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
 - [ ] DLQ pattern in reference producer with retry and alerting
 - [ ] Connect state tracking for pause/resume coordination
-- [ ] Compliance-tier retention (configurable up to 7-year)
+- [x] Compliance-tier retention (configurable up to 7-year) — Validated in Phase 1
 - [ ] Error-path integration tests (serialization failure, RBAC denial, broker failure)
 - [ ] Unified DR runbook with decision trees and rollback guidance
-- [ ] Schema namespace collision prevention in CI
+- [x] Schema namespace collision prevention in CI — Validated in Phase 1
 - [ ] Kafka topic health metrics export per deployment model
 
 **Governance & Onboarding:**
 - [ ] Generic FSI intake form template (no client-specific names)
 - [ ] C4E review automation (lint + validate in CI, human review as gate)
-- [ ] Additional ADRs: OAuth vs API keys, topic naming rationale, DR tier classification
+- [x] Additional ADRs: OAuth vs API keys, topic naming rationale, DR tier classification — Validated in Phase 1
 
 ### Out of Scope
 
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-21 after initialization*
+*Last updated: 2026-03-22 after Phase 1 completion — governance foundation codified*
