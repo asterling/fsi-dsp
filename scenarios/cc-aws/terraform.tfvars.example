@@ -1,0 +1,9 @@
+# Copy to terraform.tfvars (gitignored). Source from Vault / AWS Secrets Manager / CI secrets.
+confluent_cloud_api_key    = ""
+confluent_cloud_api_secret = ""
+kafka_api_key              = ""
+kafka_api_secret           = ""
+sr_api_key                 = ""
+sr_api_secret              = ""
+dr_kafka_api_key           = ""
+dr_kafka_api_secret        = ""
