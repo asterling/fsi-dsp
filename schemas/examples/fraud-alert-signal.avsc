@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "FraudSignal",
+  "namespace": "org.fsi.rtfd.alerts.v1",
+  "doc": "Real-time fraud detection alert.",
+  "fields": [
+    {"name": "signal_id", "type": "string"},
+    {"name": "transaction_id", "type": "string"},
+    {"name": "member_id", "type": "string", "doc": "PII"},
+    {"name": "account_number", "type": "string", "doc": "PII"},
+    {"name": "fraud_score", "type": "double"},
+    {"name": "model_version", "type": "string"},
+    {"name": "risk_category", "type": {"type": "enum", "name": "RiskCategory", "symbols": ["LOW", "MEDIUM", "HIGH", "CRITICAL"]}},
+    {"name": "signals", "type": {"type": "array", "items": "string"}},
+    {"name": "recommended_action", "type": {"type": "enum", "name": "Action", "symbols": ["ALLOW", "CHALLENGE", "BLOCK", "REVIEW"]}},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

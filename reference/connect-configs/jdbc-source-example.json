@@ -1,0 +1,27 @@
+{
+  "name": "corebanking-jdbc-source",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "connection.url": "jdbc:oracle:thin:@oracle.fsi.internal:1521/COREDB",
+    "connection.user": "${vault:secret/fsi/oracle#username}",
+    "connection.password": "${vault:secret/fsi/oracle#password}",
+    "table.whitelist": "TRANSACTIONS,MEMBER_UPDATES",
+    "mode": "timestamp+incrementing",
+    "timestamp.column.name": "UPDATED_AT",
+    "incrementing.column.name": "TXN_ID",
+    "topic.prefix": "corebanking.core.v1.",
+    "poll.interval.ms": "1000",
+    "batch.max.rows": "1000",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+    "transforms": "route",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "corebanking\\.core\\.v1\\.(.*)",
+    "transforms.route.replacement": "corebanking.core.v1.$1",
+    "errors.tolerance": "none",
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

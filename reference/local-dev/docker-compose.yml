@@ -1,0 +1,107 @@
+# =============================================================================
+# FSI Kafka Platform — Local Development Environment
+# =============================================================================
+# Single-node Kafka + Schema Registry + Connect for local dev and testing.
+# NOT for production. Uses Confluent Community Edition (no license required).
+#
+# Usage:
+#   cd reference/local-dev
+#   docker compose up -d
+#   docker compose logs -f
+#
+# Endpoints:
+#   Kafka bootstrap:   localhost:9092
+#   Schema Registry:   http://localhost:8081
+#   Connect REST API:  http://localhost:8083
+#   Control Center:    http://localhost:9021 (optional)
+# =============================================================================
+
+services:
+  broker:
+    image: confluentinc/cp-kafka:7.6.0
+    hostname: broker
+    container_name: fsi-broker
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:29092,HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:29093
+      KAFKA_LISTENERS: PLAINTEXT://broker:29092,CONTROLLER://broker:29093,HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+      CLUSTER_ID: fsi-local-dev-cluster-001
+    healthcheck:
+      test: kafka-broker-api-versions --bootstrap-server broker:29092
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.0
+    hostname: schema-registry
+    container_name: fsi-schema-registry
+    depends_on:
+      broker:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    healthcheck:
+      test: curl -f http://localhost:8081/subjects || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  connect:
+    image: confluentinc/cp-kafka-connect:7.6.0
+    hostname: connect
+    container_name: fsi-connect
+    depends_on:
+      broker:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: broker:29092
+      CONNECT_REST_ADVERTISED_HOST_NAME: connect
+      CONNECT_GROUP_ID: fsi-connect-local
+      CONNECT_CONFIG_STORAGE_TOPIC: connect-configs
+      CONNECT_OFFSET_STORAGE_TOPIC: connect-offsets
+      CONNECT_STATUS_STORAGE_TOPIC: connect-status
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+    command:
+      - bash
+      - -c
+      - |
+        echo "Installing connectors..."
+        confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:10.7.6
+        echo "Starting Connect..."
+        /etc/confluent/docker/run
+    healthcheck:
+      test: curl -f http://localhost:8083/connectors || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s

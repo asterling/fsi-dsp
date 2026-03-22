@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "IntegrationEvent",
+  "namespace": "org.fsi.eventgrid.api.v1",
+  "fields": [
+    {"name": "event_id", "type": "string"},
+    {"name": "event_type", "type": "string"},
+    {"name": "source", "type": "string"},
+    {"name": "subject", "type": "string"},
+    {"name": "data", "type": "string", "doc": "JSON-encoded payload"},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "correlation_id", "type": ["null", "string"], "default": null}
+  ]
+}

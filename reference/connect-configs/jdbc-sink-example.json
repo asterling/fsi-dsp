@@ -1,0 +1,25 @@
+{
+  "name": "corebanking-jdbc-sink",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+    "connection.url": "jdbc:oracle:thin:@oracle.fsi.internal:1521/COREDB",
+    "connection.user": "${vault:secret/fsi/oracle#username}",
+    "connection.password": "${vault:secret/fsi/oracle#password}",
+    "topics": "corebanking.core.v1.account-balance",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "account_number",
+    "auto.create": false,
+    "auto.evolve": false,
+    "table.name.format": "KAFKA_ACCOUNT_BALANCE",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "corebanking.core.v1.dlq-account-balance",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

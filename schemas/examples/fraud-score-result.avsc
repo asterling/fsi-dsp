@@ -1,0 +1,13 @@
+{
+  "type": "record",
+  "name": "ScoreResult",
+  "namespace": "org.fsi.rtfd.scoring.v1",
+  "fields": [
+    {"name": "transaction_id", "type": "string"},
+    {"name": "fraud_score", "type": "double"},
+    {"name": "model_version", "type": "string"},
+    {"name": "latency_ms", "type": "long"},
+    {"name": "features_used", "type": "int"},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

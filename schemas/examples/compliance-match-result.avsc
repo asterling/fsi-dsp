@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "OfacMatchResult",
+  "namespace": "org.fsi.ofac.screening.v1",
+  "fields": [
+    {"name": "screening_id", "type": "string"},
+    {"name": "member_id", "type": "string"},
+    {"name": "member_name", "type": "string", "doc": "PII"},
+    {"name": "matched_name", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "match_score", "type": "double"},
+    {"name": "list_type", "type": "string"},
+    {"name": "disposition", "type": {"type": "enum", "name": "Disposition", "symbols": ["CLEAR", "REVIEW", "BLOCK"]}},
+    {"name": "screened_at", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "type": "record",
+  "name": "MemberUpdate",
+  "namespace": "org.fsi.cncb.core.v1",
+  "doc": "Member profile change event.",
+  "fields": [
+    {"name": "member_id", "type": "string"},
+    {"name": "member_name", "type": "string", "doc": "PII"},
+    {"name": "email", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "phone", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "address", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "update_type", "type": {"type": "enum", "name": "UpdateType", "symbols": ["CREATE", "MODIFY", "CLOSE"]}},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}

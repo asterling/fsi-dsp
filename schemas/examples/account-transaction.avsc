@@ -1,0 +1,21 @@
+{
+  "type": "record",
+  "name": "AccountTransaction",
+  "namespace": "org.fsi.cncb.core.v1",
+  "doc": "Financial transaction on a member account.",
+  "fields": [
+    {"name": "transaction_id", "type": "string"},
+    {"name": "account_number", "type": "string", "doc": "PII"},
+    {"name": "member_id", "type": "string"},
+    {"name": "member_name", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "ssn_last4", "type": ["null", "string"], "default": null, "doc": "PII"},
+    {"name": "transaction_type", "type": {"type": "enum", "name": "TransactionType", "symbols": ["DEBIT", "CREDIT", "TRANSFER", "FEE", "INTEREST", "REVERSAL"]}},
+    {"name": "amount", "type": {"type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2}},
+    {"name": "currency", "type": "string", "default": "USD"},
+    {"name": "description", "type": ["null", "string"], "default": null},
+    {"name": "merchant_name", "type": ["null", "string"], "default": null},
+    {"name": "channel", "type": {"type": "enum", "name": "Channel", "symbols": ["ATM", "POS", "ONLINE", "MOBILE", "BRANCH", "ACH", "WIRE", "INTERNAL"]}},
+    {"name": "timestamp", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "source_system", "type": "string"}
+  ]
+}

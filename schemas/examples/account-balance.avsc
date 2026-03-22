@@ -1,0 +1,14 @@
+{
+  "type": "record",
+  "name": "AccountBalance",
+  "namespace": "org.fsi.cncb.core.v1",
+  "doc": "Current account balance (compacted topic).",
+  "fields": [
+    {"name": "account_number", "type": "string"},
+    {"name": "member_id", "type": "string"},
+    {"name": "available_balance", "type": {"type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2}},
+    {"name": "ledger_balance", "type": {"type": "bytes", "logicalType": "decimal", "precision": 15, "scale": 2}},
+    {"name": "currency", "type": "string", "default": "USD"},
+    {"name": "last_updated", "type": {"type": "long", "logicalType": "timestamp-millis"}}
+  ]
+}
