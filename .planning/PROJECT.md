@@ -38,9 +38,9 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 <!-- Current scope. Building toward these. -->
 
 **Multi-Deployment Scenarios:**
-- [ ] Confluent Cloud on AWS scenario directory with Terraform modules
-- [ ] Confluent Cloud on Azure scenario directory with Terraform modules
-- [ ] Confluent Cloud on GCP scenario directory with Terraform modules
+- [x] Confluent Cloud on AWS scenario directory with Terraform modules — Validated in Phase 2
+- [x] Confluent Cloud on Azure scenario directory with Terraform modules — Validated in Phase 2
+- [x] Confluent Cloud on GCP scenario directory with Terraform modules — Validated in Phase 2
 - [ ] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests
 - [ ] Confluent Platform on RHEL scenario with Ansible/systemd deployment
 - [ ] Confluent Private Cloud scenario directory
@@ -75,7 +75,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 
 **Concerns Remediation (from CONCERNS.md):**
 - [x] Externalize hardcoded cluster IDs into centralized config — Validated in Phase 1
-- [ ] Post-apply Terraform validation (topic exists, schema registered, RBAC applied)
+- [x] Post-apply Terraform validation (topic exists, schema registered, RBAC applied) — Validated in Phase 2
 - [ ] Credential rotation automation with zero-downtime support
 - [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
 - [ ] DLQ pattern in reference producer with retry and alerting
@@ -134,7 +134,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Scenario directories over CLI | Lower barrier to entry, teams browse and pick | — Pending |
+| Scenario directories over CLI | Lower barrier to entry, teams browse and pick | ✓ Good — Phase 2 delivered 3 scenarios |
 | Per-provider observability templates | Simpler to maintain, each FSI has one provider | — Pending |
 | Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | — Pending |
 | DR framework with pluggable backends | Same CLI/UX regardless of deployment model | — Pending |
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 1 completion — governance foundation codified*
+*Last updated: 2026-03-22 after Phase 2 completion — CC multi-cloud scenarios (Azure, AWS, GCP) with validation and CI*
