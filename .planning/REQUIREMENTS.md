@@ -15,9 +15,9 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [ ] **IAC-04**: Operator can deploy Confluent Platform on RHEL with Ansible roles (Kafka, SR, Connect, MDS RBAC)
 - [ ] **IAC-05**: Operator can deploy Confluent Private Cloud scenario with Terraform modules
 - [ ] **IAC-06**: Each scenario directory is self-contained with README, IaC files, variable examples, and quickstart instructions
-- [ ] **IAC-07**: Shared module library enforces identical topic naming, schema compatibility, RBAC, and SLA-tier defaults across all deployment models
+- [x] **IAC-07**: Shared module library enforces identical topic naming, schema compatibility, RBAC, and SLA-tier defaults across all deployment models
 - [ ] **IAC-08**: Terraform state backend is parameterized per cloud provider (S3 for AWS, Azure Blob for Azure, GCS for GCP)
-- [ ] **IAC-09**: Cluster IDs, REST endpoints, and CRNs are externalized to centralized config instead of hardcoded locals
+- [x] **IAC-09**: Cluster IDs, REST endpoints, and CRNs are externalized to centralized config instead of hardcoded locals
 - [ ] **IAC-10**: Post-apply validation confirms topic exists, schema registered, RBAC applied, and mirror created (Terraform test blocks or smoke script)
 
 ### Schema Governance
@@ -149,9 +149,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | IAC-04 | Phase 9 | Pending |
 | IAC-05 | Phase 9 | Pending |
 | IAC-06 | Phase 2 | Pending |
-| IAC-07 | Phase 1 | Pending |
+| IAC-07 | Phase 1 | Complete |
 | IAC-08 | Phase 2 | Pending |
-| IAC-09 | Phase 1 | Pending |
+| IAC-09 | Phase 1 | Complete |
 | IAC-10 | Phase 2 | Pending |
 | SCHEMA-01 | Phase 1 | Complete |
 | SCHEMA-02 | Phase 1 | Complete |
