@@ -50,3 +50,71 @@ Fields containing personally identifiable information must be tagged in the sche
 - Use enums for closed sets (transaction types, risk categories, channels)
 - Use `string` for identifiers (UUIDs, account numbers) — never `long`
 - Set `"doc"` on every field — this feeds into Alation catalog descriptions
+
+## Breaking Change Runbook
+
+When you must make an incompatible schema change (field removal, type change,
+renaming) on a topic with FULL_TRANSITIVE or BACKWARD_TRANSITIVE compatibility,
+follow this 5-step process. **Do not request a compatibility_override** unless
+you have exhausted this process and documented the exception in an ADR.
+
+### Step 1: Create Versioned Topic
+
+Create a new topic with the next version using the same Terraform module:
+
+```hcl
+module "corebanking_account_txn_v2" {
+  source      = "../../modules/topic"
+  domain      = "corebanking"
+  application = "transactions"
+  version     = "v2"                    # Incremented from v1
+  entity      = "account-transaction"
+  owner       = "core-banking-team@company.com"
+  sla_tier    = "critical"
+  schema_file = "../../schemas/corebanking/account-transaction-v2.avsc"
+  # ... remaining config identical to v1 ...
+}
+```
+
+Both v1 and v2 topics coexist. v1 continues to operate normally.
+
+### Step 2: Dual-Write Period
+
+Deploy producers that write to BOTH v1 and v2 topics simultaneously.
+
+- **Minimum duration:** 2 business days (allow consumer teams to plan and migrate)
+- **Recommended:** 1 sprint (2 weeks) for critical-tier topics
+- **Monitoring:** Verify v2 topic is receiving messages at expected throughput via consumer lag metrics
+
+### Step 3: Consumer Migration
+
+Each consumer team:
+
+1. Updates their consumer to read from the v2 topic
+2. Deploys to a staging environment and validates deserialization
+3. Deploys to production
+4. Confirms migration complete to the C4E team via the intake form or PR comment
+
+**Track progress:** Maintain a migration checklist in the PR that adds the v2 topic:
+
+- [ ] Consumer team A migrated (confirmed YYYY-MM-DD)
+- [ ] Consumer team B migrated (confirmed YYYY-MM-DD)
+
+### Step 4: Deprecate Old Topic
+
+After ALL consumers confirm migration:
+
+1. Stop producing to v1 topic (remove v1 from producer config)
+2. Add `deprecated = true` tag to the v1 Terraform module metadata
+3. Set a decommission date: retention period + 30 days buffer
+4. Announce deprecation via team communication channel
+
+### Step 5: Decommission
+
+After the decommission date:
+
+1. Verify v1 consumer lag is 0 (no active consumers): `confluent kafka topic consume --from-beginning` should show no new offsets
+2. Remove v1 topic module from Terraform configuration
+3. Run `terraform apply` to delete the topic and associated RBAC/schema resources
+4. Soft-delete the v1 schema subject (optional -- preserves version history for audit):
+   `confluent schema-registry subject delete --subject "{topic}-value" --permanent=false`

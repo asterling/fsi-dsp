@@ -10,6 +10,7 @@ on:
       - 'environments/**'
       - 'modules/**'
       - 'schemas/**'
+      - 'ci/**'
 
 permissions:
   contents: read
@@ -39,34 +40,37 @@ jobs:
       - name: Validate Topic Naming Convention
         run: |
           echo "Checking topic naming convention in Terraform files..."
-          # Extract all domain/application/version/entity values from module calls
-          grep -h 'domain\s*=' environments/prod-east/*.tf \
-            | sed 's/.*=\s*"\(.*\)"/\1/' \
-            | while read -r domain; do
-                if ! echo "$domain" | grep -qP '^[a-z][a-z0-9-]{1,30}$'; then
-                  echo "ERROR: Invalid domain name: $domain"
-                  exit 1
-                fi
-              done
+          for dir in environments/*/  scenarios/*/; do
+            if [ -d "$dir" ]; then
+              grep -h 'domain\s*=' "$dir"*.tf 2>/dev/null \
+                | sed 's/.*=\s*"\(.*\)"/\1/' \
+                | while read -r domain; do
+                    if ! echo "$domain" | grep -qP '^[a-z][a-z0-9-]{1,30}$'; then
+                      echo "ERROR: Invalid domain name: $domain (in $dir)"
+                      exit 1
+                    fi
+                  done
+            fi
+          done
           echo "Naming convention check passed"
 
       - name: Validate Avro Schemas
-        run: |
-          echo "Validating Avro schema JSON syntax..."
-          for schema in schemas/*.avsc; do
-            python3 -c "
-          import json, sys
-          with open('$schema') as f:
-              data = json.load(f)
-          assert data.get('type') == 'record', f'Schema must be a record type: $schema'
-          assert data.get('namespace'), f'Schema must have a namespace: $schema'
-          assert data.get('fields'), f'Schema must have fields: $schema'
-          for field in data['fields']:
-              assert 'name' in field, f'Field missing name in $schema'
-              assert 'type' in field, f'Field missing type in $schema'
-          print(f'OK: $schema ({len(data[\"fields\"])} fields)')
-          "
-          done
+        run: python3 ci/scripts/validate-schemas.py --schemas-dir schemas/
+
+      - name: Check Schema Compatibility (SR)
+        if: github.event_name == 'pull_request'
+        env:
+          SR_ENDPOINT: ${{ secrets.CC_SR_REST_ENDPOINT }}
+          SR_API_KEY: ${{ secrets.SR_API_KEY }}
+          SR_API_SECRET: ${{ secrets.SR_API_SECRET }}
+        run: python3 ci/scripts/validate-schemas.py --schemas-dir schemas/ --check-compatibility
+        continue-on-error: true
+
+      - name: Check Compatibility Overrides
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash ci/scripts/check-overrides.sh
 
       - name: Terraform Init
         run: terraform init -backend=false
