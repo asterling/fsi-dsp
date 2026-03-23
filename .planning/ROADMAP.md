@@ -67,12 +67,13 @@ Plans:
   3. OAuth/OAUTHBEARER authentication is configured and documented for CC deployments (Azure AD for Azure, AWS IAM for AWS)
   4. Credential rotation via Vault integration supports zero-downtime dual-credential window -- old and new credentials work simultaneously during rotation
   5. Compliance SLA tier with configurable retention up to 7 years is available for OFAC/AML/CFT topics
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md -- SA provisioning with create-or-reference pattern and RBAC binding refactor
+- [ ] 03-02-PLAN.md -- Per-scenario OAuth identity providers, Vault reference patterns, and credential rotation docs
+- [ ] 03-03-PLAN.md -- CSFLE encryption enforcement for confidential topics and configurable compliance retention
+- [ ] 03-04-PLAN.md -- CI audit trail with job summaries, PR template compliance checkboxes, and compliance guide
 
 ### Phase 4: DR Automation Framework
 **Goal**: A single `fsi-dr failover` command replaces 6+ manual steps, with dry-run preview, state validation between steps, rollback on failure, and mirror lag monitoring
@@ -182,7 +183,7 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 |-------|----------------|--------|-----------|
 | 1. Shared Governance Foundation | 3/3 | Complete | 2026-03-22 |
 | 2. CC Multi-Cloud Scenarios | 0/2 | Planned | - |
-| 3. Access Control and Compliance | 0/3 | Not started | - |
+| 3. Access Control and Compliance | 0/4 | Planned | - |
 | 4. DR Automation Framework | 0/3 | Not started | - |
 | 5. Observability Templates | 0/3 | Not started | - |
 | 6. Flink on Confluent Cloud | 0/2 | Not started | - |
