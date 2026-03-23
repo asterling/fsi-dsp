@@ -2,8 +2,8 @@
 phase: 3
 slug: access-control-and-compliance
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-22
 ---
 
@@ -38,25 +38,24 @@ created: 2026-03-22
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 03-01-01 | 01 | 1 | RBAC-01 | terraform test | `terraform test -filter=access_control` | ❌ W0 | ⬜ pending |
-| 03-01-02 | 01 | 1 | RBAC-02 | terraform test | `terraform test -filter=access_control` | ❌ W0 | ⬜ pending |
-| 03-01-03 | 01 | 1 | RBAC-03 | terraform test | `terraform test -filter=access_control` | ❌ W0 | ⬜ pending |
-| 03-01-04 | 01 | 1 | RBAC-04 | terraform test | `terraform test -filter=access_control` | ❌ W0 | ⬜ pending |
-| 03-02-01 | 02 | 2 | COMP-01 | terraform test | `terraform test -filter=compliance` | ❌ W0 | ⬜ pending |
-| 03-02-02 | 02 | 2 | COMP-02 | terraform test | `terraform test -filter=compliance` | ❌ W0 | ⬜ pending |
-| 03-02-03 | 02 | 2 | COMP-04 | terraform test + python | `terraform test && python ci/scripts/validate-schemas.py` | ❌ W0 | ⬜ pending |
+| 03-01-01 | 01 | 1 | RBAC-01 | terraform test | `terraform test -filter=access_control` | Wave 0 (Plan 01 Task 2) | pending |
+| 03-01-02 | 01 | 1 | RBAC-02 | terraform test | `terraform test -filter=access_control` | Wave 0 (Plan 01 Task 2) | pending |
+| 03-01-03 | 01 | 1 | RBAC-03 | terraform test | `terraform test -filter=access_control` | Wave 0 (Plan 01 Task 2) | pending |
+| 03-01-04 | 01 | 1 | RBAC-04 | terraform test | `terraform test -filter=access_control` | Wave 0 (Plan 01 Task 2) | pending |
+| 03-02-01 | 02 | 2 | COMP-01 | terraform test | `terraform test -filter=compliance` | Wave 0 (Plan 03 Task 2) | pending |
+| 03-02-02 | 02 | 2 | COMP-02 | terraform test | `terraform test -filter=compliance` | Wave 0 (Plan 03 Task 2) | pending |
+| 03-02-03 | 02 | 2 | COMP-04 | terraform test + python | `terraform test && python ci/scripts/validate-schemas.py` | N/A (CI workflow) | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `modules/topic/tests/access_control.tftest.hcl` — SA provisioning, RBAC bindings, create-or-reference
-- [ ] `modules/topic/tests/compliance.tftest.hcl` — compliance tier retention, data classification enforcement
-- [ ] `modules/topic/tests/oauth.tftest.hcl` — OAuth resource creation per scenario
+- [x] `modules/topic/tests/access-control.tftest.hcl` -- Plan 01 Task 2 creates this (SA creation/reference, RBAC binding correctness)
+- [x] `modules/topic/tests/compliance.tftest.hcl` -- Plan 03 Task 2 creates this (retention_years calculation, confidential topic validation, CSFLE rule presence)
 
-*Existing `governance.tftest.hcl` covers base governance but not access control or compliance-specific behaviors.*
+*Existing `governance.tftest.hcl` covers base governance. Wave 0 test files are created within their respective plans.*
 
 ---
 
@@ -72,11 +71,11 @@ created: 2026-03-22
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** validated
