@@ -138,8 +138,13 @@ assert_eq "assess_lag 30 compliance -> ALERT (boundary)" \
   "ALERT" "$(assess_lag 30 compliance)"
 
 # Best-effort tier: warn=3600, alert=14400
-assert_eq "assess_lag 3599 best-effort -> WARN" \
-  "WARN" "$(assess_lag 3599 best-effort)"
+# 3599 is below warn threshold (3600), so it's OK
+assert_eq "assess_lag 3599 best-effort -> OK" \
+  "OK" "$(assess_lag 3599 best-effort)"
+
+# 3600 is at the warn boundary
+assert_eq "assess_lag 3600 best-effort -> WARN (boundary)" \
+  "WARN" "$(assess_lag 3600 best-effort)"
 
 assert_eq "assess_lag 14400 best-effort -> ALERT (boundary)" \
   "ALERT" "$(assess_lag 14400 best-effort)"
