@@ -70,7 +70,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- SA provisioning with create-or-reference pattern and RBAC binding refactor
+- [x] 03-01-PLAN.md -- SA provisioning with create-or-reference pattern and RBAC binding refactor
 - [ ] 03-02-PLAN.md -- Per-scenario OAuth identity providers, Vault reference patterns, and credential rotation docs
 - [ ] 03-03-PLAN.md -- CSFLE encryption enforcement for confidential topics and configurable compliance retention
 - [x] 03-04-PLAN.md -- CI audit trail with job summaries, PR template compliance checkboxes, and compliance guide
