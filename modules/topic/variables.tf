@@ -96,14 +96,28 @@ variable "pii_fields" {
 # ---------------------------------------------------------------------------
 # Access control (required — at least one producer)
 # ---------------------------------------------------------------------------
-variable "producer_service_accounts" {
-  description = "List of Confluent Cloud service account IDs that produce to this topic"
-  type        = list(string)
+variable "create_service_accounts" {
+  description = "Whether to create new service accounts or use existing IDs from producer/consumer_service_accounts"
+  type        = bool
+  default     = false
+}
 
-  validation {
-    condition     = length(var.producer_service_accounts) > 0
-    error_message = "At least one producer service account is required."
-  }
+variable "producer_sa_names" {
+  description = "Display names for producer SAs to create (used when create_service_accounts = true)"
+  type        = list(string)
+  default     = []
+}
+
+variable "consumer_sa_names" {
+  description = "Display names for consumer SAs to create (used when create_service_accounts = true)"
+  type        = list(string)
+  default     = []
+}
+
+variable "producer_service_accounts" {
+  description = "List of Confluent Cloud service account IDs that produce to this topic (used when create_service_accounts = false)"
+  type        = list(string)
+  default     = []
 }
 
 variable "consumer_service_accounts" {

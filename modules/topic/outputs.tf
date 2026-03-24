@@ -46,3 +46,13 @@ output "metadata" {
   description = "Schema metadata tags applied to this topic"
   value       = local.schema_metadata
 }
+
+output "producer_sa_ids" {
+  description = "IDs of producer service accounts (created or referenced)"
+  value       = local.effective_producer_sa_ids
+}
+
+output "consumer_sa_ids" {
+  description = "IDs of consumer service accounts (created or referenced)"
+  value       = local.effective_consumer_sa_ids
+}

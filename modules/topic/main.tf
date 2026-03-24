@@ -77,6 +77,15 @@ locals {
     lookup(local.retention_map, var.sla_tier, 259200000)
   )
 
+  # Resolve effective SA IDs: created IDs when create mode, provided IDs when reference mode
+  effective_producer_sa_ids = var.create_service_accounts ? [
+    for sa in confluent_service_account.producer : sa.id
+  ] : var.producer_service_accounts
+
+  effective_consumer_sa_ids = var.create_service_accounts ? [
+    for sa in confluent_service_account.consumer : sa.id
+  ] : var.consumer_service_accounts
+
   # Schema metadata tags
   schema_metadata = {
     "owner"               = var.owner
@@ -87,6 +96,21 @@ locals {
     "pii"                 = length(var.pii_fields) > 0 ? "true" : "false"
     "pii-fields"          = join(",", var.pii_fields)
   }
+}
+
+# ---------------------------------------------------------------------------
+# Service Accounts — Conditional creation (per D-01, D-02)
+# ---------------------------------------------------------------------------
+resource "confluent_service_account" "producer" {
+  for_each     = var.create_service_accounts ? toset(var.producer_sa_names) : toset([])
+  display_name = each.value
+  description  = "Producer SA for topic ${local.topic_name}"
+}
+
+resource "confluent_service_account" "consumer" {
+  for_each     = var.create_service_accounts ? toset(var.consumer_sa_names) : toset([])
+  display_name = each.value
+  description  = "Consumer SA for topic ${local.topic_name}"
 }
 
 # ---------------------------------------------------------------------------
@@ -115,6 +139,11 @@ resource "confluent_kafka_topic" "this" {
 
   lifecycle {
     prevent_destroy = true
+
+    precondition {
+      condition     = length(local.effective_producer_sa_ids) > 0
+      error_message = "At least one producer SA is required. Set producer_service_accounts (reference mode) or producer_sa_names + create_service_accounts = true (create mode)."
+    }
   }
 }
 
@@ -170,7 +199,7 @@ resource "confluent_subject_config" "value_compat" {
 # RBAC — Producer bindings
 # ---------------------------------------------------------------------------
 resource "confluent_role_binding" "producer" {
-  for_each = toset(var.producer_service_accounts)
+  for_each = toset(local.effective_producer_sa_ids)
 
   principal   = "User:${each.value}"
   role_name   = "DeveloperWrite"
@@ -181,7 +210,7 @@ resource "confluent_role_binding" "producer" {
 # RBAC — Consumer bindings
 # ---------------------------------------------------------------------------
 resource "confluent_role_binding" "consumer" {
-  for_each = toset(var.consumer_service_accounts)
+  for_each = toset(local.effective_consumer_sa_ids)
 
   principal   = "User:${each.value}"
   role_name   = "DeveloperRead"
@@ -190,7 +219,7 @@ resource "confluent_role_binding" "consumer" {
 
 # Consumer group bindings (consumers need read on their group)
 resource "confluent_role_binding" "consumer_group" {
-  for_each = toset(var.consumer_service_accounts)
+  for_each = toset(local.effective_consumer_sa_ids)
 
   principal   = "User:${each.value}"
   role_name   = "DeveloperRead"
@@ -199,7 +228,7 @@ resource "confluent_role_binding" "consumer_group" {
 
 # Schema Registry read for all producers and consumers
 resource "confluent_role_binding" "sr_read" {
-  for_each = toset(concat(var.producer_service_accounts, var.consumer_service_accounts))
+  for_each = toset(concat(local.effective_producer_sa_ids, local.effective_consumer_sa_ids))
 
   principal   = "User:${each.value}"
   role_name   = "DeveloperRead"
@@ -208,7 +237,7 @@ resource "confluent_role_binding" "sr_read" {
 
 # Schema Registry write for producers (to auto-register)
 resource "confluent_role_binding" "sr_write" {
-  for_each = toset(var.producer_service_accounts)
+  for_each = toset(local.effective_producer_sa_ids)
 
   principal   = "User:${each.value}"
   role_name   = "DeveloperWrite"
