@@ -76,7 +76,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 **Concerns Remediation (from CONCERNS.md):**
 - [x] Externalize hardcoded cluster IDs into centralized config — Validated in Phase 1
 - [x] Post-apply Terraform validation (topic exists, schema registered, RBAC applied) — Validated in Phase 2
-- [ ] Credential rotation automation with zero-downtime support
+- [x] Credential rotation automation with zero-downtime support — Validated in Phase 3 (Vault dual-credential window, rotation runbook)
 - [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
 - [ ] DLQ pattern in reference producer with retry and alerting
 - [ ] Connect state tracking for pause/resume coordination
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-22 after Phase 2 completion — CC multi-cloud scenarios (Azure, AWS, GCP) with validation and CI*
+*Last updated: 2026-03-23 after Phase 3 completion — Access control (SA provisioning, OAuth, RBAC), compliance enforcement (CSFLE, 7-year retention), audit trail*
