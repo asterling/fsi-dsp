@@ -90,7 +90,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md -- Core CLI framework with backend dispatch, state management, SLA tier thresholds, and unit tests
 - [x] 04-02-PLAN.md -- Failover orchestration with 6-step sequence, dry-run mode, and rollback guidance
-- [ ] 04-03-PLAN.md -- Failback orchestration with reverse sequence and standalone DR runbook
+- [x] 04-03-PLAN.md -- Failback orchestration with reverse sequence and standalone DR runbook
 
 ### Phase 5: Observability Templates
 **Goal**: FSI teams import pre-built dashboard templates for their observability provider and get cluster health, consumer lag, Connect status, DR readiness, and Flink job visibility without building dashboards from scratch
