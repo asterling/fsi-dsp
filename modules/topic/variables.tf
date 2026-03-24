@@ -263,3 +263,51 @@ variable "dr_kafka_api_secret" {
   sensitive   = true
   default     = ""
 }
+
+# ---------------------------------------------------------------------------
+# Compliance retention (per D-11)
+# ---------------------------------------------------------------------------
+variable "retention_years" {
+  description = "Retention period in years for compliance tier. -1 = infinite (default). Set 7, 10, etc. for specific retention. Only applies when sla_tier = compliance."
+  type        = number
+  default     = -1
+
+  validation {
+    condition     = var.retention_years == -1 || var.retention_years >= 7
+    error_message = "Compliance retention must be -1 (infinite) or >= 7 years per FSI regulatory requirements."
+  }
+}
+
+# ---------------------------------------------------------------------------
+# CSFLE encryption (per D-08) — confidential topics only
+# Requires Stream Governance Advanced package on Confluent Cloud.
+# ---------------------------------------------------------------------------
+variable "kek_name" {
+  description = "Key Encryption Key name for CSFLE (required when data_classification = confidential)"
+  type        = string
+  default     = ""
+}
+
+variable "csfle_kms_type" {
+  description = "KMS provider type for CSFLE: aws-kms, azure-kms, gcp-kms, or hcvault"
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.csfle_kms_type == "" || contains(["aws-kms", "azure-kms", "gcp-kms", "hcvault"], var.csfle_kms_type)
+    error_message = "CSFLE KMS type must be one of: aws-kms, azure-kms, gcp-kms, hcvault."
+  }
+}
+
+variable "csfle_kms_key_id" {
+  description = "KMS key identifier for CSFLE (ARN for AWS, Key Vault URI for Azure, resource name for GCP, path for Vault)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "csfle_shared_kek" {
+  description = "Whether DEK Registry can call KMS directly. Required true for Connect/ksqlDB to process encrypted data."
+  type        = bool
+  default     = true
+}

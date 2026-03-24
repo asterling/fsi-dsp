@@ -64,13 +64,17 @@ locals {
     lookup(local.partition_map, var.sla_tier, 6)
   )
 
+  # Compliance retention: years-to-ms calculation (1 year = 365.25 * 24 * 60 * 60 * 1000 = 31557600000 ms)
+  ms_per_year             = 31557600000
+  compliance_retention_ms = var.retention_years == -1 ? -1 : var.retention_years * local.ms_per_year
+
   # Retention derived from SLA tier (override available, in ms)
   retention_map = {
     critical    = 604800000  # 7 days
     standard    = 259200000  # 3 days
     best-effort = 86400000   # 1 day
-    # Compliance tier uses infinite retention; actual data lifecycle managed by archival platform
-    compliance  = -1                   # Infinite retention for OFAC/AML/CFT regulatory compliance
+    # Compliance tier: uses retention_years variable for configurable regulatory retention
+    compliance  = local.compliance_retention_ms
   }
   retention_ms = coalesce(
     var.retention_ms_override,
@@ -111,6 +115,27 @@ resource "confluent_service_account" "consumer" {
   for_each     = var.create_service_accounts ? toset(var.consumer_sa_names) : toset([])
   display_name = each.value
   description  = "Consumer SA for topic ${local.topic_name}"
+}
+
+# ---------------------------------------------------------------------------
+# CSFLE — Key Encryption Key (confidential topics only, per D-08)
+# ---------------------------------------------------------------------------
+resource "confluent_schema_registry_kek" "pii" {
+  count = var.data_classification == "confidential" ? 1 : 0
+
+  schema_registry_cluster {
+    id = var.schema_registry_cluster_id
+  }
+  rest_endpoint = var.schema_registry_rest_endpoint
+  credentials {
+    key    = var.schema_registry_api_key
+    secret = var.schema_registry_api_secret
+  }
+
+  name       = var.kek_name
+  kms_type   = var.csfle_kms_type
+  kms_key_id = var.csfle_kms_key_id
+  shared     = var.csfle_shared_kek
 }
 
 # ---------------------------------------------------------------------------
@@ -170,8 +195,50 @@ resource "confluent_schema" "value" {
     properties = local.schema_metadata
   }
 
+  # CSFLE encryption rules: only added for confidential topics (D-08)
+  # WARNING: Do NOT define an empty ruleset {} block -- Confluent provider rejects it.
+  dynamic "ruleset" {
+    for_each = var.data_classification == "confidential" ? [1] : []
+    content {
+      domain_rules {
+        name = "encryptPII"
+        kind = "TRANSFORM"
+        type = "ENCRYPT"
+        mode = "WRITEREAD"
+        tags = ["PII"]
+        params = {
+          "encrypt.kek.name" = var.kek_name
+        }
+      }
+    }
+  }
+
   # Compatibility is set at the subject level
   depends_on = [confluent_kafka_topic.this]
+
+  lifecycle {
+    # Confidential topic enforcement (D-09)
+    precondition {
+      condition     = var.data_classification != "confidential" || length(var.pii_fields) > 0
+      error_message = "Confidential topics must specify at least one PII field in pii_fields."
+    }
+    precondition {
+      condition     = var.data_classification != "confidential" || length(local.effective_consumer_sa_ids) > 0
+      error_message = "Confidential topics must have at least one consumer SA (no open access)."
+    }
+    precondition {
+      condition     = var.data_classification != "confidential" || var.kek_name != ""
+      error_message = "Confidential topics require kek_name for CSFLE encryption."
+    }
+    precondition {
+      condition     = var.data_classification != "confidential" || var.csfle_kms_type != ""
+      error_message = "Confidential topics require csfle_kms_type (aws-kms, azure-kms, gcp-kms, or hcvault)."
+    }
+    precondition {
+      condition     = var.data_classification != "confidential" || var.csfle_kms_key_id != ""
+      error_message = "Confidential topics require csfle_kms_key_id (KMS key identifier)."
+    }
+  }
 }
 
 # ---------------------------------------------------------------------------
