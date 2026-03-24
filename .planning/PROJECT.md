@@ -53,15 +53,15 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [ ] Flink observability integration (metrics export per provider)
 
 **DR Framework:**
-- [ ] Pluggable DR abstraction — unified failover CLI with backend adapters
-- [ ] CC backend: Cluster Linking with automated failover/failback
+- [x] Pluggable DR abstraction — unified failover CLI with backend adapters — Validated in Phase 4
+- [x] CC backend: Cluster Linking with automated failover/failback — Validated in Phase 4
 - [ ] CFK/CP backend: MirrorMaker 2 with automated failover/failback
 - [ ] MRC with automatic observer promotion (2.5-cluster pattern) for RPO=0
-- [ ] Orchestrated failover script replacing 6 manual steps with single command
-- [ ] Dry-run mode for all DR operations
-- [ ] State validation between failover steps
-- [ ] Rollback capability for partial failover
-- [ ] Mirror lag monitoring with per-topic alerting
+- [x] Orchestrated failover script replacing 6 manual steps with single command — Validated in Phase 4
+- [x] Dry-run mode for all DR operations — Validated in Phase 4
+- [x] State validation between failover steps — Validated in Phase 4
+- [x] Rollback capability for partial failover — Validated in Phase 4
+- [x] Mirror lag monitoring with per-topic alerting — Validated in Phase 4
 
 **Observability (Per-Provider Templates):**
 - [ ] Dynatrace dashboard templates (cluster health, app view, Connect, DR readiness)
@@ -79,10 +79,10 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Credential rotation automation with zero-downtime support — Validated in Phase 3 (Vault dual-credential window, rotation runbook)
 - [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
 - [ ] DLQ pattern in reference producer with retry and alerting
-- [ ] Connect state tracking for pause/resume coordination
+- [x] Connect state tracking for pause/resume coordination — Validated in Phase 4
 - [x] Compliance-tier retention (configurable up to 7-year) — Validated in Phase 1
 - [ ] Error-path integration tests (serialization failure, RBAC denial, broker failure)
-- [ ] Unified DR runbook with decision trees and rollback guidance
+- [x] Unified DR runbook with decision trees and rollback guidance — Validated in Phase 4
 - [x] Schema namespace collision prevention in CI — Validated in Phase 1
 - [ ] Kafka topic health metrics export per deployment model
 
