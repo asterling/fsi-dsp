@@ -38,16 +38,16 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 - [ ] **DR-01**: Single-command failover orchestrates all DR steps (pause connectors, promote mirrors, flip Consul, validate, resume, verify)
 - [ ] **DR-02**: Single-command failback automates reverse replication setup, mirror re-establishment, and cutover to primary
-- [ ] **DR-03**: Pluggable DR backend abstraction provides unified CLI (`fsi-dr failover/failback`) regardless of deployment model
+- [x] **DR-03**: Pluggable DR backend abstraction provides unified CLI (`fsi-dr failover/failback`) regardless of deployment model
 - [ ] **DR-04**: Cluster Linking adapter handles CC-native failover/failback with mirror topic promotion
 - [ ] **DR-05**: MirrorMaker 2 adapter handles CFK/CP failover/failback with topic replication
 - [ ] **DR-06**: MRC with automatic observer promotion (2.5-cluster pattern) provides RPO=0 for critical CP workloads
-- [ ] **DR-07**: Mirror lag monitoring exposes per-topic replication lag with SLA-tier-based alert thresholds
-- [ ] **DR-08**: State validation between failover steps verifies preconditions before proceeding (prevents partial failover)
+- [x] **DR-07**: Mirror lag monitoring exposes per-topic replication lag with SLA-tier-based alert thresholds
+- [x] **DR-08**: State validation between failover steps verifies preconditions before proceeding (prevents partial failover)
 - [ ] **DR-09**: Dry-run mode previews all DR operations without executing (audit-ready output)
 - [ ] **DR-10**: Rollback capability reverts partial failover to safe state if intermediate step fails
 - [ ] **DR-11**: Unified DR runbook with decision trees, success/abort criteria per step, and rollback guidance
-- [ ] **DR-12**: Connect state tracking records which connectors were paused, enables correct resume after DR events
+- [x] **DR-12**: Connect state tracking records which connectors were paused, enables correct resume after DR events
 
 ### Observability
 
@@ -163,16 +163,16 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RBAC-04 | Phase 3 | Complete |
 | DR-01 | Phase 4 | Pending |
 | DR-02 | Phase 4 | Pending |
-| DR-03 | Phase 4 | Pending |
+| DR-03 | Phase 4 | Complete |
 | DR-04 | Phase 4 | Pending |
 | DR-05 | Phase 8 | Pending |
 | DR-06 | Phase 9 | Pending |
-| DR-07 | Phase 4 | Pending |
-| DR-08 | Phase 4 | Pending |
+| DR-07 | Phase 4 | Complete |
+| DR-08 | Phase 4 | Complete |
 | DR-09 | Phase 4 | Pending |
 | DR-10 | Phase 4 | Pending |
 | DR-11 | Phase 4 | Pending |
-| DR-12 | Phase 4 | Pending |
+| DR-12 | Phase 4 | Complete |
 | OBS-01 | Phase 5 | Pending |
 | OBS-02 | Phase 5 | Pending |
 | OBS-03 | Phase 5 | Pending |

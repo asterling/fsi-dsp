@@ -88,7 +88,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- Core CLI framework with backend dispatch, state management, SLA tier thresholds, and unit tests
+- [x] 04-01-PLAN.md -- Core CLI framework with backend dispatch, state management, SLA tier thresholds, and unit tests
 - [ ] 04-02-PLAN.md -- Failover orchestration with 6-step sequence, dry-run mode, and rollback guidance
 - [ ] 04-03-PLAN.md -- Failback orchestration with reverse sequence and standalone DR runbook
 
