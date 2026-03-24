@@ -219,6 +219,16 @@ read_state() {
   fi
 }
 
+# update_state -- Update a top-level key in state file
+# Args: key value
+update_state() {
+  local key="$1" value="$2"
+  local tmp
+  tmp=$(mktemp "${FSI_DR_STATE_FILE}.XXXXXX")
+  jq --arg k "${key}" --arg v "${value}" \
+    '.[$k] = $v' "${FSI_DR_STATE_FILE}" > "${tmp}" && mv "${tmp}" "${FSI_DR_STATE_FILE}"
+}
+
 # ---------------------------------------------------------------------------
 # Environment loading -- only called by commands, not at source time
 # ---------------------------------------------------------------------------
@@ -425,10 +435,25 @@ cl_preflight() {
   preflight_check
 }
 
-# cl_failover_mirrors -- Promote mirror topics (stub for Plan 02)
+# cl_failover_mirrors -- Promote mirror topics via Cluster Linking
+# Args: space-separated topic names
 cl_failover_mirrors() {
-  echo "Not yet implemented -- see Plan 02"
-  return 1
+  local topics="$1"
+  if [ "${DRY_RUN}" = true ]; then
+    # shellcheck disable=SC2086
+    confluent kafka mirror failover ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_DR_ENV_ID}" \
+      --dry-run -o json
+  else
+    # shellcheck disable=SC2086
+    confluent kafka mirror failover ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_DR_ENV_ID}" \
+      -o json
+  fi
 }
 
 # cl_failback_mirrors -- Restore mirrors for failback (stub for Plan 03)
@@ -558,12 +583,430 @@ cmd_status() {
 }
 
 # ---------------------------------------------------------------------------
-# Failover/Failback stubs (Plan 02 and 03 will implement these)
+# Confirmation and safety functions (D-10, D-06, D-16)
 # ---------------------------------------------------------------------------
-cmd_failover() {
-  echo "Not yet implemented -- see Plan 02"
+
+# confirm_proceed -- Require operator confirmation unless --force
+# Args: message (optional)
+confirm_proceed() {
+  local message="${1:-Proceed?}"
+  if [ "${FORCE}" = true ]; then
+    echo "[--force] ${message} (auto-confirmed)"
+    return 0
+  fi
+  read -p "${message} (yes/no): " CONFIRM
+  [ "${CONFIRM}" = "yes" ] || { echo "Aborted by operator."; exit 1; }
 }
 
+# print_rollback_instructions -- Print manual rollback guidance per failed step (D-06)
+# Args: failed_step (1-6)
+print_rollback_instructions() {
+  local failed_step="$1"
+  echo ""
+  echo "============================================"
+  echo " FAILOVER HALTED -- Step ${failed_step} failed"
+  echo "============================================"
+  echo ""
+  echo "Current state saved to: ${FSI_DR_STATE_FILE}"
+  echo "Review state: fsi-dr.sh status"
+  echo ""
+  echo "ROLLBACK GUIDANCE (manual -- review before executing):"
+  echo ""
+  case "${failed_step}" in
+    1)
+      echo "  Step 1 (Pause Connectors) failed."
+      echo "  Action: Check Connect REST API at ${FSI_CONNECT_URL}"
+      echo "  Some connectors may be paused. Resume manually:"
+      echo "    curl -s -X PUT ${FSI_CONNECT_URL}/connectors/<name>/resume"
+      ;;
+    2)
+      echo "  Step 2 (Promote Mirrors) failed."
+      echo "  Action: Some mirror topics may be promoted, others still mirroring."
+      echo "  Check mirror status:"
+      echo "    confluent kafka mirror list --link ${FSI_CLUSTER_LINK_NAME} --cluster ${FSI_DR_DR_CLUSTER_ID} --environment ${FSI_DR_DR_ENV_ID}"
+      echo "  Partially promoted topics cannot be automatically reverted."
+      echo "  Consult DR runbook: docs/dr-runbook.md"
+      ;;
+    3)
+      echo "  Step 3 (Flip Consul) failed."
+      echo "  Action: Mirrors are promoted but endpoints still point to East."
+      echo "  Manual Consul flip:"
+      echo "    consul kv put fsi/kafka/active-region west"
+      echo "  Or revert mirrors (requires failback procedure)."
+      ;;
+    4)
+      echo "  Step 4 (Verify Endpoints) failed."
+      echo "  Action: Consul flipped but endpoint verification failed."
+      echo "  Check DNS resolution:"
+      echo "    dig +short kafka.fsi.internal"
+      echo "    dig +short schema.fsi.internal"
+      echo "  May need to wait for DNS propagation or check Consul health."
+      ;;
+    5)
+      echo "  Step 5 (Resume Connectors) failed."
+      echo "  Action: Failover is functionally complete (Kafka is live on DR)."
+      echo "  Resume connectors manually:"
+      echo "    curl -s -X PUT ${FSI_CONNECT_URL}/connectors/<name>/resume"
+      echo "  Check state file for previously-RUNNING connectors."
+      ;;
+    6)
+      echo "  Step 6 (Final Validation) failed."
+      echo "  Action: Failover completed but validation found issues."
+      echo "  Check cluster health and connectivity manually."
+      ;;
+  esac
+  echo ""
+  echo "  Full runbook: docs/dr-runbook.md"
+  echo "  State file: cat ${FSI_DR_STATE_FILE} | jq ."
+}
+
+# check_mirror_lag_warning -- Warn on per-topic data loss risk (D-16)
+check_mirror_lag_warning() {
+  local lag_json topics_with_alert=0
+  lag_json=$(get_mirror_lag_json 2>/dev/null || echo "[]")
+
+  if [ "${lag_json}" = "[]" ] || [ -z "${lag_json}" ]; then
+    echo "  WARNING: Unable to fetch mirror lag data. Proceeding without lag assessment."
+    return 0
+  fi
+
+  local topic lag_ms lag_sec tier assessment threshold
+  for row in $(echo "${lag_json}" | jq -c '.[]'); do
+    topic=$(echo "${row}" | jq -r '.mirror_topic_name // .topic_name // "unknown"')
+    lag_ms=$(echo "${row}" | jq -r '.mirror_lag_ms // .num_messages_lag // 0')
+    lag_sec=$(( lag_ms / 1000 ))
+    tier=$(get_topic_sla_tier "${topic}" 2>/dev/null || echo "standard")
+    assessment=$(assess_lag "${lag_sec}" "${tier}")
+
+    if [ "${assessment}" = "ALERT" ]; then
+      ((topics_with_alert++))
+      threshold=$(_tier_alert_threshold "${tier}")
+      printf "  ALERT: %-50s tier=%-12s lag=%ss (threshold=%ss)\n" "${topic}" "${tier}" "${lag_sec}" "${threshold}"
+    fi
+  done
+
+  if [ "${topics_with_alert}" -gt 0 ]; then
+    echo ""
+    echo "WARNING: ${topics_with_alert} topic(s) exceed RPO alert threshold."
+    echo "Proceeding with failover may result in data loss for these topics."
+    confirm_proceed "Acknowledge data loss risk and proceed?"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Failover step functions (D-05: 6-step sequence)
+# ---------------------------------------------------------------------------
+
+# step_1_pause_connectors -- Pause all RUNNING connectors, snapshot state
+step_1_pause_connectors() {
+  if [ "${DRY_RUN}" = true ]; then
+    local connector_json connector_count running_count
+    connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+    connector_count=$(echo "${connector_json}" | jq 'keys | length' 2>/dev/null || echo "0")
+    running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+    printf "%-6s %-30s %-40s %-30s\n" "1" "Pause Connectors" "${connector_count} connectors (${running_count} RUNNING)" "All RUNNING -> PAUSED"
+    echo ""
+    echo "  [DRY-RUN] Would pause ${running_count} connectors"
+    return 0
+  fi
+
+  local snapshot_json
+  snapshot_json=$(snapshot_connectors)
+  local running_names
+  running_names=$(get_running_connectors)
+
+  if [ -z "${running_names}" ]; then
+    echo "  No RUNNING connectors to pause."
+    return 0
+  fi
+
+  local paused_count=0
+  for name in ${running_names}; do
+    if pause_connector "${name}"; then
+      ((paused_count++))
+    fi
+  done
+
+  echo "  Paused ${paused_count} connectors."
+}
+
+# step_2_promote_mirrors -- Promote mirror topics to writable
+step_2_promote_mirrors() {
+  local mirror_json topics topic_list topic_count
+
+  mirror_json=$(confluent kafka mirror list \
+    --link "${FSI_CLUSTER_LINK_NAME}" \
+    --cluster "${FSI_DR_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_DR_ENV_ID}" \
+    -o json 2>/dev/null || echo "[]")
+
+  topics=$(echo "${mirror_json}" | jq -r '.[] | select(.status == "ACTIVE" or .mirror_status == "ACTIVE") | .mirror_topic_name' 2>/dev/null || true)
+  topic_list=$(echo "${topics}" | tr '\n' ' ' | xargs)
+  topic_count=$(echo "${topics}" | grep -c . || true)
+
+  if [ -z "${topic_list}" ] || [ "${topic_count}" -eq 0 ]; then
+    echo "  ERROR: No active mirror topics found. Check cluster link status."
+    return 1
+  fi
+
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "2" "Promote Mirrors" "${topic_count} active mirror topics" "All mirrors -> writable"
+    echo ""
+    echo "  [DRY-RUN] Would promote ${topic_count} mirror topics:"
+
+    # Show per-topic lag table
+    printf "  %-50s %-12s %-10s %-12s %s\n" "TOPIC" "SLA TIER" "LAG" "THRESHOLD" "STATUS"
+    printf "  %-50s %-12s %-10s %-12s %s\n" "-----" "--------" "---" "---------" "------"
+
+    for topic in ${topics}; do
+      local lag_ms lag_sec tier threshold assessment
+      lag_ms=$(echo "${mirror_json}" | jq -r ".[] | select(.mirror_topic_name == \"${topic}\") | .mirror_lag_ms // .num_messages_lag // 0" 2>/dev/null || echo "0")
+      lag_sec=$(( lag_ms / 1000 ))
+      tier=$(get_topic_sla_tier "${topic}" 2>/dev/null || echo "standard")
+      threshold=$(get_tier_threshold "${tier}")
+      assessment=$(assess_lag "${lag_sec}" "${tier}")
+      printf "  %-50s %-12s %-10s %-12s %s\n" "${topic}" "${tier}" "${lag_sec}s" "${threshold}s" "${assessment}"
+    done
+
+    echo ""
+    echo "  Confluent CLI dry-run output:"
+    cl_failover_mirrors "${topic_list}" || true
+    return 0
+  fi
+
+  echo "  Promoting ${topic_count} mirror topics..."
+  cl_failover_mirrors "${topic_list}"
+  record_topics "${topic_list}"
+  echo "  Promoted ${topic_count} topics."
+}
+
+# step_3_flip_consul -- Flip active region in Consul KV to west
+step_3_flip_consul() {
+  if [ "${DRY_RUN}" = true ]; then
+    local current_region
+    current_region=$(consul kv get fsi/kafka/active-region 2>/dev/null || echo "unknown")
+    printf "%-6s %-30s %-40s %-30s\n" "3" "Flip Consul" "active-region=${current_region}" "active-region=west"
+    echo ""
+    echo "  [DRY-RUN] Would flip Consul active-region from '${current_region}' to 'west'"
+    return 0
+  fi
+
+  consul kv put fsi/kafka/active-region west
+  local verified
+  verified=$(consul kv get fsi/kafka/active-region)
+  if [ "${verified}" = "west" ]; then
+    echo "  Consul active-region flipped to: west"
+  else
+    echo "  ERROR: Consul active-region is '${verified}', expected 'west'"
+    return 1
+  fi
+}
+
+# step_4_verify_endpoints -- Verify DNS resolution after Consul flip
+step_4_verify_endpoints() {
+  local endpoints=("kafka.fsi.internal" "schema.fsi.internal" "oracle.fsi.internal")
+
+  if [ "${DRY_RUN}" = true ]; then
+    local current_ips=""
+    for ep in "${endpoints[@]}"; do
+      local ip
+      ip=$(dig +short "${ep}" 2>/dev/null || echo "unresolvable")
+      current_ips="${current_ips} ${ep}=${ip}"
+    done
+    printf "%-6s %-30s %-40s %-30s\n" "4" "Verify Endpoints" "DNS:${current_ips}" "Resolve to DR (west) IPs"
+    echo ""
+    echo "  [DRY-RUN] Would verify DNS resolution for: ${endpoints[*]}"
+    return 0
+  fi
+
+  local all_ok=true
+  for ep in "${endpoints[@]}"; do
+    local resolved=false
+    local i
+    for i in $(seq 1 10); do
+      local ip
+      ip=$(dig +short "${ep}" 2>/dev/null || echo "")
+      if [ -n "${ip}" ]; then
+        echo "  ${ep} -> ${ip}"
+        resolved=true
+        break
+      fi
+      sleep 3
+    done
+    if [ "${resolved}" = false ]; then
+      echo "  WARN: ${ep} did not resolve within timeout"
+      all_ok=false
+    fi
+  done
+
+  if [ "${all_ok}" = false ]; then
+    echo "  WARNING: Some endpoints did not resolve. Check DNS propagation."
+    return 1
+  fi
+}
+
+# step_5_resume_connectors -- Resume only previously-RUNNING connectors (D-08)
+step_5_resume_connectors() {
+  if [ "${DRY_RUN}" = true ]; then
+    local connector_json running_count
+    connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+    running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+    printf "%-6s %-30s %-40s %-30s\n" "5" "Resume Connectors" "Connectors paused in Step 1" "Resume RUNNING-only (${running_count})"
+    echo ""
+    echo "  [DRY-RUN] Would resume ${running_count} connectors (only those that were RUNNING)"
+    return 0
+  fi
+
+  local running_names
+  running_names=$(get_running_connectors)
+
+  if [ -z "${running_names}" ]; then
+    echo "  No connectors to resume (none were RUNNING before failover)."
+    return 0
+  fi
+
+  local resumed_count=0
+  for name in ${running_names}; do
+    if resume_connector "${name}"; then
+      ((resumed_count++))
+    fi
+  done
+
+  echo "  Resumed ${resumed_count} connectors."
+}
+
+# step_6_final_validation -- Verify DR cluster is operational
+step_6_final_validation() {
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "6" "Final Validation" "DR cluster, mirrors, Connect" "All verified healthy"
+    echo ""
+    echo "  [DRY-RUN] Would verify: DR cluster writable, mirrors stopped/promoted, Connect running"
+    return 0
+  fi
+
+  local pass=0 fail=0
+
+  # Verify DR cluster is accessible
+  if confluent kafka cluster describe "${FSI_DR_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_DR_ENV_ID}" -o json 2>/dev/null | jq -e . >/dev/null 2>&1; then
+    echo "  PASS: DR cluster accessible"
+    ((pass++))
+  else
+    echo "  FAIL: DR cluster not accessible"
+    ((fail++))
+  fi
+
+  # Check mirror status shows STOPPED (promoted)
+  local mirror_status
+  mirror_status=$(confluent kafka mirror list \
+    --link "${FSI_CLUSTER_LINK_NAME}" \
+    --cluster "${FSI_DR_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_DR_ENV_ID}" \
+    -o json 2>/dev/null || echo "[]")
+  local active_count
+  active_count=$(echo "${mirror_status}" | jq '[.[] | select(.status == "ACTIVE" or .mirror_status == "ACTIVE")] | length' 2>/dev/null || echo "0")
+  if [ "${active_count}" -eq 0 ]; then
+    echo "  PASS: No active mirrors (all promoted)"
+    ((pass++))
+  else
+    echo "  WARN: ${active_count} mirrors still active (may need time to complete)"
+    ((pass++))  # Not a hard failure -- promotion may be in progress
+  fi
+
+  # Check connector status
+  local connector_json running_count
+  connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+  running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+  echo "  INFO: ${running_count} connectors RUNNING"
+  ((pass++))
+
+  echo ""
+  echo "  Validation: ${pass} passed, ${fail} failed"
+  [ "${fail}" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Failover command (D-05: 6-step orchestrated failover)
+# ---------------------------------------------------------------------------
+cmd_failover() {
+  echo "============================================"
+  echo " FSI DR FAILOVER"
+  echo " Backend: ${FSI_DR_BACKEND}"
+  if [ "${DRY_RUN}" = true ]; then
+    echo " Mode: DRY-RUN (no changes will be made)"
+  fi
+  echo "============================================"
+  echo ""
+
+  # Pre-flight (always runs, per D-11)
+  echo "--- Pre-Flight Checks ---"
+  if ! preflight_check; then
+    echo ""
+    echo "ABORT: Pre-flight checks failed. Fix issues above before retrying."
+    exit 1
+  fi
+  echo ""
+
+  # Mirror lag warning (per D-16)
+  if [ "${DRY_RUN}" = false ]; then
+    check_mirror_lag_warning
+  fi
+
+  # Dry-run table header (per D-09)
+  if [ "${DRY_RUN}" = true ]; then
+    echo "--- Dry-Run Plan ---"
+    printf "%-6s %-30s %-40s %-30s\n" "STEP" "ACTION" "CURRENT STATE" "EXPECTED RESULT"
+    printf "%-6s %-30s %-40s %-30s\n" "----" "------" "-------------" "---------------"
+  fi
+
+  # Confirmation (per D-10)
+  if [ "${DRY_RUN}" = false ]; then
+    confirm_proceed "Execute failover sequence?"
+    init_state "failover"
+  fi
+
+  # Execute steps (per D-05)
+  local step_funcs=("step_1_pause_connectors" "step_2_promote_mirrors" "step_3_flip_consul" "step_4_verify_endpoints" "step_5_resume_connectors" "step_6_final_validation")
+  local step_names=("pause_connectors" "promote_mirrors" "flip_consul" "verify_endpoints" "resume_connectors" "final_validation")
+
+  for i in "${!step_funcs[@]}"; do
+    local step_num=$((i + 1))
+    local step_func="${step_funcs[$i]}"
+    local step_name="${step_names[$i]}"
+
+    echo ""
+    echo "--- Step ${step_num}/6: ${step_name} ---"
+
+    if ! ${step_func}; then
+      if [ "${DRY_RUN}" = false ]; then
+        update_state "status" "failed"
+        print_rollback_instructions "${step_num}"
+      fi
+      exit 1
+    fi
+
+    if [ "${DRY_RUN}" = false ]; then
+      record_step "${step_num}" "${step_name}"
+    fi
+  done
+
+  echo ""
+  if [ "${DRY_RUN}" = true ]; then
+    echo "============================================"
+    echo " DRY-RUN COMPLETE -- No changes were made"
+    echo "============================================"
+  else
+    cleanup_state
+    echo "============================================"
+    echo " FAILOVER COMPLETE"
+    echo " Active region: west (DR)"
+    echo "============================================"
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# Failback stub (Plan 03 will implement)
+# ---------------------------------------------------------------------------
 cmd_failback() {
   echo "Not yet implemented -- see Plan 03"
 }
