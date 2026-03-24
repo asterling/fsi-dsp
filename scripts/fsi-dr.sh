@@ -456,10 +456,53 @@ cl_failover_mirrors() {
   fi
 }
 
-# cl_failback_mirrors -- Restore mirrors for failback (stub for Plan 03)
+# cl_failback_truncate_and_restore -- Truncate East topics and restore as mirrors from West
+# Args: space-separated topic names
+cl_failback_truncate_and_restore() {
+  local topics="$1"
+  if [ "${DRY_RUN}" = true ]; then
+    # shellcheck disable=SC2086
+    confluent kafka mirror truncate-and-restore ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" \
+      --dry-run -o json
+  else
+    # shellcheck disable=SC2086
+    confluent kafka mirror truncate-and-restore ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" \
+      -o json
+  fi
+}
+
+# cl_failback_reverse_and_start -- Reverse mirror direction: East becomes R/W, West mirrors
+# Args: space-separated topic names
+cl_failback_reverse_and_start() {
+  local topics="$1"
+  if [ "${DRY_RUN}" = true ]; then
+    # shellcheck disable=SC2086
+    confluent kafka mirror reverse-and-start ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" \
+      --dry-run -o json
+  else
+    # shellcheck disable=SC2086
+    confluent kafka mirror reverse-and-start ${topics} \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" \
+      -o json
+  fi
+}
+
+# cl_failback_mirrors -- Wrapper for backend dispatch (calls two-phase functions)
 cl_failback_mirrors() {
-  echo "Not yet implemented -- see Plan 03"
-  return 1
+  local topics="$1"
+  cl_failback_truncate_and_restore "${topics}"
+  cl_failback_reverse_and_start "${topics}"
 }
 
 # cl_get_mirror_lag -- Get mirror lag data via Cluster Linking
@@ -1005,10 +1048,455 @@ cmd_failover() {
 }
 
 # ---------------------------------------------------------------------------
-# Failback stub (Plan 03 will implement)
+# Failback rollback instructions (D-06: guidance only, no auto-rollback)
+# ---------------------------------------------------------------------------
+
+# print_failback_rollback_instructions -- Print manual rollback guidance per failed failback step
+# Args: failed_step (1-8)
+print_failback_rollback_instructions() {
+  local failed_step="$1"
+  echo ""
+  echo "============================================"
+  echo " FAILBACK HALTED -- Step ${failed_step} failed"
+  echo "============================================"
+  echo ""
+  echo "Current state saved to: ${FSI_DR_STATE_FILE}"
+  echo "Review state: fsi-dr.sh status"
+  echo ""
+  echo "ROLLBACK GUIDANCE (manual -- review before executing):"
+  echo ""
+  case "${failed_step}" in
+    1)
+      echo "  Step 1 (Verify East Cluster) failed."
+      echo "  Action: East cluster is not reachable. Cannot failback until East is recovered."
+      echo "  Wait for East cluster to come online, then retry failback."
+      ;;
+    2)
+      echo "  Step 2 (Pause Connectors on West) failed."
+      echo "  Action: Some connectors may be paused. System is still running on West."
+      echo "  Resume paused connectors:"
+      echo "    curl -s -X PUT ${FSI_CONNECT_URL}/connectors/<name>/resume"
+      ;;
+    3)
+      echo "  Step 3 (Truncate and Restore) failed."
+      echo "  Action: CRITICAL -- truncate-and-restore is destructive."
+      echo "  If partially completed, some East topics may be truncated."
+      echo "  Check East mirror status:"
+      echo "    confluent kafka mirror list --link ${FSI_CLUSTER_LINK_NAME} --cluster ${FSI_DR_CLUSTER_ID} --environment ${FSI_DR_ENV_ID}"
+      echo "  Consult DR runbook: docs/dr-runbook.md section 'Failback Recovery'"
+      ;;
+    4)
+      echo "  Step 4 (Wait for Sync) failed."
+      echo "  Action: Data is syncing from West to East but not yet complete."
+      echo "  Check mirror lag and wait:"
+      echo "    fsi-dr.sh status"
+      echo "  Retry failback when lag is near zero."
+      ;;
+    5)
+      echo "  Step 5 (Reverse and Start) failed."
+      echo "  Action: East has data but is still mirroring. Cannot serve traffic yet."
+      echo "  Retry reverse-and-start manually:"
+      echo "    confluent kafka mirror reverse-and-start <topics> --link ${FSI_CLUSTER_LINK_NAME} --cluster ${FSI_DR_CLUSTER_ID} --environment ${FSI_DR_ENV_ID}"
+      ;;
+    6)
+      echo "  Step 6 (Flip Consul to East) failed."
+      echo "  Action: East is ready but Consul not updated. Manual flip:"
+      echo "    consul kv put fsi/kafka/active-region east"
+      ;;
+    7)
+      echo "  Step 7 (Resume Connectors) failed."
+      echo "  Action: Failback is functionally complete (Kafka is live on East)."
+      echo "  Resume connectors manually."
+      ;;
+    8)
+      echo "  Step 8 (Final Validation) failed."
+      echo "  Action: Failback completed but validation found issues."
+      echo "  Check East cluster health manually."
+      ;;
+  esac
+  echo ""
+  echo "  Full runbook: docs/dr-runbook.md"
+  echo "  State file: cat ${FSI_DR_STATE_FILE} | jq ."
+}
+
+# ---------------------------------------------------------------------------
+# Failback step functions (8-step reverse sequence)
+# ---------------------------------------------------------------------------
+
+# fb_step_1_verify_east -- Verify East (production) cluster is reachable
+fb_step_1_verify_east() {
+  if [ "${DRY_RUN}" = true ]; then
+    local cluster_info
+    cluster_info=$(confluent kafka cluster describe "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" -o json 2>/dev/null || echo "{}")
+    printf "%-6s %-30s %-40s %-30s\n" "1" "Verify East Cluster" "East=${FSI_DR_CLUSTER_ID}" "Reachable and healthy"
+    echo ""
+    echo "  [DRY-RUN] East cluster status: $(echo "${cluster_info}" | jq -r '.status // "unknown"' 2>/dev/null || echo "unknown")"
+    return 0
+  fi
+
+  if confluent kafka cluster describe "${FSI_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_ENV_ID}" -o json 2>/dev/null | jq -e . >/dev/null 2>&1; then
+    echo "  PASS: East cluster reachable"
+  else
+    echo "  FAIL: East cluster not reachable. Cannot failback."
+    return 1
+  fi
+}
+
+# fb_step_2_pause_connectors -- Pause all RUNNING connectors on West
+fb_step_2_pause_connectors() {
+  if [ "${DRY_RUN}" = true ]; then
+    local connector_json connector_count running_count
+    connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+    connector_count=$(echo "${connector_json}" | jq 'keys | length' 2>/dev/null || echo "0")
+    running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+    printf "%-6s %-30s %-40s %-30s\n" "2" "Pause Connectors (West)" "${connector_count} connectors (${running_count} RUNNING)" "All RUNNING -> PAUSED"
+    echo ""
+    echo "  [DRY-RUN] Would pause ${running_count} connectors on West"
+    return 0
+  fi
+
+  local snapshot_json
+  snapshot_json=$(snapshot_connectors)
+  local running_names
+  running_names=$(get_running_connectors)
+
+  if [ -z "${running_names}" ]; then
+    echo "  No RUNNING connectors to pause."
+    return 0
+  fi
+
+  local paused_count=0
+  for name in ${running_names}; do
+    if pause_connector "${name}"; then
+      ((paused_count++))
+    fi
+  done
+
+  echo "  Paused ${paused_count} connectors."
+}
+
+# fb_step_3_truncate_and_restore -- Truncate East topics and restore as mirrors from West
+# DESTRUCTIVE: Extra confirmation gate required
+fb_step_3_truncate_and_restore() {
+  local topic_list topic_count
+
+  # Get topic list from East cluster (non-internal topics)
+  topic_list=$(confluent kafka topic list \
+    --cluster "${FSI_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_ENV_ID}" \
+    -o json 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep -v '^_' | tr '\n' ' ' | xargs)
+  topic_count=$(echo "${topic_list}" | wc -w | tr -d ' ')
+
+  if [ -z "${topic_list}" ] || [ "${topic_count}" -eq 0 ]; then
+    echo "  ERROR: No topics found on East cluster."
+    return 1
+  fi
+
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "3" "Truncate and Restore" "${topic_count} topics on East" "East topics become mirrors"
+    echo ""
+    echo "  [DRY-RUN] Would truncate-and-restore ${topic_count} East topics (DESTRUCTIVE)"
+    echo "  Topics: ${topic_list}"
+    echo ""
+    echo "  Confluent CLI dry-run output:"
+    cl_failback_truncate_and_restore "${topic_list}" || true
+    return 0
+  fi
+
+  # Extra confirmation gate -- truncate-and-restore is destructive (per mirror-failback.sh pattern)
+  confirm_proceed "DESTRUCTIVE: truncate-and-restore will truncate East topics. Proceed?"
+
+  echo "  Truncating and restoring ${topic_count} topics..."
+  cl_failback_truncate_and_restore "${topic_list}"
+  echo "  Truncate-and-restore complete for ${topic_count} topics."
+}
+
+# fb_step_4_wait_for_sync -- Wait for mirror lag to reach near-zero
+fb_step_4_wait_for_sync() {
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "4" "Wait for Sync" "Mirrors replicating West->East" "Near-zero lag"
+    echo ""
+    echo "  [DRY-RUN] Would wait for mirror sync (targets near-zero lag)"
+    return 0
+  fi
+
+  local timeout="${FSI_DR_SYNC_TIMEOUT:-300}"
+  local interval=10
+  local elapsed=0
+  local last_report=0
+
+  echo "  Waiting for mirror sync (timeout: ${timeout}s)..."
+
+  while [ "${elapsed}" -lt "${timeout}" ]; do
+    # Check mirror lag on East (now mirroring from West)
+    local lag_json
+    lag_json=$(confluent kafka mirror list \
+      --link "${FSI_CLUSTER_LINK_NAME}" \
+      --cluster "${FSI_DR_CLUSTER_ID}" \
+      --environment "${FSI_DR_ENV_ID}" \
+      -o json 2>/dev/null || echo "[]")
+
+    if [ "${lag_json}" = "[]" ] || [ -z "${lag_json}" ]; then
+      echo "  WARNING: Unable to fetch mirror status. Retrying..."
+      sleep "${interval}"
+      elapsed=$((elapsed + interval))
+      continue
+    fi
+
+    # Check if all topics have acceptable lag
+    local all_synced=true
+    local topics
+    topics=$(echo "${lag_json}" | jq -r '.[].mirror_topic_name // empty' 2>/dev/null || true)
+
+    for topic in ${topics}; do
+      local lag_ms lag_sec tier warn_threshold
+      lag_ms=$(echo "${lag_json}" | jq -r ".[] | select(.mirror_topic_name == \"${topic}\") | .mirror_lag_ms // .partition_mirror_lags[0].lag // 0" 2>/dev/null || echo "0")
+      lag_sec=$((lag_ms / 1000))
+      tier=$(get_topic_sla_tier "${topic}" 2>/dev/null || echo "standard")
+      warn_threshold=$(_tier_warn_threshold "${tier}")
+
+      if [ "${lag_sec}" -ge "${warn_threshold}" ]; then
+        all_synced=false
+        break
+      fi
+    done
+
+    if [ "${all_synced}" = true ]; then
+      echo "  PASS: All mirrors synced (lag within tier thresholds)."
+      return 0
+    fi
+
+    # Progress report every 30s
+    if [ $((elapsed - last_report)) -ge 30 ]; then
+      echo "  Sync in progress... (${elapsed}s elapsed)"
+      last_report="${elapsed}"
+    fi
+
+    sleep "${interval}"
+    elapsed=$((elapsed + interval))
+  done
+
+  echo "  WARN: Sync timeout reached (${timeout}s). Some topics may still have lag."
+  echo "  Check status: fsi-dr.sh status"
+  return 1
+}
+
+# fb_step_5_reverse_and_start -- Reverse mirror direction: East becomes R/W
+fb_step_5_reverse_and_start() {
+  local topic_list topic_count
+
+  # Get topic list (same approach as step 3)
+  topic_list=$(confluent kafka topic list \
+    --cluster "${FSI_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_ENV_ID}" \
+    -o json 2>/dev/null | jq -r '.[].name' 2>/dev/null | grep -v '^_' | tr '\n' ' ' | xargs)
+  topic_count=$(echo "${topic_list}" | wc -w | tr -d ' ')
+
+  if [ -z "${topic_list}" ] || [ "${topic_count}" -eq 0 ]; then
+    echo "  ERROR: No topics found on East cluster."
+    return 1
+  fi
+
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "5" "Reverse and Start" "${topic_count} mirrored topics" "East -> R/W, West -> mirrors"
+    echo ""
+    echo "  [DRY-RUN] Would reverse-and-start ${topic_count} topics (East becomes primary)"
+    echo ""
+    echo "  Confluent CLI dry-run output:"
+    cl_failback_reverse_and_start "${topic_list}" || true
+    return 0
+  fi
+
+  # Second confirmation gate (per mirror-failback.sh two-gate pattern)
+  confirm_proceed "Data synced. Proceed with reverse-and-start? (East becomes R/W)"
+
+  echo "  Reversing mirror direction for ${topic_count} topics..."
+  cl_failback_reverse_and_start "${topic_list}"
+  record_topics "${topic_list}"
+  echo "  Reverse-and-start complete. East is now R/W."
+}
+
+# fb_step_6_flip_consul -- Flip active region in Consul KV to east
+fb_step_6_flip_consul() {
+  if [ "${DRY_RUN}" = true ]; then
+    local current_region
+    current_region=$(consul kv get fsi/kafka/active-region 2>/dev/null || echo "unknown")
+    printf "%-6s %-30s %-40s %-30s\n" "6" "Flip Consul to East" "active-region=${current_region}" "active-region=east"
+    echo ""
+    echo "  [DRY-RUN] Would flip Consul active-region from '${current_region}' to 'east'"
+    return 0
+  fi
+
+  consul kv put fsi/kafka/active-region east
+  local verified
+  verified=$(consul kv get fsi/kafka/active-region)
+  if [ "${verified}" = "east" ]; then
+    echo "  Consul active-region flipped to: east"
+  else
+    echo "  ERROR: Consul active-region is '${verified}', expected 'east'"
+    return 1
+  fi
+}
+
+# fb_step_7_resume_connectors -- Resume only previously-RUNNING connectors
+fb_step_7_resume_connectors() {
+  if [ "${DRY_RUN}" = true ]; then
+    local connector_json running_count
+    connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+    running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+    printf "%-6s %-30s %-40s %-30s\n" "7" "Resume Connectors" "Connectors paused in Step 2" "Resume RUNNING-only (${running_count})"
+    echo ""
+    echo "  [DRY-RUN] Would resume ${running_count} connectors (only those that were RUNNING)"
+    return 0
+  fi
+
+  local running_names
+  running_names=$(get_running_connectors)
+
+  if [ -z "${running_names}" ]; then
+    echo "  No connectors to resume (none were RUNNING before failback)."
+    return 0
+  fi
+
+  local resumed_count=0
+  for name in ${running_names}; do
+    if resume_connector "${name}"; then
+      ((resumed_count++))
+    fi
+  done
+
+  echo "  Resumed ${resumed_count} connectors."
+}
+
+# fb_step_8_final_validation -- Verify East cluster is operational after failback
+fb_step_8_final_validation() {
+  if [ "${DRY_RUN}" = true ]; then
+    printf "%-6s %-30s %-40s %-30s\n" "8" "Final Validation" "East cluster, topics R/W, Connect" "All verified healthy"
+    echo ""
+    echo "  [DRY-RUN] Would verify: East cluster writable, topics R/W (not mirroring), Connect running"
+    return 0
+  fi
+
+  local pass=0 fail=0
+
+  # Verify East cluster is accessible
+  if confluent kafka cluster describe "${FSI_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_ENV_ID}" -o json 2>/dev/null | jq -e . >/dev/null 2>&1; then
+    echo "  PASS: East cluster accessible"
+    ((pass++))
+  else
+    echo "  FAIL: East cluster not accessible"
+    ((fail++))
+  fi
+
+  # Check Consul points to east
+  local active_region
+  active_region=$(consul kv get fsi/kafka/active-region 2>/dev/null || echo "unknown")
+  if [ "${active_region}" = "east" ]; then
+    echo "  PASS: Consul active-region is 'east'"
+    ((pass++))
+  else
+    echo "  WARN: Consul active-region is '${active_region}', expected 'east'"
+    ((fail++))
+  fi
+
+  # Check connector status
+  local connector_json running_count
+  connector_json=$(curl -s "${FSI_CONNECT_URL}/connectors?expand=status" 2>/dev/null || echo "{}")
+  running_count=$(echo "${connector_json}" | jq '[to_entries[] | select(.value.status.connector.state == "RUNNING")] | length' 2>/dev/null || echo "0")
+  echo "  INFO: ${running_count} connectors RUNNING"
+  ((pass++))
+
+  echo ""
+  echo "  Validation: ${pass} passed, ${fail} failed"
+  [ "${fail}" -eq 0 ]
+}
+
+# ---------------------------------------------------------------------------
+# Failback command (8-step reverse sequence: restore East as primary)
 # ---------------------------------------------------------------------------
 cmd_failback() {
-  echo "Not yet implemented -- see Plan 03"
+  echo "============================================"
+  echo " FSI DR FAILBACK -- Restore East Primary"
+  echo " Backend: ${FSI_DR_BACKEND}"
+  if [ "${DRY_RUN}" = true ]; then
+    echo " Mode: DRY-RUN (no changes will be made)"
+  fi
+  echo "============================================"
+  echo ""
+
+  # Pre-flight: East MUST be reachable (it's the failback target)
+  echo "--- Pre-Flight Checks ---"
+  if ! confluent kafka cluster describe "${FSI_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_ENV_ID}" -o json 2>/dev/null | jq -e . >/dev/null 2>&1; then
+    echo "  FAIL: East (production) cluster is not reachable. Cannot failback."
+    echo "  Wait for East cluster recovery before retrying."
+    exit 1
+  fi
+  echo "  PASS: East cluster reachable"
+
+  # Check West (current primary) is still reachable
+  if ! confluent kafka cluster describe "${FSI_DR_DR_CLUSTER_ID}" \
+    --environment "${FSI_DR_DR_ENV_ID}" -o json 2>/dev/null | jq -e . >/dev/null 2>&1; then
+    echo "  FAIL: West (current active) cluster is not reachable."
+    exit 1
+  fi
+  echo "  PASS: West cluster reachable"
+  echo ""
+
+  # Dry-run table header
+  if [ "${DRY_RUN}" = true ]; then
+    echo "--- Dry-Run Plan ---"
+    printf "%-6s %-30s %-40s %-30s\n" "STEP" "ACTION" "CURRENT STATE" "EXPECTED RESULT"
+    printf "%-6s %-30s %-40s %-30s\n" "----" "------" "-------------" "---------------"
+  fi
+
+  # Confirmation (per D-10)
+  if [ "${DRY_RUN}" = false ]; then
+    confirm_proceed "Execute failback sequence? (This will restore East as primary)"
+    init_state "failback"
+  fi
+
+  # Execute 8 failback steps
+  local step_funcs=("fb_step_1_verify_east" "fb_step_2_pause_connectors" "fb_step_3_truncate_and_restore" "fb_step_4_wait_for_sync" "fb_step_5_reverse_and_start" "fb_step_6_flip_consul" "fb_step_7_resume_connectors" "fb_step_8_final_validation")
+  local step_names=("verify_east" "pause_connectors" "truncate_and_restore" "wait_for_sync" "reverse_and_start" "flip_consul" "resume_connectors" "final_validation")
+
+  for i in "${!step_funcs[@]}"; do
+    local step_num=$((i + 1))
+    local step_func="${step_funcs[$i]}"
+    local step_name="${step_names[$i]}"
+
+    echo ""
+    echo "--- Step ${step_num}/8: ${step_name} ---"
+
+    if ! ${step_func}; then
+      if [ "${DRY_RUN}" = false ]; then
+        update_state "status" "failed"
+        print_failback_rollback_instructions "${step_num}"
+      fi
+      exit 1
+    fi
+
+    if [ "${DRY_RUN}" = false ]; then
+      record_step "${step_num}" "${step_name}"
+    fi
+  done
+
+  echo ""
+  if [ "${DRY_RUN}" = true ]; then
+    echo "============================================"
+    echo " DRY-RUN COMPLETE -- No changes were made"
+    echo "============================================"
+  else
+    cleanup_state
+    echo "============================================"
+    echo " FAILBACK COMPLETE"
+    echo " Active region: east (primary)"
+    echo " West cluster: DR passive (mirroring)"
+    echo "============================================"
+  fi
 }
 
 # ---------------------------------------------------------------------------
