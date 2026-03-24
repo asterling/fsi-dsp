@@ -1,0 +1,78 @@
+# =============================================================================
+# Vault Credential Management -- Reference Pattern (AWS)
+# =============================================================================
+# This is a REFERENCE PATTERN, not active Terraform. It will not be processed
+# by `terraform plan` or `terraform apply` because it uses the `.example`
+# extension instead of `.tf`.
+#
+# Teams copy this file, rename to `vault.tf`, and adapt to their Vault instance.
+#
+# Path convention (per D-06): secret/fsi-kafka/{env}/{domain}/{sa-name}
+# See docs/rotation-runbook.md for the full dual-credential rotation procedure.
+#
+# Vault is the golden path for credential management (per D-04, D-07).
+# Cloud-native alternative for AWS: AWS Secrets Manager
+#   - Store API keys as Secrets Manager secrets
+#   - Use IAM roles for access control
+#   - Rotation via Lambda function with automatic scheduling
+#   - See docs/rotation-runbook.md for AWS Secrets Manager guidance
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Terraform Provider Configuration for Vault
+# -----------------------------------------------------------------------------
+# provider "vault" {
+#   address = "https://vault.example.com:8200"
+#   # Auth via VAULT_TOKEN env var or app role
+# }
+
+# -----------------------------------------------------------------------------
+# Write Kafka credentials to Vault (KV v2)
+# Path: secret/fsi-kafka/{env}/{domain}/{sa-name}
+# -----------------------------------------------------------------------------
+# resource "vault_kv_secret_v2" "kafka_credentials" {
+#   mount = "secret"
+#   name  = "fsi-kafka/${var.environment}/${var.domain}/${var.sa_name}"
+#
+#   data_json = jsonencode({
+#     api_key        = var.kafka_api_key
+#     api_secret     = var.kafka_api_secret
+#     bootstrap_url  = var.kafka_rest_endpoint
+#     cluster_id     = var.kafka_cluster_id
+#   })
+#
+#   # Keep current + previous version for dual-credential window
+#   custom_metadata {
+#     max_versions = 2
+#   }
+# }
+
+# -----------------------------------------------------------------------------
+# Read Kafka credentials from Vault (application consumption)
+# -----------------------------------------------------------------------------
+# data "vault_kv_secret_v2" "kafka_credentials" {
+#   mount = "secret"
+#   name  = "fsi-kafka/${var.environment}/${var.domain}/${var.sa_name}"
+# }
+#
+# # Use in other resources:
+# # data.vault_kv_secret_v2.kafka_credentials.data["api_key"]
+# # data.vault_kv_secret_v2.kafka_credentials.data["api_secret"]
+
+# -----------------------------------------------------------------------------
+# Schema Registry credentials at the same path convention
+# -----------------------------------------------------------------------------
+# resource "vault_kv_secret_v2" "sr_credentials" {
+#   mount = "secret"
+#   name  = "fsi-kafka/${var.environment}/${var.domain}/${var.sa_name}-sr"
+#
+#   data_json = jsonencode({
+#     api_key       = var.sr_api_key
+#     api_secret    = var.sr_api_secret
+#     rest_endpoint = var.sr_rest_endpoint
+#   })
+#
+#   custom_metadata {
+#     max_versions = 2
+#   }
+# }
