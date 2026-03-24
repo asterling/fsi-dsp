@@ -86,7 +86,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [ ] **COMP-01**: Compliance SLA tier added with configurable retention up to 7 years for OFAC/AML/CFT topics
 - [ ] **COMP-02**: Data classification enforcement ensures `confidential` topics receive encryption rules, restricted consumer list, and enhanced logging
 - [ ] **COMP-03**: FIPS 140-2 compliance automated for CP on RHEL (FIPS-validated JVM, TLS libraries, CFK on FIPS-enabled OpenShift)
-- [ ] **COMP-04**: Audit trail documentation maps PR -> review -> merge -> apply -> verify for regulatory examiner consumption
+- [x] **COMP-04**: Audit trail documentation maps PR -> review -> merge -> apply -> verify for regulatory examiner consumption
 
 ### Governance Documentation
 
@@ -199,7 +199,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COMP-01 | Phase 3 | Pending |
 | COMP-02 | Phase 3 | Pending |
 | COMP-03 | Phase 9 | Pending |
-| COMP-04 | Phase 3 | Pending |
+| COMP-04 | Phase 3 | Complete |
 | GOV-01 | Phase 1 | Complete |
 | GOV-02 | Phase 1 | Complete |
 | GOV-03 | Phase 1 | Complete |
