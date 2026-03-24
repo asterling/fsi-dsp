@@ -31,8 +31,8 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 - [x] **RBAC-01**: Service accounts provisioned via IaC alongside topic creation (CC: `confluent_service_account`, CFK: LDAP/AD bindings, CP: MDS)
 - [x] **RBAC-02**: RBAC binding patterns produce identical permissions across CC (Confluent RBAC), CFK (operator RBAC), and CP (MDS RBAC)
-- [ ] **RBAC-03**: OAuth/OAUTHBEARER authentication documented and configured for CC deployments (Azure AD for Azure, AWS IAM for AWS)
-- [ ] **RBAC-04**: Credential rotation automation supports zero-downtime dual-credential window via Vault integration
+- [x] **RBAC-03**: OAuth/OAUTHBEARER authentication documented and configured for CC deployments (Azure AD for Azure, AWS IAM for AWS)
+- [x] **RBAC-04**: Credential rotation automation supports zero-downtime dual-credential window via Vault integration
 
 ### Disaster Recovery
 
@@ -159,8 +159,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCHEMA-04 | Phase 1 | Complete |
 | RBAC-01 | Phase 3 | Complete |
 | RBAC-02 | Phase 3 | Complete |
-| RBAC-03 | Phase 3 | Pending |
-| RBAC-04 | Phase 3 | Pending |
+| RBAC-03 | Phase 3 | Complete |
+| RBAC-04 | Phase 3 | Complete |
 | DR-01 | Phase 4 | Pending |
 | DR-02 | Phase 4 | Pending |
 | DR-03 | Phase 4 | Pending |
