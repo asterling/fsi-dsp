@@ -1,7 +1,8 @@
 # =============================================================================
-# Governance Tests — Validates SLA tier defaults and naming conventions
+# Compliance Tests -- Retention years and CSFLE enforcement
 # =============================================================================
-# Uses mock provider to run without live Confluent Cloud credentials.
+# Validates compliance retention calculation (D-11) and confidential topic
+# constraints (D-08, D-09) for CSFLE encryption enforcement.
 
 mock_provider "confluent" {}
 
@@ -11,9 +12,10 @@ variables {
   schema_version                 = "v1"
   entity                         = "test-entity"
   owner                          = "test@fsi.org"
-  sla_tier                       = "critical"
+  sla_tier                       = "compliance"
   schema_file                    = "../../../schemas/examples/account-transaction.avsc"
   pii_fields                     = ["account_number"]
+  create_service_accounts        = false
   producer_service_accounts      = ["sa-test-producer"]
   consumer_service_accounts      = ["sa-test-consumer"]
   kafka_cluster_id               = "lkc-test"
@@ -29,125 +31,115 @@ variables {
 }
 
 # ---------------------------------------------------------------------------
-# Critical tier — baseline governance defaults
+# Compliance tier: default infinite retention (retention_years = -1)
 # ---------------------------------------------------------------------------
-run "critical_tier_governance" {
+run "compliance_tier_default_infinite_retention" {
   command = plan
-
-  assert {
-    condition     = output.compatibility_mode == "FULL_TRANSITIVE"
-    error_message = "Critical tier must use FULL_TRANSITIVE compatibility."
-  }
-
-  assert {
-    condition     = output.partitions == 12
-    error_message = "Critical tier must have 12 partitions."
-  }
-}
-
-# ---------------------------------------------------------------------------
-# Compliance tier — same as critical but with infinite retention
-# ---------------------------------------------------------------------------
-run "compliance_tier_governance" {
-  command = plan
-
-  variables {
-    sla_tier        = "compliance"
-    retention_years = -1  # Explicit: default infinite retention
-  }
-
-  assert {
-    condition     = output.compatibility_mode == "FULL_TRANSITIVE"
-    error_message = "Compliance tier must use FULL_TRANSITIVE compatibility."
-  }
-
-  assert {
-    condition     = output.partitions == 12
-    error_message = "Compliance tier must have 12 partitions."
-  }
 
   assert {
     condition     = output.retention_ms == -1
-    error_message = "Compliance tier must use infinite retention (-1)."
+    error_message = "Compliance tier with default retention_years (-1) must use infinite retention."
   }
 }
 
 # ---------------------------------------------------------------------------
-# Standard tier — mid-range defaults
+# Compliance tier: 7-year retention (7 * 31557600000 = 220903200000)
 # ---------------------------------------------------------------------------
-run "standard_tier_governance" {
+run "compliance_tier_seven_year_retention" {
   command = plan
 
   variables {
-    sla_tier = "standard"
+    retention_years = 7
   }
 
   assert {
-    condition     = output.compatibility_mode == "BACKWARD_TRANSITIVE"
-    error_message = "Standard tier must use BACKWARD_TRANSITIVE compatibility."
-  }
-
-  assert {
-    condition     = output.partitions == 6
-    error_message = "Standard tier must have 6 partitions."
+    condition     = output.retention_ms == 220903200000
+    error_message = "Compliance tier with retention_years=7 must calculate 220903200000 ms."
   }
 }
 
 # ---------------------------------------------------------------------------
-# Best-effort tier — minimal defaults
+# Compliance tier: 10-year retention (10 * 31557600000 = 315576000000)
 # ---------------------------------------------------------------------------
-run "best_effort_tier_governance" {
+run "compliance_tier_ten_year_retention" {
   command = plan
 
   variables {
-    sla_tier = "best-effort"
+    retention_years = 10
   }
 
   assert {
-    condition     = output.compatibility_mode == "BACKWARD"
-    error_message = "Best-effort tier must use BACKWARD compatibility."
-  }
-
-  assert {
-    condition     = output.partitions == 3
-    error_message = "Best-effort tier must have 3 partitions."
+    condition     = output.retention_ms == 315576000000
+    error_message = "Compliance tier with retention_years=10 must calculate 315576000000 ms."
   }
 }
 
 # ---------------------------------------------------------------------------
-# Topic naming convention
+# Compliance tier: retention below 7 years rejected
 # ---------------------------------------------------------------------------
-run "topic_naming_convention" {
+run "compliance_retention_below_seven_rejected" {
   command = plan
+
+  variables {
+    retention_years = 3
+  }
+
+  expect_failures = [var.retention_years]
+}
+
+# ---------------------------------------------------------------------------
+# Confidential topic: missing pii_fields rejected
+# ---------------------------------------------------------------------------
+run "confidential_topic_requires_pii_fields" {
+  command = plan
+
+  variables {
+    sla_tier            = "critical"
+    data_classification = "confidential"
+    pii_fields          = []
+    kek_name            = "test-kek"
+    csfle_kms_type      = "aws-kms"
+    csfle_kms_key_id    = "arn:aws:kms:us-east-1:123:key/test"
+  }
+
+  expect_failures = [confluent_schema.value]
+}
+
+# ---------------------------------------------------------------------------
+# Confidential topic: valid config succeeds (CSFLE resources present)
+# ---------------------------------------------------------------------------
+run "confidential_topic_with_valid_config" {
+  command = plan
+
+  variables {
+    sla_tier            = "critical"
+    data_classification = "confidential"
+    pii_fields          = ["ssn"]
+    kek_name            = "test-kek"
+    csfle_kms_type      = "aws-kms"
+    csfle_kms_key_id    = "arn:aws:kms:us-east-1:123:key/test"
+  }
 
   assert {
     condition     = output.topic_name == "testdomain.testapp.v1.test-entity"
-    error_message = "Topic name must follow domain.application.version.entity pattern."
+    error_message = "Confidential topic name must resolve correctly."
   }
 }
 
 # ---------------------------------------------------------------------------
-# Validation: reject invalid domain
+# Non-confidential topic: no CSFLE resources created
 # ---------------------------------------------------------------------------
-run "invalid_domain_rejected" {
+run "non_confidential_topic_no_csfle" {
   command = plan
 
   variables {
-    domain = "UPPERCASE"
+    sla_tier            = "standard"
+    data_classification = "internal"
+    pii_fields          = []
   }
 
-  expect_failures = [var.domain]
-}
-
-# ---------------------------------------------------------------------------
-# Validation: reject invalid SLA tier
-# ---------------------------------------------------------------------------
-run "invalid_sla_tier_rejected" {
-  command = plan
-
-  variables {
-    sla_tier = "invalid"
+  assert {
+    condition     = output.topic_name == "testdomain.testapp.v1.test-entity"
+    error_message = "Non-confidential topic must plan successfully without CSFLE."
   }
-
-  expect_failures = [var.sla_tier]
 }

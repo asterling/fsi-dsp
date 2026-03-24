@@ -374,3 +374,105 @@ Consume with a consumer that does NOT have KMS key access:
 **Cause:** Adding encryption rules to an existing schema may violate the compatibility mode (especially `FULL_TRANSITIVE` for critical topics).
 
 **Fix:** For existing topics, register the encryption rules as a new schema version. Ensure the encryption rules are additive (new `ruleset` block on a compatible schema evolution). For new topics, register the schema with encryption rules from the start.
+
+## Audit Log Tagging for Confidential Topics
+
+Confluent Cloud provides built-in audit logs that capture all API and data plane operations. For confidential topics, enable enhanced audit logging to track access patterns and detect unauthorized attempts.
+
+### Enabling Audit Logs
+
+1. **Organization-level audit log**: Enabled by default in Confluent Cloud. Captures authentication, authorization, and resource CRUD events.
+2. **Topic-level filtering**: Filter audit log entries by topic name pattern to isolate confidential topic operations:
+   - In Confluent Cloud Console: Audit Log > Filter by Resource Type = `kafka.topic` and resource name matches your confidential topic naming pattern
+   - Via Confluent CLI: `confluent audit-log describe` to review current audit log configuration
+   - Via API: Use the Audit Log API to query events filtered by `resourceName` containing your topic name
+
+### Tagging Confidential Topics in Audit Logs
+
+The topic module automatically tags confidential topics with `data-classification = confidential` in schema metadata (via `local.schema_metadata`). Use this tag to identify confidential topic operations in audit logs:
+
+- Filter audit log events where the topic's schema subject metadata contains `data-classification: confidential`
+- Cross-reference with the topic naming convention: `{domain}.{application}.{version}.{entity}` to build audit queries by domain
+
+### Audit Log Retention
+
+Confluent Cloud retains audit logs for 7 days by default. For FSI compliance:
+- Export audit logs to your SIEM (Splunk, Datadog, etc.) via the audit log export destination
+- Configure an audit log cluster for long-term retention (available on Dedicated clusters)
+- Ensure audit log retention meets your regulatory requirements (OFAC/AML may require 7+ years)
+
+## Alert Rule Templates
+
+Pre-built alert rule templates for monitoring unauthorized access attempts to confidential topics. Adapt these to your alerting platform.
+
+### Template 1: Unauthorized Consumer Access Attempt
+
+Triggers when a consumer not in the authorized SA list attempts to read from a confidential topic.
+
+**Confluent Cloud Metrics API query:**
+```json
+{
+  "name": "unauthorized-confidential-topic-access",
+  "description": "Alert on AUTHORIZATION_FAILED for confidential topics",
+  "metric": "io.confluent.kafka.server/authorization_failure_count",
+  "filter": {
+    "resource_type": "kafka.topic",
+    "resource_name_pattern": "<your-confidential-topic-pattern>",
+    "operation": "Read"
+  },
+  "threshold": 1,
+  "window": "5m",
+  "severity": "critical",
+  "notification": {
+    "channels": ["pagerduty", "slack-security"]
+  }
+}
+```
+
+### Template 2: Schema Registry Unauthorized Access
+
+Triggers when an unauthorized principal attempts to read or modify encryption rules on a confidential topic's schema subject.
+
+**Confluent Cloud Metrics API query:**
+```json
+{
+  "name": "unauthorized-schema-access-confidential",
+  "description": "Alert on SR authorization failures for confidential topic schemas",
+  "metric": "io.confluent.kafka.schema_registry/authorization_failure_count",
+  "filter": {
+    "subject_pattern": "<your-confidential-topic-pattern>-value"
+  },
+  "threshold": 1,
+  "window": "5m",
+  "severity": "critical",
+  "notification": {
+    "channels": ["pagerduty", "slack-security"]
+  }
+}
+```
+
+### Template 3: CSFLE Decryption Failure Rate
+
+Triggers when CSFLE decryption failures exceed threshold, indicating possible KMS permission revocation or key rotation issues.
+
+**Application-side metric (expose via JMX or custom metric):**
+```json
+{
+  "name": "csfle-decryption-failures",
+  "description": "Alert on high CSFLE decryption failure rate",
+  "metric": "csfle.decryption.failure.rate",
+  "threshold": 5,
+  "window": "10m",
+  "severity": "high",
+  "notification": {
+    "channels": ["slack-data-platform", "email-data-owners"]
+  }
+}
+```
+
+### Deploying Alert Rules
+
+1. **Confluent Cloud Console**: Navigate to Metrics > Alerts, create custom alert using the metric and filter from the templates above
+2. **Terraform (confluent_alert)**: If using Confluent Terraform provider alerts (when available), adapt the JSON templates to HCL resource blocks
+3. **SIEM Integration**: Export audit logs to your SIEM and create correlation rules matching the patterns above
+4. **Datadog/Dynatrace/Splunk**: Import the metric queries as custom monitors in your observability platform (see Phase 5 observability templates for provider-specific formats)
