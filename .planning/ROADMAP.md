@@ -85,12 +85,12 @@ Plans:
   3. Operator runs `fsi-dr failover --dry-run` and gets a complete preview of every step without any state change
   4. If a failover step fails, the system halts, reports which step failed, and offers rollback to safe state
   5. Mirror lag is monitored per-topic with SLA-tier-based alert thresholds -- critical topics alert at tighter lag than standard topics
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
-- [ ] 04-03: TBD
+- [ ] 04-01-PLAN.md -- Core CLI framework with backend dispatch, state management, SLA tier thresholds, and unit tests
+- [ ] 04-02-PLAN.md -- Failover orchestration with 6-step sequence, dry-run mode, and rollback guidance
+- [ ] 04-03-PLAN.md -- Failback orchestration with reverse sequence and standalone DR runbook
 
 ### Phase 5: Observability Templates
 **Goal**: FSI teams import pre-built dashboard templates for their observability provider and get cluster health, consumer lag, Connect status, DR readiness, and Flink job visibility without building dashboards from scratch
@@ -184,7 +184,7 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 | 1. Shared Governance Foundation | 3/3 | Complete | 2026-03-22 |
 | 2. CC Multi-Cloud Scenarios | 0/2 | Planned | - |
 | 3. Access Control and Compliance | 0/4 | Planned | - |
-| 4. DR Automation Framework | 0/3 | Not started | - |
+| 4. DR Automation Framework | 0/3 | Planned | - |
 | 5. Observability Templates | 0/3 | Not started | - |
 | 6. Flink on Confluent Cloud | 0/2 | Not started | - |
 | 7. Onboarding and Developer Experience | 0/3 | Not started | - |
