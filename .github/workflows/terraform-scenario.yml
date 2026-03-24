@@ -236,6 +236,7 @@ jobs:
         working-directory: ${{ inputs.scenario-dir }}
 
       - name: Post-Apply Validation
+        id: validation
         if: inputs.kafka-rest-endpoint != '' && inputs.kafka-cluster-id != ''
         run: |
           bash scripts/validate-apply.sh \
@@ -244,4 +245,45 @@ jobs:
             "${{ secrets.KAFKA_API_KEY }}" "${{ secrets.KAFKA_API_SECRET }}" \
             "${{ secrets.SR_API_KEY }}" "${{ secrets.SR_API_SECRET }}" \
             ${{ inputs.dr-kafka-rest-endpoint != '' && format('--dr-rest {0} --dr-cluster {1} --dr-key {2} --dr-secret {3}', inputs.dr-kafka-rest-endpoint, inputs.dr-kafka-cluster-id, secrets.DR_KAFKA_API_KEY, secrets.DR_KAFKA_API_SECRET) || '' }} \
-            --topics ${{ steps.topics.outputs.topics }}
+            --topics ${{ steps.topics.outputs.topics }} 2>&1 | tee validation-output.txt
+
+      - name: Write Compliance Audit Summary
+        if: always() && inputs.mode == 'apply'
+        run: |
+          {
+            echo "## Terraform Apply -- Compliance Audit Trail"
+            echo ""
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Scenario | \`${{ inputs.scenario-dir }}\` |"
+            echo "| Timestamp | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| Triggered by | PR merge to main |"
+            echo "| Actor | ${{ github.actor }} |"
+            echo "| Commit SHA | \`${{ github.sha }}\` |"
+            echo "| Run ID | [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+            echo ""
+            echo "### Validation Results"
+            echo ""
+            if [ -f validation-output.txt ]; then
+              echo '```'
+              cat validation-output.txt
+              echo '```'
+            else
+              echo "_Validation skipped (kafka-rest-endpoint not configured)_"
+            fi
+            echo ""
+            echo "---"
+            echo "_Audit trail per [compliance-guide.md](../../docs/compliance-guide.md)_"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Emit Compliance Annotations
+        if: always() && inputs.mode == 'apply'
+        run: |
+          echo "::notice title=Audit Trail::Terraform apply completed for ${{ inputs.scenario-dir }} by ${{ github.actor }} at $(date -u +%Y-%m-%dT%H:%M:%SZ). Commit: ${{ github.sha }}"
+          if [ -f validation-output.txt ]; then
+            if grep -q "RESULT: ALL CHECKS PASSED" validation-output.txt; then
+              echo "::notice title=Validation::Post-apply validation PASSED for ${{ inputs.scenario-dir }}"
+            else
+              echo "::warning title=Validation::Post-apply validation had FAILURES for ${{ inputs.scenario-dir }}. Review job summary."
+            fi
+          fi
