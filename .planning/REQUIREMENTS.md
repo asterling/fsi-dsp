@@ -52,15 +52,15 @@ Requirements for initial milestone. Each maps to roadmap phases.
 ### Observability
 
 - [ ] **OBS-01**: Dynatrace dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-02**: Prometheus/Grafana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-02**: Prometheus/Grafana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-03**: Datadog dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-04**: Splunk dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-05**: New Relic dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-06**: IBM Instana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-07**: Alert threshold configuration varies by SLA tier (critical: tight thresholds, standard: moderate, best-effort: relaxed)
-- [ ] **OBS-08**: Auto-discovery rules surface new topics in dashboards by domain prefix pattern without manual config
-- [ ] **OBS-09**: Metrics export configured per deployment model (CC Metrics API for cloud, JMX exporter for CFK/CP)
-- [ ] **OBS-10**: Connect connector status monitoring alerts on FAILED task state across all deployment models
+- [x] **OBS-07**: Alert threshold configuration varies by SLA tier (critical: tight thresholds, standard: moderate, best-effort: relaxed)
+- [x] **OBS-08**: Auto-discovery rules surface new topics in dashboards by domain prefix pattern without manual config
+- [x] **OBS-09**: Metrics export configured per deployment model (CC Metrics API for cloud, JMX exporter for CFK/CP)
+- [x] **OBS-10**: Connect connector status monitoring alerts on FAILED task state across all deployment models
 
 ### Flink
 
@@ -174,15 +174,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DR-11 | Phase 4 | Complete |
 | DR-12 | Phase 4 | Complete |
 | OBS-01 | Phase 5 | Pending |
-| OBS-02 | Phase 5 | Pending |
+| OBS-02 | Phase 5 | Complete |
 | OBS-03 | Phase 5 | Pending |
 | OBS-04 | Phase 5 | Pending |
 | OBS-05 | Phase 5 | Pending |
 | OBS-06 | Phase 5 | Pending |
-| OBS-07 | Phase 5 | Pending |
-| OBS-08 | Phase 5 | Pending |
-| OBS-09 | Phase 5 | Pending |
-| OBS-10 | Phase 5 | Pending |
+| OBS-07 | Phase 5 | Complete |
+| OBS-08 | Phase 5 | Complete |
+| OBS-09 | Phase 5 | Complete |
+| OBS-10 | Phase 5 | Complete |
 | FLINK-01 | Phase 6 | Pending |
 | FLINK-02 | Phase 8 | Pending |
 | FLINK-03 | Phase 9 | Pending |

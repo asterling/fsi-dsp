@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-26T15:59:52.842Z"
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-26T21:08:37.473Z"
 progress:
   total_phases: 9
   completed_phases: 4
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 04 — dr-automation-framework
+**Current focus:** Phase 05 — observability-templates
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
+Phase: 05 (observability-templates) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Plan: Not started
 | Phase 04 P01 | 5min | 2 tasks | 2 files |
 | Phase 04 P02 | 4min | 2 tasks | 2 files |
 | Phase 04 P03 | 5min | 2 tasks | 2 files |
+| Phase 05 P01 | 7min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,11 @@ Recent decisions affecting current work:
 - [Phase 04]: Two confirmation gates at destructive operations: truncate-and-restore and reverse-and-start, bypassed by --force
 - [Phase 04]: Mirror sync wait uses per-tier warn thresholds from ADR-008, with configurable timeout via FSI_DR_SYNC_TIMEOUT
 - [Phase 04]: DR runbook is self-contained for on-call use: includes env vars, SLA tiers, decision trees, step procedures, troubleshooting, recovery scenarios
+- [Phase 05]: Grafana JSON dashboard model format for native import via UI or API
+- [Phase 05]: PromQL queries use confluent_kafka_server_ prefix matching CC Metrics API Prometheus export
+- [Phase 05]: Connect Status uses JSON API datasource (REST API polling), not Prometheus
+- [Phase 05]: Alert thresholds taken directly from ADR-008/fsi-dr.sh for CLI-dashboard consistency
+- [Phase 05]: Per-provider directory pattern: observability/{provider}/ with dashboards + alerts + README
 
 ### Pending Todos
 
@@ -119,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T15:59:52.836Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-observability-templates/05-CONTEXT.md
+Last session: 2026-03-26T21:08:37.471Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None

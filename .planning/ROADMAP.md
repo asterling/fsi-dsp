@@ -105,7 +105,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 05-01-PLAN.md -- Cross-provider metrics mapping and Grafana/Prometheus dashboard templates (reference implementation)
+- [x] 05-01-PLAN.md -- Cross-provider metrics mapping and Grafana/Prometheus dashboard templates (reference implementation)
 - [ ] 05-02-PLAN.md -- Dynatrace, Datadog, and Splunk dashboard templates with alerts and metrics export
 - [ ] 05-03-PLAN.md -- New Relic and IBM Instana templates with .env.example updates
 
