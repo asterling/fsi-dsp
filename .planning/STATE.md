@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-26T21:18:41.275Z"
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-26T21:19:05.938Z"
 progress:
   total_phases: 9
   completed_phases: 5
@@ -60,6 +60,7 @@ Plan: 3 of 3
 | Phase 04 P03 | 5min | 2 tasks | 2 files |
 | Phase 05 P01 | 7min | 2 tasks | 10 files |
 | Phase 05 P03 | 7min | 2 tasks | 11 files |
+| Phase 05 P02 | 7min | 2 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -115,6 +116,10 @@ Recent decisions affecting current work:
 - [Phase 05]: New Relic uses NerdGraph dashboardCreate mutation and alertsNrqlConditionStaticCreate for import
 - [Phase 05]: Instana severity model: 5=warning, 10=critical; mirror lag uses ms in conditionValue
 - [Phase 05]: .env.example section 11 restructured into 8 sub-sections (11a-11h) covering all 6 providers
+- [Phase 05]: Dynatrace uses ext: metric prefix for CC Metrics API ingested metrics with DQL queries
+- [Phase 05]: Datadog uses native Confluent Cloud integration tile for metrics ingestion
+- [Phase 05]: Splunk uses Simple XML format (not Dashboard Studio) for broadest version compatibility
+- [Phase 05]: All 3 providers maintain identical threshold values matching Grafana alerts.yaml and ADR-008
 
 ### Pending Todos
 
@@ -129,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T21:18:41.273Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-03-26T21:19:05.936Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None

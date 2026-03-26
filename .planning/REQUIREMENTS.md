@@ -51,10 +51,10 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ### Observability
 
-- [ ] **OBS-01**: Dynatrace dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-01**: Dynatrace dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [x] **OBS-02**: Prometheus/Grafana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-03**: Datadog dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-04**: Splunk dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-03**: Datadog dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-04**: Splunk dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [x] **OBS-05**: New Relic dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [x] **OBS-06**: IBM Instana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [x] **OBS-07**: Alert threshold configuration varies by SLA tier (critical: tight thresholds, standard: moderate, best-effort: relaxed)
@@ -173,10 +173,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DR-10 | Phase 4 | Complete |
 | DR-11 | Phase 4 | Complete |
 | DR-12 | Phase 4 | Complete |
-| OBS-01 | Phase 5 | Pending |
+| OBS-01 | Phase 5 | Complete |
 | OBS-02 | Phase 5 | Complete |
-| OBS-03 | Phase 5 | Pending |
-| OBS-04 | Phase 5 | Pending |
+| OBS-03 | Phase 5 | Complete |
+| OBS-04 | Phase 5 | Complete |
 | OBS-05 | Phase 5 | Complete |
 | OBS-06 | Phase 5 | Complete |
 | OBS-07 | Phase 5 | Complete |
