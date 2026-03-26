@@ -1,0 +1,828 @@
+# =============================================================================
+# FSI Kafka Platform -- Grafana Alerting Rules
+# =============================================================================
+# Grafana provisioning file format. Place in /etc/grafana/provisioning/alerting/
+# or import via Grafana API.
+#
+# SLA-tier thresholds from ADR-008 (docs/adr/008-dr-tier-classification.md)
+# and fsi-dr.sh threshold functions (_tier_warn_threshold, _tier_alert_threshold).
+# =============================================================================
+
+apiVersion: 1
+
+groups:
+  # ---------------------------------------------------------------------------
+  # Mirror Lag Alerts (DR Readiness)
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: fsi-kafka-mirror-lag
+    folder: FSI Kafka
+    interval: 1m
+    rules:
+      # -- Critical tier: warn=30s, alert=60s --
+      - uid: fsi-mirror-lag-critical-warn
+        title: MirrorLagCritical - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [30]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          sla_tier: critical
+          severity: warning
+        annotations:
+          summary: "Mirror lag exceeds 30s for critical-tier topic"
+          description: "Mirror lag exceeds warn threshold for critical tier (30s). Monitor for further degradation. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      - uid: fsi-mirror-lag-critical-alert
+        title: MirrorLagCritical - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [60]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          sla_tier: critical
+          severity: critical
+        annotations:
+          summary: "Mirror lag exceeds 60s for critical-tier topic -- potential data loss risk"
+          description: "Mirror lag exceeds alert threshold for critical tier (60s). Potential data loss risk. Evaluate failover readiness. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      # -- Standard tier: warn=300s (5m), alert=900s (15m) --
+      - uid: fsi-mirror-lag-standard-warn
+        title: MirrorLagStandard - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [300]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: standard
+          severity: warning
+        annotations:
+          summary: "Mirror lag exceeds 5m for standard-tier topic"
+          description: "Mirror lag exceeds warn threshold for standard tier (300s). Monitor for further degradation. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      - uid: fsi-mirror-lag-standard-alert
+        title: MirrorLagStandard - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [900]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: standard
+          severity: critical
+        annotations:
+          summary: "Mirror lag exceeds 15m for standard-tier topic -- potential data loss risk"
+          description: "Mirror lag exceeds alert threshold for standard tier (900s). Potential data loss risk. Evaluate failover readiness. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      # -- Best-effort tier: warn=3600s (1h), alert=14400s (4h) --
+      - uid: fsi-mirror-lag-besteffort-warn
+        title: MirrorLagBestEffort - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [3600]
+              refId: C
+        for: 15m
+        labels:
+          team: fsi-kafka
+          sla_tier: best-effort
+          severity: warning
+        annotations:
+          summary: "Mirror lag exceeds 1h for best-effort-tier topic"
+          description: "Mirror lag exceeds warn threshold for best-effort tier (3600s). Monitor for further degradation. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      - uid: fsi-mirror-lag-besteffort-alert
+        title: MirrorLagBestEffort - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [14400]
+              refId: C
+        for: 15m
+        labels:
+          team: fsi-kafka
+          sla_tier: best-effort
+          severity: critical
+        annotations:
+          summary: "Mirror lag exceeds 4h for best-effort-tier topic -- potential data loss risk"
+          description: "Mirror lag exceeds alert threshold for best-effort tier (14400s). Potential data loss risk. Evaluate failover readiness. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      # -- Compliance tier: warn=10s, alert=30s --
+      - uid: fsi-mirror-lag-compliance-warn
+        title: MirrorLagCompliance - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          sla_tier: compliance
+          severity: warning
+        annotations:
+          summary: "Mirror lag exceeds 10s for compliance-tier topic"
+          description: "Mirror lag exceeds warn threshold for compliance tier (10s). Monitor for further degradation. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+      - uid: fsi-mirror-lag-compliance-alert
+        title: MirrorLagCompliance - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (topic) (confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))"
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [30]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          sla_tier: compliance
+          severity: critical
+        annotations:
+          summary: "Mirror lag exceeds 30s for compliance-tier topic -- potential data loss risk"
+          description: "Mirror lag exceeds alert threshold for compliance tier (30s). Potential data loss risk. Evaluate failover readiness. Topic: {{ $labels.topic }}, Current lag: {{ $value }}s"
+
+  # ---------------------------------------------------------------------------
+  # Consumer Lag Alerts
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: fsi-kafka-consumer-lag
+    folder: FSI Kafka
+    interval: 1m
+    rules:
+      - uid: fsi-consumer-lag-critical-warn
+        title: ConsumerLagCritical - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: critical
+          severity: warning
+        annotations:
+          summary: "Consumer lag exceeds 1000 records for critical-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds warn threshold (1000 records) on topic {{ $labels.topic }}. Current lag: {{ $value }} records."
+
+      - uid: fsi-consumer-lag-critical-alert
+        title: ConsumerLagCritical - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [5000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: critical
+          severity: critical
+        annotations:
+          summary: "Consumer lag exceeds 5000 records for critical-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds alert threshold (5000 records) on topic {{ $labels.topic }}. Current lag: {{ $value }} records. Investigate consumer health."
+
+      - uid: fsi-consumer-lag-standard-warn
+        title: ConsumerLagStandard - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: standard
+          severity: warning
+        annotations:
+          summary: "Consumer lag exceeds 10000 records for standard-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds warn threshold (10000 records) on topic {{ $labels.topic }}."
+
+      - uid: fsi-consumer-lag-standard-alert
+        title: ConsumerLagStandard - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [50000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: standard
+          severity: critical
+        annotations:
+          summary: "Consumer lag exceeds 50000 records for standard-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds alert threshold (50000 records) on topic {{ $labels.topic }}. Investigate consumer health."
+
+      - uid: fsi-consumer-lag-besteffort-warn
+        title: ConsumerLagBestEffort - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [100000]
+              refId: C
+        for: 10m
+        labels:
+          team: fsi-kafka
+          sla_tier: best-effort
+          severity: warning
+        annotations:
+          summary: "Consumer lag exceeds 100000 records for best-effort-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds warn threshold (100000 records) on topic {{ $labels.topic }}."
+
+      - uid: fsi-consumer-lag-besteffort-alert
+        title: ConsumerLagBestEffort - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [500000]
+              refId: C
+        for: 10m
+        labels:
+          team: fsi-kafka
+          sla_tier: best-effort
+          severity: critical
+        annotations:
+          summary: "Consumer lag exceeds 500000 records for best-effort-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds alert threshold (500000 records) on topic {{ $labels.topic }}."
+
+      - uid: fsi-consumer-lag-compliance-warn
+        title: ConsumerLagCompliance - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [500]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: compliance
+          severity: warning
+        annotations:
+          summary: "Consumer lag exceeds 500 records for compliance-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds warn threshold (500 records) on compliance topic {{ $labels.topic }}."
+
+      - uid: fsi-consumer-lag-compliance-alert
+        title: ConsumerLagCompliance - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (consumer_group_id, topic) (confluent_kafka_server_consumer_lag_offsets{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [2000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          sla_tier: compliance
+          severity: critical
+        annotations:
+          summary: "Consumer lag exceeds 2000 records for compliance-tier topic"
+          description: "Consumer group {{ $labels.consumer_group_id }} lag exceeds alert threshold (2000 records) on compliance topic {{ $labels.topic }}. Investigate immediately."
+
+  # ---------------------------------------------------------------------------
+  # Connect Alerts
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: fsi-kafka-connect
+    folder: FSI Kafka
+    interval: 1m
+    rules:
+      - uid: fsi-connect-task-failed
+        title: ConnectTaskFailed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "count(kafka_connect_connector_status{state=\"failed\"}) or vector(0)"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          severity: critical
+        annotations:
+          summary: "Kafka Connect task in FAILED state"
+          description: "One or more Kafka Connect connector tasks are in FAILED state. Check Connect logs and restart if appropriate. Failed count: {{ $value }}."
+
+      - uid: fsi-connect-task-restart-loop
+        title: ConnectTaskRestartLoop
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "increase(kafka_connect_task_restart_total[15m])"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: max
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [3]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          severity: warning
+        annotations:
+          summary: "Kafka Connect task restart loop detected"
+          description: "A Kafka Connect task has restarted {{ $value }} times in the last 15 minutes (threshold: 3). Investigate root cause to prevent repeated failures."
+
+  # ---------------------------------------------------------------------------
+  # Cluster Health Alerts
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: fsi-kafka-cluster-health
+    folder: FSI Kafka
+    interval: 1m
+    rules:
+      - uid: fsi-under-replicated-partitions
+        title: UnderReplicatedPartitions
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "sum(kafka_server_replica_manager_under_replicated_partitions{kafka_id=\"$CLUSTER_ID\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          severity: critical
+        annotations:
+          summary: "Under-replicated partitions detected"
+          description: "{{ $value }} partition(s) are under-replicated for more than 5 minutes on cluster {{ $labels.kafka_id }}. This indicates broker health issues or network problems. Investigate immediately."
+
+      - uid: fsi-no-active-controller
+        title: NoActiveController
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "kafka_controller_active_controller_count{kafka_id=\"$CLUSTER_ID\"}"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+              refId: C
+        for: 1m
+        labels:
+          team: fsi-kafka
+          severity: critical
+        annotations:
+          summary: "No active Kafka controller"
+          description: "No active controller elected on cluster {{ $labels.kafka_id }}. This is a critical condition -- the cluster cannot process metadata requests or partition leadership changes. Investigate immediately."

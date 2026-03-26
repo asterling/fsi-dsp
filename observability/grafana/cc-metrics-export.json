@@ -1,0 +1,32 @@
+{
+  "_comment": "Grafana datasource provisioning for Confluent Cloud Metrics API. Place in /etc/grafana/provisioning/datasources/ or configure via Grafana UI.",
+  "_setup_instructions": {
+    "step_1": "Obtain a CC Metrics API key from Confluent Cloud console: Cloud environment > API keys > Add key > Select 'Cloud resource management' scope",
+    "step_2": "Replace {{CC_METRICS_API_KEY}} and {{CC_METRICS_API_SECRET}} with your actual credentials",
+    "step_3": "Replace {{CLUSTER_ID}} with your Kafka cluster ID (e.g., lkc-xxxxx)",
+    "step_4": "For multiple clusters, create one datasource per cluster with a unique name (e.g., 'CC Metrics - East', 'CC Metrics - West')"
+  },
+  "_prometheus_export_format": "The CC Metrics API Prometheus export endpoint returns metrics in Prometheus exposition format. Grafana's built-in Prometheus datasource can scrape it directly with basic auth.",
+  "apiVersion": 1,
+  "datasources": [
+    {
+      "name": "Confluent Cloud Metrics",
+      "type": "prometheus",
+      "access": "proxy",
+      "url": "https://api.telemetry.confluent.cloud/v2/metrics/cloud/export",
+      "basicAuth": true,
+      "basicAuthUser": "{{CC_METRICS_API_KEY}}",
+      "secureJsonData": {
+        "basicAuthPassword": "{{CC_METRICS_API_SECRET}}"
+      },
+      "jsonData": {
+        "httpMethod": "GET",
+        "customQueryParameters": "resource.kafka.id={{CLUSTER_ID}}",
+        "timeInterval": "60s",
+        "queryTimeout": "30s"
+      },
+      "editable": true,
+      "isDefault": false
+    }
+  ]
+}

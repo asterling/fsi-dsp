@@ -1,0 +1,87 @@
+# =============================================================================
+# JMX Exporter Configuration Stub
+# =============================================================================
+# Stub configuration -- actual JMX endpoints wired in Phase 8 (CFK) and Phase 9 (CP).
+#
+# This configuration targets the JMX exporter for Kafka brokers in on-premises
+# or Kubernetes deployments where JMX is exposed directly.
+#
+# Port: 9101 (matches reference/local-dev/docker-compose.yml KAFKA_JMX_PORT)
+#
+# Usage:
+#   1. Deploy the Prometheus JMX Exporter agent alongside your Kafka brokers
+#   2. Point the exporter at the broker's JMX port using this config
+#   3. Configure Prometheus to scrape the exporter endpoint
+#
+# Phase 8 (CFK on OpenShift): JMX exporter sidecar in CFK broker pods
+# Phase 9 (CP on RHEL): JMX exporter agent on systemd-managed broker hosts
+# =============================================================================
+
+hostPort: "{{JMX_EXPORTER_HOST}}:9101"
+lowercaseOutputName: true
+lowercaseOutputLabelNames: true
+
+rules:
+  # -- Cluster Health metrics --
+
+  - pattern: "kafka.server<type=ReplicaManager, name=UnderReplicatedPartitions><>Value"
+    name: kafka_server_replica_manager_under_replicated_partitions
+    type: GAUGE
+    help: "Number of under-replicated partitions (0 = healthy)"
+
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=MessagesInPerSec><>OneMinuteRate"
+    name: kafka_server_broker_topic_metrics_messages_in_per_sec
+    type: GAUGE
+    help: "Incoming message rate (messages/sec, 1-minute average)"
+
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=BytesInPerSec><>OneMinuteRate"
+    name: kafka_server_broker_topic_metrics_bytes_in_per_sec
+    type: GAUGE
+    help: "Incoming byte rate (bytes/sec, 1-minute average)"
+
+  - pattern: "kafka.server<type=BrokerTopicMetrics, name=BytesOutPerSec><>OneMinuteRate"
+    name: kafka_server_broker_topic_metrics_bytes_out_per_sec
+    type: GAUGE
+    help: "Outgoing byte rate (bytes/sec, 1-minute average)"
+
+  - pattern: "kafka.controller<type=KafkaController, name=ActiveControllerCount><>Value"
+    name: kafka_controller_active_controller_count
+    type: GAUGE
+    help: "Number of active controllers (expected: 1)"
+
+  - pattern: "kafka.server<type=ReplicaManager, name=PartitionCount><>Value"
+    name: kafka_server_replica_manager_partition_count
+    type: GAUGE
+    help: "Total partition count on this broker"
+
+  # -- Consumer Lag metrics --
+
+  - pattern: "kafka.server<type=FetcherLagMetrics, name=ConsumerLag, clientId=(.*), topic=(.*), partition=(.*)><>Value"
+    name: kafka_server_fetcher_lag_metrics_consumer_lag
+    type: GAUGE
+    help: "Consumer lag in records for a specific client/topic/partition"
+    labels:
+      client_id: "$1"
+      topic: "$2"
+      partition: "$3"
+
+  # -- Request metrics --
+
+  - pattern: "kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(.*)><>OneMinuteRate"
+    name: kafka_network_request_metrics_requests_per_sec
+    type: GAUGE
+    help: "Request rate by type (produce, fetch, metadata, etc.)"
+    labels:
+      request: "$1"
+
+  # -- ISR metrics --
+
+  - pattern: "kafka.server<type=ReplicaManager, name=IsrShrinksPerSec><>OneMinuteRate"
+    name: kafka_server_replica_manager_isr_shrinks_per_sec
+    type: GAUGE
+    help: "Rate of ISR shrinks (indicates potential broker issues)"
+
+  - pattern: "kafka.server<type=ReplicaManager, name=IsrExpandsPerSec><>OneMinuteRate"
+    name: kafka_server_replica_manager_isr_expands_per_sec
+    type: GAUGE
+    help: "Rate of ISR expansions (recovery indicator)"
