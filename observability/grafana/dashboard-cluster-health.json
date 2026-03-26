@@ -1,0 +1,285 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for Confluent Cloud metrics or JMX exporter metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - Cluster Health monitoring. Broker connections, partition health, request rate, and controller status.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Broker Connections",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum(confluent_kafka_server_active_connection_count{kafka_id=\"$CLUSTER_ID\"})",
+          "legendFormat": "Active Connections",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Under-Replicated Partitions",
+      "description": "Number of partitions where replicas are not fully in-sync. 0 is healthy; any value >= 1 requires investigation.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "sum(kafka_server_replica_manager_under_replicated_partitions{kafka_id=\"$CLUSTER_ID\"})",
+          "legendFormat": "Under-Replicated",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EF4444", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Request Rate",
+      "description": "Kafka request rate over time (produce, fetch, metadata requests).",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(confluent_kafka_server_request_count{kafka_id=\"$CLUSTER_ID\"}[5m])",
+          "legendFormat": "{{type}} requests/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Active Controller Count",
+      "description": "Number of active controllers. Expected value: 1. Zero means no controller is elected (critical).",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 6 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "kafka_controller_active_controller_count{kafka_id=\"$CLUSTER_ID\"}",
+          "legendFormat": "Active Controllers",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#EF4444", "value": null },
+              { "color": "#22C55E", "value": 1 },
+              { "color": "#EAB308", "value": 2 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Per-Broker Partition Count",
+      "description": "Partition count per broker. Helps identify partition imbalance across the cluster.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "confluent_kafka_server_partition_count{kafka_id=\"$CLUSTER_ID\"}",
+          "legendFormat": "{{broker_id}}",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "broker_id" },
+            "properties": [
+              { "id": "displayName", "value": "Broker ID" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [
+              { "id": "displayName", "value": "Partitions" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Partitions", "desc": true }]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true, "kafka_id": true },
+            "renameByName": { "broker_id": "Broker ID", "Value": "Partitions" }
+          }
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Authentication Success Rate",
+      "description": "Successful authentication attempts over time.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(confluent_kafka_server_successful_authentication_count{kafka_id=\"$CLUSTER_ID\"}[5m])",
+          "legendFormat": "Auth success/s",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": { "mode": "fixed", "fixedColor": "#22C55E" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          }
+        }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "cluster-health", "observability"],
+  "templating": {
+    "list": [
+      {
+        "name": "CLUSTER_ID",
+        "label": "Cluster ID",
+        "type": "textbox",
+        "current": { "value": "" },
+        "options": [],
+        "description": "Target Kafka cluster ID (e.g., lkc-xxxxx)"
+      },
+      {
+        "name": "DOMAIN_PREFIX",
+        "label": "Domain",
+        "type": "textbox",
+        "current": { "value": "*" },
+        "options": [],
+        "description": "Topic domain filter pattern (e.g., corebanking, fraud, or * for all)"
+      },
+      {
+        "name": "ENVIRONMENT",
+        "label": "Environment",
+        "type": "textbox",
+        "current": { "value": "prod" },
+        "options": [],
+        "description": "Environment label (prod, staging, dev)"
+      },
+      {
+        "name": "SLA_TIER",
+        "label": "SLA Tier",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "current": { "value": ["critical", "standard", "best-effort", "compliance"] },
+        "options": [
+          { "text": "critical", "value": "critical", "selected": true },
+          { "text": "standard", "value": "standard", "selected": true },
+          { "text": "best-effort", "value": "best-effort", "selected": true },
+          { "text": "compliance", "value": "compliance", "selected": true }
+        ],
+        "description": "Filter by SLA tier"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Cluster Health",
+  "uid": "fsi-kafka-cluster-health",
+  "version": 1
+}

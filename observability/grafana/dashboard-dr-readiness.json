@@ -1,0 +1,277 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for Confluent Cloud metrics or JMX exporter metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - DR Readiness monitoring. Mirror lag per topic with SLA-tier threshold visualization, cluster link health, and failover readiness assessment.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Overall DR Health",
+      "description": "Worst-case mirror lag assessment across all monitored topics. Green = all within SLA, Yellow = some exceed warn, Red = some exceed alert threshold.",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "max(confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\", topic=~\"$DOMAIN_PREFIX.*\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]))",
+          "legendFormat": "Worst Mirror Lag (seconds)",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EAB308", "value": 30 },
+              { "color": "#EF4444", "value": 60 }
+            ]
+          },
+          "min": 0,
+          "max": 120,
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "Mirror Lag Per Topic (Seconds)",
+      "description": "Mirror lag time series per topic. Threshold lines show SLA-tier warn (yellow) and alert (red) levels. Mirror lag thresholds from ADR-008: critical warn=30s/alert=60s, standard warn=300s/alert=900s, best-effort warn=3600s/alert=14400s, compliance warn=10s/alert=30s.",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 16, "x": 8, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\", topic=~\"$DOMAIN_PREFIX.*\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m])",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "thresholdsStyle": { "mode": "line+area" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EAB308", "value": 30 },
+              { "color": "#EF4444", "value": 60 }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": ".*mirror.*" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3B82F6" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Per-Topic DR Assessment",
+      "description": "Per-topic mirror lag with SLA tier classification, lag assessment (OK/WARN/ALERT), and primary/mirror topic names.",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\", topic=~\"$DOMAIN_PREFIX.*\"}",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Assessment" },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "OK": { "color": "#22C55E", "text": "OK" } } },
+                  { "type": "value", "options": { "WARN": { "color": "#EAB308", "text": "WARN" } } },
+                  { "type": "value", "options": { "ALERT": { "color": "#EF4444", "text": "ALERT" } } }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Mirror Topic" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#3B82F6" } },
+              { "id": "custom.displayMode", "value": "color-text" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "Lag (records)", "desc": true }]
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "instance": true, "job": true, "kafka_id": true },
+            "renameByName": {
+              "topic": "Primary Topic",
+              "mirror_topic": "Mirror Topic",
+              "sla_tier": "SLA Tier",
+              "Value": "Lag (records)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Topics Exceeding Alert Threshold",
+      "description": "Count of topics where mirror lag exceeds the alert threshold for their SLA tier.",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 20 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "count(confluent_kafka_server_cluster_link_mirror_topic_offset_lag{kafka_id=\"$CLUSTER_ID\", topic=~\"$DOMAIN_PREFIX.*\"} / on(topic) rate(confluent_kafka_server_received_records{kafka_id=\"$CLUSTER_ID\"}[5m]) > 60)",
+          "legendFormat": "Topics Over Alert",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EF4444", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "0"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 5,
+      "title": "SLA Tier Mirror Lag Thresholds",
+      "description": "Reference table: mirror lag thresholds per SLA tier from ADR-008.",
+      "type": "text",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 20 },
+      "options": {
+        "mode": "markdown",
+        "content": "### Mirror Lag Thresholds by SLA Tier (ADR-008)\n\n| SLA Tier | Warn Threshold | Alert Threshold | DR Priority |\n|----------|---------------|-----------------|-------------|\n| **critical** | 30 seconds | 60 seconds | P1 - immediate |\n| **standard** | 5 minutes (300s) | 15 minutes (900s) | P2 - business hours |\n| **best-effort** | 1 hour (3600s) | 4 hours (14400s) | P3 - next business day |\n| **compliance** | 10 seconds | 30 seconds | P1 - immediate |\n\nThe gauge and threshold lines above use **critical** tier values by default. Use the SLA_TIER variable to filter topics by tier and adjust thresholds accordingly."
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "dr-readiness", "observability"],
+  "templating": {
+    "list": [
+      {
+        "name": "CLUSTER_ID",
+        "label": "Cluster ID",
+        "type": "textbox",
+        "current": { "value": "" },
+        "options": [],
+        "description": "Target Kafka cluster ID"
+      },
+      {
+        "name": "DOMAIN_PREFIX",
+        "label": "Domain",
+        "type": "textbox",
+        "current": { "value": "*" },
+        "options": [],
+        "description": "Topic domain filter pattern for auto-discovery"
+      },
+      {
+        "name": "ENVIRONMENT",
+        "label": "Environment",
+        "type": "textbox",
+        "current": { "value": "prod" },
+        "options": [],
+        "description": "Environment label"
+      },
+      {
+        "name": "SLA_TIER",
+        "label": "SLA Tier",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "current": { "value": ["critical", "standard", "best-effort", "compliance"] },
+        "options": [
+          { "text": "critical", "value": "critical", "selected": true },
+          { "text": "standard", "value": "standard", "selected": true },
+          { "text": "best-effort", "value": "best-effort", "selected": true },
+          { "text": "compliance", "value": "compliance", "selected": true }
+        ],
+        "description": "Filter by SLA tier to see tier-specific thresholds"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - DR Readiness",
+  "uid": "fsi-kafka-dr-readiness",
+  "version": 1
+}

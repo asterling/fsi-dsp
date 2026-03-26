@@ -1,0 +1,251 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for Confluent Cloud metrics or JMX exporter metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_JSON",
+      "label": "JSON API",
+      "description": "JSON API datasource for Connect REST API polling. Configure with base URL of your Connect REST endpoint.",
+      "type": "datasource",
+      "pluginId": "marcusolsson-json-datasource",
+      "pluginName": "JSON API"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - Connect Status monitoring. Connector state, task health, and auto-discovery via Connect REST API.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Connectors",
+      "description": "Total number of connectors registered in the Connect cluster.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_JSON}",
+      "targets": [
+        {
+          "method": "GET",
+          "urlPath": "/connectors",
+          "fields": [
+            { "jsonPath": "$", "type": "number", "name": "count" }
+          ],
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 1 }
+            ]
+          },
+          "unit": "short"
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "title": "FAILED Connectors",
+      "description": "Number of connectors in FAILED state. Any value >= 1 requires immediate attention.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_JSON}",
+      "targets": [
+        {
+          "method": "GET",
+          "urlPath": "/connectors?expand=status",
+          "fields": [
+            { "jsonPath": "$..[?(@.status.connector.state=='FAILED')]", "type": "number", "name": "failed_count" }
+          ],
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EF4444", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "background"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Connector Status Table",
+      "description": "All connectors with state, type, worker assignment, and task status. Auto-discovers new connectors via Connect REST API /connectors endpoint.",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 6 },
+      "datasource": "${DS_JSON}",
+      "targets": [
+        {
+          "method": "GET",
+          "urlPath": "/connectors?expand=info&expand=status",
+          "fields": [
+            { "jsonPath": "$.*", "type": "string" }
+          ],
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "State" },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "RUNNING": { "color": "#22C55E", "text": "RUNNING" } } },
+                  { "type": "value", "options": { "PAUSED": { "color": "#EAB308", "text": "PAUSED" } } },
+                  { "type": "value", "options": { "FAILED": { "color": "#EF4444", "text": "FAILED" } } },
+                  { "type": "value", "options": { "UNASSIGNED": { "color": "#6B7280", "text": "UNASSIGNED" } } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "State", "desc": false }]
+      }
+    },
+    {
+      "id": 4,
+      "title": "Connector State History",
+      "description": "Connector state changes over time. Tracks transitions between RUNNING, PAUSED, FAILED, and UNASSIGNED states.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "kafka_connect_connector_status{state=~\"running|paused|failed|unassigned\"}",
+          "legendFormat": "{{connector}} - {{state}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "connect-status", "observability"],
+  "templating": {
+    "list": [
+      {
+        "name": "CLUSTER_ID",
+        "label": "Cluster ID",
+        "type": "textbox",
+        "current": { "value": "" },
+        "options": [],
+        "description": "Target Kafka cluster ID"
+      },
+      {
+        "name": "CONNECT_REST_URL",
+        "label": "Connect REST URL",
+        "type": "textbox",
+        "current": { "value": "http://connect.internal:8083" },
+        "options": [],
+        "description": "Kafka Connect REST API endpoint. Used by JSON API datasource for auto-discovery."
+      },
+      {
+        "name": "DOMAIN_PREFIX",
+        "label": "Domain",
+        "type": "textbox",
+        "current": { "value": "*" },
+        "options": [],
+        "description": "Topic domain filter pattern"
+      },
+      {
+        "name": "ENVIRONMENT",
+        "label": "Environment",
+        "type": "textbox",
+        "current": { "value": "prod" },
+        "options": [],
+        "description": "Environment label"
+      },
+      {
+        "name": "SLA_TIER",
+        "label": "SLA Tier",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "current": { "value": ["critical", "standard", "best-effort", "compliance"] },
+        "options": [
+          { "text": "critical", "value": "critical", "selected": true },
+          { "text": "standard", "value": "standard", "selected": true },
+          { "text": "best-effort", "value": "best-effort", "selected": true },
+          { "text": "compliance", "value": "compliance", "selected": true }
+        ],
+        "description": "Filter by SLA tier"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Connect Status",
+  "uid": "fsi-kafka-connect-status",
+  "version": 1
+}

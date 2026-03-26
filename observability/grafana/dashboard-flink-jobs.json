@@ -1,0 +1,226 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for Flink metrics (when available after Phase 6 deployment)",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - Flink Jobs monitoring. Stub dashboard -- Flink metrics will be available after Phase 6 deployment. This dashboard shows placeholder structure for running jobs, checkpoint duration, backpressure, and throughput.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Running Flink Jobs",
+      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "count(flink_jobmanager_job_uptime > 0)",
+          "legendFormat": "Running Jobs",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "textMode": "auto",
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 2,
+      "title": "Checkpoint Duration",
+      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "flink_taskmanager_job_task_checkpointAlignmentTime{job_name=~\".*\"}",
+          "legendFormat": "{{job_name}} - {{task_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Backpressure",
+      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "max(flink_taskmanager_job_task_backPressuredTimeMsPerSecond{job_name=~\".*\"})",
+          "legendFormat": "Max Backpressure",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 0 },
+              { "color": "#EAB308", "value": 100 },
+              { "color": "#EF4444", "value": 500 }
+            ]
+          },
+          "min": 0,
+          "max": 1000,
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 4,
+      "title": "Throughput (Records/sec)",
+      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 8 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "flink_taskmanager_job_task_numRecordsOutPerSecond{job_name=~\".*\"}",
+          "legendFormat": "{{job_name}} - {{task_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Flink Stub Notice",
+      "description": "Information about Phase 6 wiring.",
+      "type": "text",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "mode": "markdown",
+        "content": "### Flink Jobs Dashboard - Stub\n\nThis dashboard is a **placeholder structure** for Flink job monitoring. Flink metrics will be available after **Phase 6** deployment.\n\nMetrics wired in Phase 6:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents."
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "flink-jobs", "observability", "stub"],
+  "templating": {
+    "list": [
+      {
+        "name": "CLUSTER_ID",
+        "label": "Cluster ID",
+        "type": "textbox",
+        "current": { "value": "" },
+        "options": [],
+        "description": "Target Kafka cluster ID"
+      },
+      {
+        "name": "DOMAIN_PREFIX",
+        "label": "Domain",
+        "type": "textbox",
+        "current": { "value": "*" },
+        "options": [],
+        "description": "Topic domain filter pattern"
+      },
+      {
+        "name": "ENVIRONMENT",
+        "label": "Environment",
+        "type": "textbox",
+        "current": { "value": "prod" },
+        "options": [],
+        "description": "Environment label"
+      },
+      {
+        "name": "SLA_TIER",
+        "label": "SLA Tier",
+        "type": "custom",
+        "multi": true,
+        "includeAll": true,
+        "current": { "value": ["critical", "standard", "best-effort", "compliance"] },
+        "options": [
+          { "text": "critical", "value": "critical", "selected": true },
+          { "text": "standard", "value": "standard", "selected": true },
+          { "text": "best-effort", "value": "best-effort", "selected": true },
+          { "text": "compliance", "value": "compliance", "selected": true }
+        ],
+        "description": "Filter by SLA tier"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Flink Jobs",
+  "uid": "fsi-kafka-flink-jobs",
+  "version": 1
+}
