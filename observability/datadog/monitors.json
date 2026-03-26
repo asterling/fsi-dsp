@@ -1,0 +1,180 @@
+[
+  {
+    "name": "MirrorLagCritical",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:{{cluster_id}},sla_tier:critical} by {topic} > 60",
+    "message": "Mirror lag exceeds alert threshold for critical tier (60s). Potential data loss risk. Evaluate failover readiness.\n\nTopic: {{topic.name}}\nCurrent lag: {{value}}s\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:critical", "type:mirror-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 30,
+        "critical": 60
+      },
+      "notify_no_data": true,
+      "no_data_timeframe": 10,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "MirrorLagStandard",
+    "type": "metric alert",
+    "query": "avg(last_10m):avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:{{cluster_id}},sla_tier:standard} by {topic} > 900",
+    "message": "Mirror lag exceeds alert threshold for standard tier (900s / 15 minutes). Potential data loss risk. Evaluate failover readiness.\n\nTopic: {{topic.name}}\nCurrent lag: {{value}}s\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:standard", "type:mirror-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 300,
+        "critical": 900
+      },
+      "notify_no_data": true,
+      "no_data_timeframe": 30,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "MirrorLagBestEffort",
+    "type": "metric alert",
+    "query": "avg(last_30m):avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:{{cluster_id}},sla_tier:best-effort} by {topic} > 14400",
+    "message": "Mirror lag exceeds alert threshold for best-effort tier (14400s / 4 hours). Potential data loss risk. Evaluate failover readiness.\n\nTopic: {{topic.name}}\nCurrent lag: {{value}}s\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:best-effort", "type:mirror-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 3600,
+        "critical": 14400
+      },
+      "notify_no_data": true,
+      "no_data_timeframe": 60,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "MirrorLagCompliance",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:{{cluster_id}},sla_tier:compliance} by {topic} > 30",
+    "message": "Mirror lag exceeds alert threshold for compliance tier (30s). Potential data loss risk. Evaluate failover readiness immediately.\n\nTopic: {{topic.name}}\nCurrent lag: {{value}}s\n\n@slack-fsi-kafka-alerts @pagerduty-fsi-critical",
+    "tags": ["team:fsi-kafka", "tier:compliance", "type:mirror-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 10,
+        "critical": 30
+      },
+      "notify_no_data": true,
+      "no_data_timeframe": 5,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConsumerLagCritical",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:{{cluster_id}},sla_tier:critical} by {consumer_group_id,topic} > 5000",
+    "message": "Consumer group lag exceeds alert threshold (5000 records) for critical-tier topic. Investigate consumer health.\n\nConsumer Group: {{consumer_group_id.name}}\nTopic: {{topic.name}}\nCurrent lag: {{value}} records\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:critical", "type:consumer-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 1000,
+        "critical": 5000
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConsumerLagStandard",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:{{cluster_id}},sla_tier:standard} by {consumer_group_id,topic} > 50000",
+    "message": "Consumer group lag exceeds alert threshold (50000 records) for standard-tier topic. Investigate consumer health.\n\nConsumer Group: {{consumer_group_id.name}}\nTopic: {{topic.name}}\nCurrent lag: {{value}} records\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:standard", "type:consumer-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 10000,
+        "critical": 50000
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConsumerLagBestEffort",
+    "type": "metric alert",
+    "query": "avg(last_10m):avg:confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:{{cluster_id}},sla_tier:best-effort} by {consumer_group_id,topic} > 500000",
+    "message": "Consumer group lag exceeds alert threshold (500000 records) for best-effort-tier topic.\n\nConsumer Group: {{consumer_group_id.name}}\nTopic: {{topic.name}}\nCurrent lag: {{value}} records\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "tier:best-effort", "type:consumer-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 100000,
+        "critical": 500000
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConsumerLagCompliance",
+    "type": "metric alert",
+    "query": "avg(last_5m):avg:confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:{{cluster_id}},sla_tier:compliance} by {consumer_group_id,topic} > 2000",
+    "message": "Consumer group lag exceeds alert threshold (2000 records) for compliance-tier topic. Investigate immediately.\n\nConsumer Group: {{consumer_group_id.name}}\nTopic: {{topic.name}}\nCurrent lag: {{value}} records\n\n@slack-fsi-kafka-alerts @pagerduty-fsi-critical",
+    "tags": ["team:fsi-kafka", "tier:compliance", "type:consumer-lag"],
+    "options": {
+      "thresholds": {
+        "warning": 500,
+        "critical": 2000
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConnectTaskFailed",
+    "type": "metric alert",
+    "query": "avg(last_1m):count_nonzero(avg:kafka.connect.connector_status{kafka_id:{{cluster_id}},state:failed} by {connector_name}) > 0",
+    "message": "One or more Kafka Connect connector tasks are in FAILED state. Check Connect logs and restart if appropriate.\n\nFailed connector: {{connector_name.name}}\nFailed count: {{value}}\n\n@slack-fsi-kafka-alerts @pagerduty-fsi-critical",
+    "tags": ["team:fsi-kafka", "type:connect-health"],
+    "options": {
+      "thresholds": {
+        "critical": 0
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "ConnectTaskRestartLoop",
+    "type": "metric alert",
+    "query": "sum(last_15m):sum:kafka.connect.task_restart_total{kafka_id:{{cluster_id}}} by {connector_name}.as_count() > 3",
+    "message": "A Kafka Connect task has restarted {{value}} times in the last 15 minutes (threshold: 3). Investigate root cause to prevent repeated failures.\n\nConnector: {{connector_name.name}}\n\n@slack-fsi-kafka-alerts",
+    "tags": ["team:fsi-kafka", "type:connect-health"],
+    "options": {
+      "thresholds": {
+        "warning": 3
+      },
+      "notify_no_data": false,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  },
+  {
+    "name": "UnderReplicatedPartitions",
+    "type": "metric alert",
+    "query": "avg(last_5m):sum:kafka.server.replica_manager.under_replicated_partitions{kafka_id:{{cluster_id}}} > 0",
+    "message": "Under-replicated partitions detected for more than 5 minutes on cluster {{cluster_id}}. This indicates broker health issues or network problems. Investigate immediately.\n\nUnder-replicated count: {{value}}\n\n@slack-fsi-kafka-alerts @pagerduty-fsi-critical",
+    "tags": ["team:fsi-kafka", "type:cluster-health"],
+    "options": {
+      "thresholds": {
+        "critical": 0
+      },
+      "notify_no_data": true,
+      "no_data_timeframe": 10,
+      "notify_audit": true,
+      "evaluation_delay": 60
+    }
+  }
+]

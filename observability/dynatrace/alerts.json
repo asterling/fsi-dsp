@@ -1,0 +1,316 @@
+[
+  {
+    "name": "MirrorLagCritical - Warning",
+    "description": "Mirror lag exceeds warn threshold for critical tier (30s). Monitor for further degradation.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 30,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:critical", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "critical" } }
+    ]
+  },
+  {
+    "name": "MirrorLagCritical - Alert",
+    "description": "Mirror lag exceeds alert threshold for critical tier (60s). Potential data loss risk. Evaluate failover readiness.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 60,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:critical", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "critical" } }
+    ]
+  },
+  {
+    "name": "MirrorLagStandard - Warning",
+    "description": "Mirror lag exceeds warn threshold for standard tier (300s / 5 minutes). Monitor for further degradation.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 300,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:standard", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "standard" } }
+    ]
+  },
+  {
+    "name": "MirrorLagStandard - Alert",
+    "description": "Mirror lag exceeds alert threshold for standard tier (900s / 15 minutes). Potential data loss risk. Evaluate failover readiness.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 900,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:standard", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "standard" } }
+    ]
+  },
+  {
+    "name": "MirrorLagBestEffort - Warning",
+    "description": "Mirror lag exceeds warn threshold for best-effort tier (3600s / 1 hour). Monitor for further degradation.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 3600,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:best-effort", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "best-effort" } }
+    ]
+  },
+  {
+    "name": "MirrorLagBestEffort - Alert",
+    "description": "Mirror lag exceeds alert threshold for best-effort tier (14400s / 4 hours). Potential data loss risk. Evaluate failover readiness.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 14400,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:best-effort", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "best-effort" } }
+    ]
+  },
+  {
+    "name": "MirrorLagCompliance - Warning",
+    "description": "Mirror lag exceeds warn threshold for compliance tier (10s). Monitor for further degradation.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 10,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:compliance", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "compliance" } }
+    ]
+  },
+  {
+    "name": "MirrorLagCompliance - Alert",
+    "description": "Mirror lag exceeds alert threshold for compliance tier (30s). Potential data loss risk. Evaluate failover readiness.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 30,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:compliance", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "compliance" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagCritical - Warning",
+    "description": "Consumer group lag exceeds warn threshold (1000 records) for critical-tier topic.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 1000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:critical", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "critical" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagCritical - Alert",
+    "description": "Consumer group lag exceeds alert threshold (5000 records) for critical-tier topic. Investigate consumer health.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 5000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:critical", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "critical" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagStandard - Warning",
+    "description": "Consumer group lag exceeds warn threshold (10000 records) for standard-tier topic.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 10000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:standard", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "standard" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagStandard - Alert",
+    "description": "Consumer group lag exceeds alert threshold (50000 records) for standard-tier topic. Investigate consumer health.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 50000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:standard", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "standard" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagBestEffort - Warning",
+    "description": "Consumer group lag exceeds warn threshold (100000 records) for best-effort-tier topic.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 100000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:best-effort", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "best-effort" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagBestEffort - Alert",
+    "description": "Consumer group lag exceeds alert threshold (500000 records) for best-effort-tier topic. Investigate consumer health.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 500000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:best-effort", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "best-effort" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagCompliance - Warning",
+    "description": "Consumer group lag exceeds warn threshold (500 records) for compliance-tier topic.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 500,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:compliance", "severity:warning"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "compliance" } }
+    ]
+  },
+  {
+    "name": "ConsumerLagCompliance - Alert",
+    "description": "Consumer group lag exceeds alert threshold (2000 records) for compliance-tier topic. Investigate immediately.",
+    "enabled": true,
+    "severity": "ERROR",
+    "eventType": "ERROR_EVENT",
+    "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 2000,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "sla_tier:compliance", "severity:critical"],
+    "alertingScope": [
+      { "filterType": "TAG", "tagFilter": { "key": "sla_tier", "value": "compliance" } }
+    ]
+  },
+  {
+    "name": "ConnectTaskFailed",
+    "description": "One or more Kafka Connect connector tasks are in FAILED state. Check Connect logs and restart if appropriate.",
+    "enabled": true,
+    "severity": "AVAILABILITY",
+    "eventType": "AVAILABILITY_EVENT",
+    "metricSelector": "ext:kafka.connect.connector_status:filter(and(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"),eq(\"state\",\"FAILED\"))):count",
+    "threshold": 0,
+    "alertCondition": "ABOVE",
+    "samples": 3,
+    "violatingSamples": 1,
+    "dealertingSamples": 3,
+    "tags": ["fsi-kafka", "severity:critical"]
+  },
+  {
+    "name": "ConnectTaskRestartLoop",
+    "description": "A Kafka Connect task has restarted 3 or more times in the last 15 minutes. Investigate root cause to prevent repeated failures.",
+    "enabled": true,
+    "severity": "CUSTOM_ALERT",
+    "eventType": "CUSTOM_ALERT",
+    "metricSelector": "ext:kafka.connect.task_restart_total:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\")):rate(15m)",
+    "threshold": 3,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 3,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "severity:warning"]
+  },
+  {
+    "name": "UnderReplicatedPartitions",
+    "description": "Under-replicated partitions detected for more than 5 minutes. This indicates broker health issues or network problems. Investigate immediately.",
+    "enabled": true,
+    "severity": "AVAILABILITY",
+    "eventType": "AVAILABILITY_EVENT",
+    "metricSelector": "ext:kafka.server.replica_manager.under_replicated_partitions:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+    "threshold": 0,
+    "alertCondition": "ABOVE",
+    "samples": 5,
+    "violatingSamples": 5,
+    "dealertingSamples": 5,
+    "tags": ["fsi-kafka", "severity:critical"]
+  }
+]

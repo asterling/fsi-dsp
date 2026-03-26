@@ -1,0 +1,301 @@
+{
+  "dashboardMetadata": {
+    "name": "FSI Kafka Platform - Observability",
+    "shared": true,
+    "owner": "fsi-kafka-c4e",
+    "tags": ["fsi-kafka", "observability", "kafka", "confluent"],
+    "dashboardFilter": {
+      "managementZone": {
+        "id": "{{MANAGEMENT_ZONE_ID}}",
+        "name": "{{MANAGEMENT_ZONE}}"
+      },
+      "timeframe": "-1h"
+    }
+  },
+  "tiles": [
+    {
+      "name": "Cluster Health",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": { "top": 0, "left": 0, "width": 1520, "height": 38 },
+      "tileFilter": {}
+    },
+    {
+      "name": "Broker Connection Count",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 38, "left": 0, "width": 380, "height": 266 },
+      "tileFilter": {},
+      "customName": "Active Broker Connections",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": [],
+          "metricSelector": "ext:io.confluent.kafka.server.active_connection_count:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "SINGLE_VALUE",
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#6B7280" },
+            { "color": "#22C55E", "value": 1 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Under-Replicated Partitions",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 38, "left": 380, "width": 380, "height": 266 },
+      "tileFilter": {},
+      "customName": "Under-Replicated Partitions",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": [],
+          "metricSelector": "ext:kafka.server.replica_manager.under_replicated_partitions:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "SINGLE_VALUE",
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#22C55E" },
+            { "color": "#EF4444", "value": 1 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Active Controller Count",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 38, "left": 760, "width": 380, "height": 266 },
+      "tileFilter": {},
+      "customName": "Active Controller",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": [],
+          "metricSelector": "ext:kafka.controller.active_controller_count:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"))",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "SINGLE_VALUE",
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#EF4444" },
+            { "color": "#22C55E", "value": 1 },
+            { "color": "#EAB308", "value": 2 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Request Rate",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 38, "left": 1140, "width": 380, "height": 266 },
+      "tileFilter": {},
+      "customName": "Request Rate (5m)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["type"],
+          "metricSelector": "ext:io.confluent.kafka.server.request_count:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\")):rate(5m)",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH",
+        "global": { "theme": "DEFAULT" }
+      }
+    },
+    {
+      "name": "Consumer Lag",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": { "top": 304, "left": 0, "width": 1520, "height": 38 },
+      "tileFilter": {}
+    },
+    {
+      "name": "Consumer Lag by Group",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 342, "left": 0, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "customName": "Consumer Lag by Consumer Group",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["consumer_group_id", "topic"],
+          "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(and(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"),prefix(\"topic\",\"{{DOMAIN_PREFIX}}\"))):splitBy(\"consumer_group_id\",\"topic\")",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH",
+        "global": { "theme": "DEFAULT" },
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#22C55E" },
+            { "color": "#EAB308", "value": 1000 },
+            { "color": "#EF4444", "value": 5000 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Consumer Lag Table",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 342, "left": 760, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "customName": "Per-Partition Consumer Lag Breakdown",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["consumer_group_id", "topic", "partition"],
+          "metricSelector": "ext:io.confluent.kafka.server.consumer_lag_offsets:filter(and(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"),prefix(\"topic\",\"{{DOMAIN_PREFIX}}\"))):splitBy(\"consumer_group_id\",\"topic\",\"partition\")",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "TABLE",
+        "global": { "theme": "DEFAULT" }
+      }
+    },
+    {
+      "name": "Connect Status",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": { "top": 646, "left": 0, "width": 1520, "height": 38 },
+      "tileFilter": {}
+    },
+    {
+      "name": "Connector State Overview",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 684, "left": 0, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "customName": "Connector State (RUNNING=1, PAUSED=2, FAILED=3, UNASSIGNED=0)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["connector_name"],
+          "metricSelector": "ext:kafka.connect.connector_status:filter(eq(\"kafka_id\",\"{{CLUSTER_ID}}\")):splitBy(\"connector_name\")",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "TABLE",
+        "global": { "theme": "DEFAULT" },
+        "rules": [
+          { "matcher": "A", "unitTransform": "none", "valueFormat": "none",
+            "properties": {
+              "seriesType": "COLUMN"
+            }
+          }
+        ],
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#6B7280", "value": 0 },
+            { "color": "#22C55E", "value": 1 },
+            { "color": "#EAB308", "value": 2 },
+            { "color": "#EF4444", "value": 3 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Connect Task Health",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": { "top": 684, "left": 760, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "markdown": "## Connect Task Monitoring\n\nConnector status is polled from the Connect REST API at `{{CONNECT_REST_URL}}`.\n\n| State | Color | Meaning |\n|-------|-------|---------|\n| RUNNING | #22C55E | Healthy connector |\n| PAUSED | #EAB308 | Paused (possibly during DR) |\n| FAILED | #EF4444 | Failed -- requires attention |\n| UNASSIGNED | #6B7280 | Not yet assigned to worker |\n\nConfigure an ActiveGate extension or HTTP check to poll `GET {{CONNECT_REST_URL}}/connectors/{name}/status` and ingest connector state as a custom metric."
+    },
+    {
+      "name": "DR Readiness",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": { "top": 988, "left": 0, "width": 1520, "height": 38 },
+      "tileFilter": {}
+    },
+    {
+      "name": "Mirror Lag per Topic",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 1026, "left": 0, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "customName": "Mirror Lag by Topic (seconds)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "SUM",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["topic"],
+          "metricSelector": "ext:io.confluent.kafka.server.cluster_link_mirror_topic_offset_lag:filter(and(eq(\"kafka_id\",\"{{CLUSTER_ID}}\"),prefix(\"topic\",\"{{DOMAIN_PREFIX}}\"))):splitBy(\"topic\")",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH",
+        "global": { "theme": "DEFAULT" },
+        "seriesOverrides": [
+          { "matcher": "topic:*", "properties": { "color": "#3B82F6" } }
+        ],
+        "thresholds": [
+          { "axisTarget": "LEFT", "visible": true, "rules": [
+            { "color": "#22C55E" },
+            { "color": "#EAB308", "value": 30 },
+            { "color": "#EF4444", "value": 60 }
+          ]}
+        ]
+      }
+    },
+    {
+      "name": "Mirror Lag Threshold Reference",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": { "top": 1026, "left": 760, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "markdown": "## SLA-Tier Mirror Lag Thresholds\n\n| Tier | Warn | Alert | Priority |\n|------|------|-------|----------|\n| critical | 30s | 60s | P1 -- immediate failover |\n| standard | 300s (5m) | 900s (15m) | P2 -- business hours |\n| best-effort | 3600s (1h) | 14400s (4h) | P3 -- next business day |\n| compliance | 10s | 30s | P1 -- immediate failover |\n\nMirror topics shown in #3B82F6 (blue). Threshold lines on chart reflect the **critical** tier by default. Adjust dashboard filters for other tiers.\n\nSource: ADR-008 DR Tier Classification"
+    },
+    {
+      "name": "Flink Jobs",
+      "tileType": "HEADER",
+      "configured": true,
+      "bounds": { "top": 1330, "left": 0, "width": 1520, "height": 38 },
+      "tileFilter": {}
+    },
+    {
+      "name": "Flink Jobs Placeholder",
+      "tileType": "MARKDOWN",
+      "configured": true,
+      "bounds": { "top": 1368, "left": 0, "width": 1520, "height": 152 },
+      "tileFilter": {},
+      "markdown": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\n**Planned metrics:**\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents.",
+      "backgroundColor": "#6B7280"
+    }
+  ]
+}

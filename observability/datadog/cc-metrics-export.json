@@ -1,0 +1,9 @@
+{
+  "name": "Confluent Cloud",
+  "type": "confluent_cloud",
+  "description": "Confluent Cloud integration for Datadog. Ingests Kafka cluster metrics via the Confluent Cloud Metrics API.",
+  "api_key": "{{CC_METRICS_API_KEY}}",
+  "api_secret": "{{CC_METRICS_API_SECRET}}",
+  "cluster_id": "{{CLUSTER_ID}}",
+  "note": "Configure in Datadog Integrations > Confluent Cloud tile or via API. The Datadog Confluent Cloud integration natively supports metric ingestion from the CC Metrics API. See https://docs.datadoghq.com/integrations/confluent_cloud/ for setup instructions."
+}

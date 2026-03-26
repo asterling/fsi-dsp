@@ -1,0 +1,42 @@
+# Datadog JMX Check Configuration for Kafka Brokers
+# Stub -- wired in Phase 8 (CFK) and Phase 9 (CP)
+#
+# Place this file in /etc/datadog-agent/conf.d/kafka.d/conf.yaml
+# on the Datadog Agent host or as a ConfigMap in Kubernetes.
+#
+# Port 9101 matches reference/local-dev/docker-compose.yml KAFKA_JMX_PORT.
+
+init_config:
+
+instances:
+  - host: "{{JMX_EXPORTER_HOST}}"
+    port: 9101
+    tags:
+      - "kafka_id:{{CLUSTER_ID}}"
+      - "env:{{ENVIRONMENT}}"
+      - "team:fsi-kafka"
+    conf:
+      - include:
+          domain: kafka.server
+          bean_regex: ".*type=ReplicaManager.*"
+          attribute:
+            UnderReplicatedPartitions:
+              metric_type: gauge
+              alias: kafka.server.replica_manager.under_replicated_partitions
+            PartitionCount:
+              metric_type: gauge
+              alias: kafka.server.replica_manager.partition_count
+      - include:
+          domain: kafka.server
+          bean_regex: ".*type=BrokerTopicMetrics.*"
+          attribute:
+            MessagesInPerSec:
+              metric_type: gauge
+              alias: kafka.server.broker_topic_metrics.messages_in_per_sec
+      - include:
+          domain: kafka.controller
+          bean_regex: ".*type=KafkaController.*"
+          attribute:
+            ActiveControllerCount:
+              metric_type: gauge
+              alias: kafka.controller.active_controller_count

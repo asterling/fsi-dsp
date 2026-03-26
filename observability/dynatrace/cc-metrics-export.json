@@ -1,0 +1,17 @@
+{
+  "name": "Confluent Cloud Metrics",
+  "type": "custom_metrics",
+  "description": "Ingest Confluent Cloud metrics via the CC Metrics API into Dynatrace using ActiveGate or custom extension.",
+  "endpoint": "https://api.telemetry.confluent.cloud/v2/metrics/cloud/export",
+  "authentication": {
+    "type": "basic",
+    "username": "{{CC_METRICS_API_KEY}}",
+    "password": "{{CC_METRICS_API_SECRET}}"
+  },
+  "parameters": {
+    "resource.kafka.id": "{{CLUSTER_ID}}"
+  },
+  "pollingIntervalMinutes": 1,
+  "metricPrefix": "ext:io.confluent.kafka.server",
+  "note": "Configure as an ActiveGate extension or use the Dynatrace API v2 metrics ingest endpoint ({ENV_URL}/api/v2/metrics/ingest) to push metrics from a collector script. See https://docs.confluent.io/cloud/current/monitoring/metrics-api.html for CC Metrics API reference."
+}

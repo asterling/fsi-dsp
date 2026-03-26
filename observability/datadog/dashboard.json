@@ -1,0 +1,265 @@
+{
+  "title": "FSI Kafka Platform - Observability",
+  "description": "Cluster Health, Consumer Lag, Connect Status, DR Readiness, Flink Jobs. SLA-tier-aware monitoring for FSI Kafka Platform.",
+  "layout_type": "ordered",
+  "is_read_only": false,
+  "notify_list": [],
+  "template_variables": [
+    { "name": "cluster_id", "prefix": "kafka_id", "default": "*" },
+    { "name": "domain_prefix", "prefix": "topic", "default": "*" },
+    { "name": "environment", "prefix": "env", "default": "prod" },
+    { "name": "sla_tier", "prefix": "sla_tier", "default": "*" }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "title": "Cluster Health",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Active Broker Connections",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "sum:confluent_cloud.kafka.server.active_connection_count{kafka_id:$cluster_id}",
+                  "aggregator": "last"
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "Under-Replicated Partitions",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "sum:kafka.server.replica_manager.under_replicated_partitions{kafka_id:$cluster_id}",
+                  "aggregator": "last",
+                  "conditional_formats": [
+                    { "comparator": ">=", "value": 1, "palette": "white_on_red" },
+                    { "comparator": "<", "value": 1, "palette": "white_on_green" }
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "Active Controller Count",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "sum:kafka.controller.active_controller_count{kafka_id:$cluster_id}",
+                  "aggregator": "last",
+                  "conditional_formats": [
+                    { "comparator": "<", "value": 1, "palette": "white_on_red" },
+                    { "comparator": ">=", "value": 1, "palette": "white_on_green" },
+                    { "comparator": ">=", "value": 2, "palette": "white_on_yellow" }
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
+            }
+          },
+          {
+            "definition": {
+              "title": "Request Rate (5m)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "rate(confluent_cloud.kafka.server.request_count{kafka_id:$cluster_id})",
+                  "display_type": "line",
+                  "style": { "palette": "dog_classic", "line_type": "solid", "line_width": "normal" }
+                }
+              ],
+              "yaxis": { "label": "requests/sec", "scale": "linear" }
+            }
+          },
+          {
+            "definition": {
+              "title": "Per-Broker Partition Count",
+              "type": "toplist",
+              "requests": [
+                {
+                  "q": "top(confluent_cloud.kafka.server.partition_count{kafka_id:$cluster_id} by {broker_id}, 20, 'last', 'desc')"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Consumer Lag",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Consumer Lag by Consumer Group",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:$cluster_id,topic:$domain_prefix*} by {consumer_group_id}",
+                  "display_type": "line",
+                  "style": { "palette": "dog_classic", "line_type": "solid", "line_width": "normal" }
+                }
+              ],
+              "markers": [
+                { "value": "y = 1000", "display_type": "warning dashed", "label": "critical-warn (1000)" },
+                { "value": "y = 5000", "display_type": "error dashed", "label": "critical-alert (5000)" },
+                { "value": "y = 10000", "display_type": "warning dashed", "label": "standard-warn (10000)" },
+                { "value": "y = 50000", "display_type": "error dashed", "label": "standard-alert (50000)" }
+              ],
+              "yaxis": { "label": "records behind", "scale": "log" }
+            }
+          },
+          {
+            "definition": {
+              "title": "Consumer Lag Per-Partition Breakdown",
+              "type": "toplist",
+              "requests": [
+                {
+                  "q": "top(confluent_cloud.kafka.server.consumer_lag_offsets{kafka_id:$cluster_id,topic:$domain_prefix*} by {consumer_group_id,topic,partition}, 50, 'last', 'desc')"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Connect Status",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Connector State Overview",
+              "type": "check_status",
+              "check": "kafka.connect.connector_status",
+              "grouping": "cluster",
+              "group_by": ["connector_name"],
+              "tags": ["kafka_id:$cluster_id"]
+            }
+          },
+          {
+            "definition": {
+              "title": "Connector Health Table",
+              "type": "query_table",
+              "requests": [
+                {
+                  "q": "avg:kafka.connect.connector_status{kafka_id:$cluster_id} by {connector_name,state}",
+                  "aggregator": "last",
+                  "conditional_formats": [
+                    { "comparator": "<=", "value": 0, "palette": "white_on_gray", "custom_fg_color": "#6B7280" },
+                    { "comparator": "==", "value": 1, "palette": "white_on_green", "custom_fg_color": "#22C55E" },
+                    { "comparator": "==", "value": 2, "palette": "white_on_yellow", "custom_fg_color": "#EAB308" },
+                    { "comparator": ">=", "value": 3, "palette": "white_on_red", "custom_fg_color": "#EF4444" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "Connect Status Reference",
+              "type": "note",
+              "content": "Connector states: **RUNNING** (green, healthy) | **PAUSED** (yellow, possibly during DR) | **FAILED** (red, requires attention) | **UNASSIGNED** (gray, not assigned to worker).\n\nConfigure the Datadog Kafka Connect integration or use a custom check polling `GET {{CONNECT_REST_URL}}/connectors/{name}/status`.",
+              "background_color": "white",
+              "font_size": "14",
+              "text_align": "left",
+              "show_tick": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "DR Readiness",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Mirror Lag by Topic (seconds)",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:$cluster_id,topic:$domain_prefix*} by {topic}",
+                  "display_type": "line",
+                  "style": { "palette": "cool", "line_type": "solid", "line_width": "normal" }
+                }
+              ],
+              "markers": [
+                { "value": "y = 30", "display_type": "warning dashed", "label": "critical-warn (30s)" },
+                { "value": "y = 60", "display_type": "error dashed", "label": "critical-alert (60s)" },
+                { "value": "y = 300", "display_type": "warning dashed", "label": "standard-warn (300s)" },
+                { "value": "y = 900", "display_type": "error dashed", "label": "standard-alert (900s)" }
+              ],
+              "yaxis": { "label": "lag (seconds)", "scale": "log" }
+            }
+          },
+          {
+            "definition": {
+              "title": "Mirror Lag Per-Topic Assessment",
+              "type": "query_table",
+              "requests": [
+                {
+                  "q": "avg:confluent_cloud.kafka.server.cluster_link_mirror_topic_offset_lag{kafka_id:$cluster_id,topic:$domain_prefix*} by {topic}",
+                  "aggregator": "last",
+                  "conditional_formats": [
+                    { "comparator": "<=", "value": 30, "palette": "white_on_green" },
+                    { "comparator": ">", "value": 30, "palette": "white_on_yellow" },
+                    { "comparator": ">", "value": 60, "palette": "white_on_red" }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "title": "SLA-Tier Mirror Lag Thresholds",
+              "type": "note",
+              "content": "| Tier | Warn | Alert | Priority |\n|------|------|-------|----------|\n| critical | 30s | 60s | P1 -- immediate failover |\n| standard | 300s (5m) | 900s (15m) | P2 -- business hours |\n| best-effort | 3600s (1h) | 14400s (4h) | P3 -- next business day |\n| compliance | 10s | 30s | P1 -- immediate failover |\n\nMirror topics shown in blue (#3B82F6). Source: ADR-008 DR Tier Classification.",
+              "background_color": "white",
+              "font_size": "14",
+              "text_align": "left",
+              "show_tick": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "title": "Flink Jobs",
+        "type": "group",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "title": "Flink Jobs (Stub)",
+              "type": "note",
+              "content": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\n**Planned metrics:**\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents.",
+              "background_color": "gray",
+              "font_size": "14",
+              "text_align": "left",
+              "show_tick": false
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
