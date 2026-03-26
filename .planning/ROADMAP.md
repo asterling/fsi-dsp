@@ -106,8 +106,8 @@ Plans:
 
 Plans:
 - [x] 05-01-PLAN.md -- Cross-provider metrics mapping and Grafana/Prometheus dashboard templates (reference implementation)
-- [ ] 05-02-PLAN.md -- Dynatrace, Datadog, and Splunk dashboard templates with alerts and metrics export
-- [ ] 05-03-PLAN.md -- New Relic and IBM Instana templates with .env.example updates
+- [x] 05-02-PLAN.md -- Dynatrace, Datadog, and Splunk dashboard templates with alerts and metrics export
+- [x] 05-03-PLAN.md -- New Relic and IBM Instana templates with .env.example updates
 
 ### Phase 6: Flink on Confluent Cloud
 **Goal**: FSI teams can deploy a CC Flink compute pool via Terraform and use reference SQL templates for common stream processing patterns -- with SR integration and observability

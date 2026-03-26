@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-03-26T21:08:37.473Z"
+stopped_at: Completed 05-03-PLAN.md
+last_updated: "2026-03-26T21:18:41.275Z"
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 15
 ---
 
 # Project State
@@ -24,7 +24,7 @@ See: .planning/PROJECT.md (updated 2026-03-21)
 ## Current Position
 
 Phase: 05 (observability-templates) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Plan: 2 of 3
 | Phase 04 P02 | 4min | 2 tasks | 2 files |
 | Phase 04 P03 | 5min | 2 tasks | 2 files |
 | Phase 05 P01 | 7min | 2 tasks | 10 files |
+| Phase 05 P03 | 7min | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Connect Status uses JSON API datasource (REST API polling), not Prometheus
 - [Phase 05]: Alert thresholds taken directly from ADR-008/fsi-dr.sh for CLI-dashboard consistency
 - [Phase 05]: Per-provider directory pattern: observability/{provider}/ with dashboards + alerts + README
+- [Phase 05]: New Relic uses NerdGraph dashboardCreate mutation and alertsNrqlConditionStaticCreate for import
+- [Phase 05]: Instana severity model: 5=warning, 10=critical; mirror lag uses ms in conditionValue
+- [Phase 05]: .env.example section 11 restructured into 8 sub-sections (11a-11h) covering all 6 providers
 
 ### Pending Todos
 
@@ -125,6 +129,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-26T21:08:37.471Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-03-26T21:18:41.273Z
+Stopped at: Completed 05-03-PLAN.md
 Resume file: None

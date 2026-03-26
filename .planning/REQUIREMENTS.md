@@ -55,8 +55,8 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [x] **OBS-02**: Prometheus/Grafana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-03**: Datadog dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [ ] **OBS-04**: Splunk dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-05**: New Relic dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
-- [ ] **OBS-06**: IBM Instana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-05**: New Relic dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
+- [x] **OBS-06**: IBM Instana dashboard templates covering cluster health, consumer lag, Connect status, DR readiness, and Flink job health
 - [x] **OBS-07**: Alert threshold configuration varies by SLA tier (critical: tight thresholds, standard: moderate, best-effort: relaxed)
 - [x] **OBS-08**: Auto-discovery rules surface new topics in dashboards by domain prefix pattern without manual config
 - [x] **OBS-09**: Metrics export configured per deployment model (CC Metrics API for cloud, JMX exporter for CFK/CP)
@@ -177,8 +177,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OBS-02 | Phase 5 | Complete |
 | OBS-03 | Phase 5 | Pending |
 | OBS-04 | Phase 5 | Pending |
-| OBS-05 | Phase 5 | Pending |
-| OBS-06 | Phase 5 | Pending |
+| OBS-05 | Phase 5 | Complete |
+| OBS-06 | Phase 5 | Complete |
 | OBS-07 | Phase 5 | Complete |
 | OBS-08 | Phase 5 | Complete |
 | OBS-09 | Phase 5 | Complete |
