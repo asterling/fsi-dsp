@@ -64,14 +64,14 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Mirror lag monitoring with per-topic alerting — Validated in Phase 4
 
 **Observability (Per-Provider Templates):**
-- [ ] Dynatrace dashboard templates (cluster health, app view, Connect, DR readiness)
-- [ ] Datadog dashboard templates
-- [ ] Splunk dashboard templates
-- [ ] New Relic dashboard templates
-- [ ] IBM Instana dashboard templates
-- [ ] Prometheus/Grafana dashboard templates
-- [ ] Auto-discovery rules (new topics appear by domain prefix)
-- [ ] Alert threshold configuration per SLA tier
+- [x] Dynatrace dashboard templates (cluster health, app view, Connect, DR readiness) — Validated in Phase 5
+- [x] Datadog dashboard templates — Validated in Phase 5
+- [x] Splunk dashboard templates — Validated in Phase 5
+- [x] New Relic dashboard templates — Validated in Phase 5
+- [x] IBM Instana dashboard templates — Validated in Phase 5
+- [x] Prometheus/Grafana dashboard templates — Validated in Phase 5
+- [x] Auto-discovery rules (new topics appear by domain prefix) — Validated in Phase 5
+- [x] Alert threshold configuration per SLA tier — Validated in Phase 5
 
 **Concerns Remediation (from CONCERNS.md):**
 - [x] Externalize hardcoded cluster IDs into centralized config — Validated in Phase 1
@@ -84,7 +84,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [ ] Error-path integration tests (serialization failure, RBAC denial, broker failure)
 - [x] Unified DR runbook with decision trees and rollback guidance — Validated in Phase 4
 - [x] Schema namespace collision prevention in CI — Validated in Phase 1
-- [ ] Kafka topic health metrics export per deployment model
+- [x] Kafka topic health metrics export per deployment model — Validated in Phase 5
 
 **Governance & Onboarding:**
 - [ ] Generic FSI intake form template (no client-specific names)
@@ -135,7 +135,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | Scenario directories over CLI | Lower barrier to entry, teams browse and pick | ✓ Good — Phase 2 delivered 3 scenarios |
-| Per-provider observability templates | Simpler to maintain, each FSI has one provider | — Pending |
+| Per-provider observability templates | Simpler to maintain, each FSI has one provider | ✓ Good — Phase 5 delivered 6 providers |
 | Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | — Pending |
 | DR framework with pluggable backends | Same CLI/UX regardless of deployment model | — Pending |
 | MRC 2.5-cluster for RPO=0 | FSI compliance may require zero data loss | — Pending |
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-23 after Phase 3 completion — Access control (SA provisioning, OAuth, RBAC), compliance enforcement (CSFLE, 7-year retention), audit trail*
+*Last updated: 2026-03-26 after Phase 5 completion — Observability templates for 6 providers (Dynatrace, Grafana, Datadog, Splunk, New Relic, Instana) with SLA-tier alerting, auto-discovery, and metrics export*
