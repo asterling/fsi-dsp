@@ -1,0 +1,267 @@
+<dashboard version="1.1" theme="dark">
+  <label>FSI Kafka Platform - Observability</label>
+  <description>Cluster Health, Consumer Lag, Connect Status, DR Readiness, Flink Jobs</description>
+
+  <fieldset submitButton="false">
+    <input type="text" token="CLUSTER_ID">
+      <label>Cluster ID</label>
+      <default>*</default>
+    </input>
+    <input type="text" token="DOMAIN_PREFIX">
+      <label>Domain Prefix</label>
+      <default>*</default>
+    </input>
+    <input type="dropdown" token="ENVIRONMENT">
+      <label>Environment</label>
+      <default>prod</default>
+      <choice value="prod">Production</choice>
+      <choice value="staging">Staging</choice>
+      <choice value="dev">Dev</choice>
+    </input>
+    <input type="dropdown" token="SLA_TIER">
+      <label>SLA Tier</label>
+      <default>*</default>
+      <choice value="*">All</choice>
+      <choice value="critical">Critical</choice>
+      <choice value="standard">Standard</choice>
+      <choice value="best-effort">Best Effort</choice>
+      <choice value="compliance">Compliance</choice>
+    </input>
+  </fieldset>
+
+  <!-- ===================================================================== -->
+  <!-- Row 1: Cluster Health                                                  -->
+  <!-- ===================================================================== -->
+  <row>
+    <panel>
+      <title>Cluster Health</title>
+      <single>
+        <title>Active Broker Connections</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="active_connection_count" kafka_id="$CLUSTER_ID$" env="$ENVIRONMENT$"
+| stats sum(metric_value) as total_connections</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["#6B7280","#22C55E"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Active Connections</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Under-Replicated Partitions</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="under_replicated_partitions" kafka_id="$CLUSTER_ID$" env="$ENVIRONMENT$"
+| stats latest(metric_value) as under_replicated</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["#22C55E","#EF4444"]</option>
+        <option name="rangeValues">[0]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Under-Replicated (0 = healthy)</option>
+      </single>
+    </panel>
+    <panel>
+      <single>
+        <title>Active Controller Count</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="active_controller_count" kafka_id="$CLUSTER_ID$" env="$ENVIRONMENT$"
+| stats latest(metric_value) as active_controllers</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["#EF4444","#22C55E","#EAB308"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Expected: 1</option>
+      </single>
+    </panel>
+    <panel>
+      <chart>
+        <title>Request Rate Over Time</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="request_count" kafka_id="$CLUSTER_ID$" env="$ENVIRONMENT$"
+| timechart span=5m rate(metric_value) as requests_per_sec by type</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY.text">requests/sec</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- ===================================================================== -->
+  <!-- Row 2: Consumer Lag                                                    -->
+  <!-- ===================================================================== -->
+  <row>
+    <panel>
+      <title>Consumer Lag</title>
+      <chart>
+        <title>Consumer Lag by Consumer Group</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="consumer_lag_offsets" kafka_id="$CLUSTER_ID$" topic="$DOMAIN_PREFIX$*" env="$ENVIRONMENT$"
+| stats avg(metric_value) as avg_lag by consumer_group_id, topic
+| sort - avg_lag</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleY.text">records behind</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.chart.overlayFields">critical_warn,critical_alert</option>
+      </chart>
+    </panel>
+    <panel>
+      <table>
+        <title>Per-Partition Consumer Lag Breakdown</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="consumer_lag_offsets" kafka_id="$CLUSTER_ID$" topic="$DOMAIN_PREFIX$*" env="$ENVIRONMENT$"
+| stats latest(metric_value) as lag_records by consumer_group_id, topic, partition
+| sort - lag_records
+| head 100</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- ===================================================================== -->
+  <!-- Row 3: Connect Status                                                  -->
+  <!-- ===================================================================== -->
+  <row>
+    <panel>
+      <title>Connect Status</title>
+      <table>
+        <title>Connector State Overview</title>
+        <search>
+          <query>index=kafka sourcetype=kafka:connect kafka_id="$CLUSTER_ID$" env="$ENVIRONMENT$"
+| stats latest(connector_state) as state, latest(worker_id) as worker, latest(task_count) as tasks by connector_name
+| eval status_color = case(
+    state="RUNNING", "#22C55E",
+    state="PAUSED", "#EAB308",
+    state="FAILED", "#EF4444",
+    state="UNASSIGNED", "#6B7280",
+    1=1, "#6B7280"
+  )
+| table connector_name, state, worker, tasks</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="state">
+          <colorPalette type="map">{"RUNNING": "#22C55E", "PAUSED": "#EAB308", "FAILED": "#EF4444", "UNASSIGNED": "#6B7280"}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <html>
+        <h3>Connect Status Reference</h3>
+        <table>
+          <tr><th>State</th><th>Color</th><th>Meaning</th></tr>
+          <tr><td>RUNNING</td><td style="color:#22C55E">Green</td><td>Healthy connector</td></tr>
+          <tr><td>PAUSED</td><td style="color:#EAB308">Yellow</td><td>Paused (possibly during DR)</td></tr>
+          <tr><td>FAILED</td><td style="color:#EF4444">Red</td><td>Failed -- requires attention</td></tr>
+          <tr><td>UNASSIGNED</td><td style="color:#6B7280">Gray</td><td>Not yet assigned to worker</td></tr>
+        </table>
+        <p>Connector status is polled from the Connect REST API or ingested via scripted input / HEC.</p>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ===================================================================== -->
+  <!-- Row 4: DR Readiness                                                    -->
+  <!-- ===================================================================== -->
+  <row>
+    <panel>
+      <title>DR Readiness</title>
+      <chart>
+        <title>Mirror Lag by Topic (seconds)</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="cluster_link_mirror_topic_offset_lag" kafka_id="$CLUSTER_ID$" topic="$DOMAIN_PREFIX$*" env="$ENVIRONMENT$"
+| eval mirror_lag_seconds = metric_value
+| timechart span=1m avg(mirror_lag_seconds) by topic</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY.text">lag (seconds)</option>
+        <option name="charting.legend.placement">bottom</option>
+        <option name="charting.seriesColors">[#3B82F6]</option>
+      </chart>
+    </panel>
+    <panel>
+      <table>
+        <title>Per-Topic DR Assessment</title>
+        <search>
+          <query>index=kafka sourcetype=confluent_cloud:metrics metric_name="cluster_link_mirror_topic_offset_lag" kafka_id="$CLUSTER_ID$" topic="$DOMAIN_PREFIX$*" env="$ENVIRONMENT$"
+| stats latest(metric_value) as lag_seconds by topic
+| eval assessment = case(
+    lag_seconds &lt;= 30, "OK",
+    lag_seconds &lt;= 60, "WARN",
+    1=1, "ALERT"
+  )
+| eval icon = case(
+    assessment="OK", "OK",
+    assessment="WARN", "WARN",
+    assessment="ALERT", "ALERT"
+  )
+| table topic, lag_seconds, assessment
+| rename topic as "[MIRROR] Topic", lag_seconds as "Lag (seconds)", assessment as "Status"
+| sort - "Lag (seconds)"</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="drilldown">none</option>
+        <format type="color" field="Status">
+          <colorPalette type="map">{"OK": "#22C55E", "WARN": "#EAB308", "ALERT": "#EF4444"}</colorPalette>
+        </format>
+      </table>
+    </panel>
+    <panel>
+      <html>
+        <h3>SLA-Tier Mirror Lag Thresholds</h3>
+        <table>
+          <tr><th>Tier</th><th>Warn</th><th>Alert</th><th>Priority</th></tr>
+          <tr><td>critical</td><td>30s</td><td>60s</td><td>P1 -- immediate failover</td></tr>
+          <tr><td>standard</td><td>300s (5m)</td><td>900s (15m)</td><td>P2 -- business hours</td></tr>
+          <tr><td>best-effort</td><td>3600s (1h)</td><td>14400s (4h)</td><td>P3 -- next business day</td></tr>
+          <tr><td>compliance</td><td>10s</td><td>30s</td><td>P1 -- immediate failover</td></tr>
+        </table>
+        <p>Mirror topics shown in blue (#3B82F6). Source: ADR-008 DR Tier Classification.</p>
+      </html>
+    </panel>
+  </row>
+
+  <!-- ===================================================================== -->
+  <!-- Row 5: Flink Jobs (Stub)                                               -->
+  <!-- ===================================================================== -->
+  <row>
+    <panel>
+      <title>Flink Jobs</title>
+      <html>
+        <div style="background-color:#6B7280; padding:24px; border-radius:4px; color:white;">
+          <h2>Flink Jobs</h2>
+          <p>Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.</p>
+          <p><strong>Planned metrics:</strong></p>
+          <ul>
+            <li><code>flink_jobmanager_job_uptime</code> -- Job uptime</li>
+            <li><code>flink_taskmanager_job_task_checkpointAlignmentTime</code> -- Checkpoint alignment time</li>
+            <li><code>flink_taskmanager_job_task_backPressuredTimeMsPerSecond</code> -- Backpressure</li>
+            <li><code>flink_taskmanager_job_task_numRecordsOutPerSecond</code> -- Output throughput</li>
+          </ul>
+          <p>See <code>observability/metrics-mapping.md</code> for cross-provider query equivalents.</p>
+        </div>
+      </html>
+    </panel>
+  </row>
+
+</dashboard>
