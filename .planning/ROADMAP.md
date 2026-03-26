@@ -102,12 +102,12 @@ Plans:
   3. New topics appear automatically in dashboards by domain prefix pattern without manual dashboard configuration
   4. Metrics export is configured per deployment model (CC Metrics API for cloud, JMX exporter for CFK/CP)
   5. Connect connector status monitoring alerts on FAILED task state across all deployment models
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
-- [ ] 05-03: TBD
+- [ ] 05-01-PLAN.md -- Cross-provider metrics mapping and Grafana/Prometheus dashboard templates (reference implementation)
+- [ ] 05-02-PLAN.md -- Dynatrace, Datadog, and Splunk dashboard templates with alerts and metrics export
+- [ ] 05-03-PLAN.md -- New Relic and IBM Instana templates with .env.example updates
 
 ### Phase 6: Flink on Confluent Cloud
 **Goal**: FSI teams can deploy a CC Flink compute pool via Terraform and use reference SQL templates for common stream processing patterns -- with SR integration and observability
