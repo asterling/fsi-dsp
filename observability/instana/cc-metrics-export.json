@@ -1,0 +1,17 @@
+{
+  "name": "Confluent Cloud Metrics",
+  "description": "Instana backend configuration for Confluent Cloud Metrics API. Configure via Instana custom metrics API or backend configuration.",
+  "type": "custom_metrics_source",
+  "endpoint": "https://api.telemetry.confluent.cloud/v2/metrics/cloud/export",
+  "authentication": {
+    "type": "basic",
+    "username": "{{CC_METRICS_API_KEY}}",
+    "password": "{{CC_METRICS_API_SECRET}}"
+  },
+  "parameters": {
+    "resource.kafka.id": "{{CLUSTER_ID}}"
+  },
+  "interval": "60s",
+  "timeout": "30s",
+  "note": "Configure via Instana custom metrics API or backend configuration. Use CC Metrics API key/secret pair obtained from Confluent Cloud console."
+}

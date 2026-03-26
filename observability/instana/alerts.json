@@ -1,0 +1,420 @@
+{
+  "name": "FSI Kafka Platform - Alert Configurations",
+  "description": "Instana alert configurations for FSI Kafka Platform. Import via Instana API POST /api/events/settings/alert-configs.",
+  "alerts": [
+    {
+      "name": "MirrorLagCritical - Warning",
+      "description": "Mirror lag exceeds warn threshold for critical tier (30s). Monitor for further degradation.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 30000,
+        "window": 60,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "critical" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "MirrorLagCritical - Alert",
+      "description": "Mirror lag exceeds alert threshold for critical tier (60s). Potential data loss risk. Evaluate failover readiness.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 60000,
+        "window": 60,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "critical" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "MirrorLagStandard - Warning",
+      "description": "Mirror lag exceeds warn threshold for standard tier (300s). Monitor for further degradation.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 300000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "standard" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "MirrorLagStandard - Alert",
+      "description": "Mirror lag exceeds alert threshold for standard tier (900s). Potential data loss risk. Evaluate failover readiness.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 900000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "standard" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "MirrorLagBestEffort - Warning",
+      "description": "Mirror lag exceeds warn threshold for best-effort tier (3600s). Monitor for further degradation.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 3600000,
+        "window": 900,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "best-effort" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "MirrorLagBestEffort - Alert",
+      "description": "Mirror lag exceeds alert threshold for best-effort tier (14400s). Potential data loss risk. Evaluate failover readiness.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 14400000,
+        "window": 900,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "best-effort" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "MirrorLagCompliance - Warning",
+      "description": "Mirror lag exceeds warn threshold for compliance tier (10s). Monitor for further degradation.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 10000,
+        "window": 60,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "compliance" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "MirrorLagCompliance - Alert",
+      "description": "Mirror lag exceeds alert threshold for compliance tier (30s). Potential data loss risk. Evaluate failover readiness.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "cluster_link_mirror_topic_offset_lag",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 30000,
+        "window": 60,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "compliance" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConsumerLagCritical - Warning",
+      "description": "Consumer lag exceeds warn threshold (1000 records) for critical-tier topic.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 1000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "critical" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "ConsumerLagCritical - Alert",
+      "description": "Consumer lag exceeds alert threshold (5000 records) for critical-tier topic. Investigate consumer health.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 5000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "critical" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "ConsumerLagStandard - Warning",
+      "description": "Consumer lag exceeds warn threshold (10000 records) for standard-tier topic.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 10000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "standard" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "ConsumerLagStandard - Alert",
+      "description": "Consumer lag exceeds alert threshold (50000 records) for standard-tier topic. Investigate consumer health.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 50000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "standard" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "ConsumerLagBestEffort - Warning",
+      "description": "Consumer lag exceeds warn threshold (100000 records) for best-effort-tier topic.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 100000,
+        "window": 600,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "best-effort" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "ConsumerLagBestEffort - Alert",
+      "description": "Consumer lag exceeds alert threshold (500000 records) for best-effort-tier topic.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 500000,
+        "window": 600,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "best-effort" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "ConsumerLagCompliance - Warning",
+      "description": "Consumer lag exceeds warn threshold (500 records) for compliance-tier topic.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 500,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "compliance" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConsumerLagCompliance - Alert",
+      "description": "Consumer lag exceeds alert threshold (2000 records) for compliance-tier topic. Investigate immediately.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "consumer_lag_offsets",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 2000,
+        "window": 300,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "sla_tier", "operator": "EQUALS", "value": "compliance" },
+          { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConnectTaskFailed",
+      "description": "One or more Kafka Connect connector tasks are in FAILED state. Check Connect logs and restart if appropriate.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "connect.connector.failed_count",
+        "conditionOperator": "ABOVE_OR_EQUALS",
+        "conditionValue": 1,
+        "window": 60,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {},
+      "labels": { "team": "fsi-kafka" }
+    },
+    {
+      "name": "ConnectTaskRestartLoop",
+      "description": "A Kafka Connect task has restarted 3 or more times in the last 15 minutes. Investigate root cause to prevent repeated failures.",
+      "severity": 5,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "connect.task.restart_count",
+        "conditionOperator": "ABOVE_OR_EQUALS",
+        "conditionValue": 3,
+        "window": 900,
+        "aggregation": "MAX"
+      },
+      "tagFilterExpression": {},
+      "labels": { "team": "fsi-kafka" }
+    },
+    {
+      "name": "UnderReplicatedPartitions",
+      "description": "Under-replicated partitions detected. This indicates broker health issues or network problems. Investigate immediately.",
+      "severity": 10,
+      "triggering": true,
+      "rule": {
+        "ruleType": "threshold",
+        "metricName": "under_replicated_partitions",
+        "conditionOperator": "ABOVE",
+        "conditionValue": 0,
+        "window": 300,
+        "aggregation": "SUM"
+      },
+      "tagFilterExpression": {
+        "type": "EXPRESSION",
+        "logicalOperator": "AND",
+        "elements": [
+          { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+        ]
+      },
+      "labels": { "team": "fsi-kafka" }
+    }
+  ]
+}

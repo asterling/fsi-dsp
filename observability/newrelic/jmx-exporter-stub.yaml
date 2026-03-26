@@ -1,0 +1,55 @@
+# =============================================================================
+# FSI Kafka Platform -- New Relic JMX Integration Stub
+# =============================================================================
+# New Relic JMX integration stub for CFK/CP deployments.
+# Wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+#
+# Uses the nri-jmx infrastructure integration to collect Kafka broker MBeans.
+# Requires the New Relic Infrastructure agent on the target host.
+# =============================================================================
+
+integrations:
+  - name: nri-jmx
+    env:
+      JMX_HOST: "{{JMX_EXPORTER_HOST}}"
+      JMX_PORT: 9101
+      COLLECTION_FILES: /etc/newrelic-infra/integrations.d/kafka-jmx.yml
+    labels:
+      role: kafka-broker
+      environment: "{{ENVIRONMENT}}"
+
+# ---------------------------------------------------------------------------
+# kafka-jmx.yml collection file content
+# ---------------------------------------------------------------------------
+# Place this content in /etc/newrelic-infra/integrations.d/kafka-jmx.yml
+# on each broker host alongside the nri-jmx integration.
+#
+# collect:
+#   - domain: kafka.server
+#     event_type: KafkaBrokerSample
+#     beans:
+#       - query: "type=ReplicaManager,name=UnderReplicatedPartitions"
+#         attributes:
+#           - Value
+#       - query: "type=BrokerTopicMetrics,name=MessagesInPerSec"
+#         attributes:
+#           - OneMinuteRate
+#           - FiveMinuteRate
+#       - query: "type=ReplicaManager,name=PartitionCount"
+#         attributes:
+#           - Value
+#       - query: "type=BrokerTopicMetrics,name=BytesInPerSec"
+#         attributes:
+#           - OneMinuteRate
+#       - query: "type=BrokerTopicMetrics,name=BytesOutPerSec"
+#         attributes:
+#           - OneMinuteRate
+#   - domain: kafka.controller
+#     event_type: KafkaControllerSample
+#     beans:
+#       - query: "type=KafkaController,name=ActiveControllerCount"
+#         attributes:
+#           - Value
+#       - query: "type=KafkaController,name=OfflinePartitionsCount"
+#         attributes:
+#           - Value

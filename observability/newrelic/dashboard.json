@@ -1,0 +1,345 @@
+{
+  "name": "FSI Kafka Platform - Observability",
+  "description": "FSI Kafka Platform observability dashboard covering cluster health, consumer lag, Connect status, DR readiness, and Flink jobs. Import via NerdGraph dashboardCreate mutation.",
+  "permissions": "PUBLIC_READ_WRITE",
+  "pages": [
+    {
+      "name": "Cluster Health",
+      "description": "Broker metrics, partition health, controller status",
+      "widgets": [
+        {
+          "title": "Broker Count",
+          "layout": { "column": 1, "row": 1, "width": 3, "height": 3 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT uniqueCount(entityName) AS 'Brokers' FROM KafkaBrokerSample WHERE clusterName = '{{CLUSTER_ID}}'"
+              }
+            ],
+            "thresholds": []
+          }
+        },
+        {
+          "title": "Under-Replicated Partitions",
+          "layout": { "column": 4, "row": 1, "width": 3, "height": 3 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(broker.underReplicatedPartitions) AS 'Under-Replicated' FROM KafkaBrokerSample WHERE clusterName = '{{CLUSTER_ID}}'"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "CRITICAL", "value": 1 }
+            ]
+          }
+        },
+        {
+          "title": "Request Rate (5m)",
+          "layout": { "column": 7, "row": 1, "width": 3, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT rate(sum(request_count), 5 MINUTES) AS 'Requests/sec' FROM ConfluentCloudMetric WHERE kafka_id = '{{CLUSTER_ID}}' TIMESERIES"
+              }
+            ],
+            "yAxisLeft": { "zero": true }
+          }
+        },
+        {
+          "title": "Active Controller",
+          "layout": { "column": 10, "row": 1, "width": 3, "height": 3 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(controller.activeControllerCount) AS 'Active Controllers' FROM KafkaBrokerSample WHERE clusterName = '{{CLUSTER_ID}}'"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "CRITICAL", "value": 0 }
+            ]
+          }
+        },
+        {
+          "title": "Partitions per Broker",
+          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.bar" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(partition_count) FROM ConfluentCloudMetric WHERE kafka_id = '{{CLUSTER_ID}}' FACET broker_id"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Active Connections",
+          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT average(active_connection_count) FROM ConfluentCloudMetric WHERE kafka_id = '{{CLUSTER_ID}}' TIMESERIES"
+              }
+            ],
+            "yAxisLeft": { "zero": true }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Consumer Lag",
+      "description": "Consumer group lag by topic with domain prefix auto-discovery",
+      "widgets": [
+        {
+          "title": "Consumer Lag by Group (Records)",
+          "layout": { "column": 1, "row": 1, "width": 8, "height": 4 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' FACET consumerGroup TIMESERIES"
+              }
+            ],
+            "yAxisLeft": { "zero": true },
+            "legend": { "enabled": true },
+            "colors": {
+              "seriesOverrides": []
+            }
+          }
+        },
+        {
+          "title": "SLA Tier Thresholds (Records)",
+          "layout": { "column": 9, "row": 1, "width": 4, "height": 4 },
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Consumer Lag Thresholds\n\n| SLA Tier | Warn | Alert |\n|----------|------|-------|\n| critical | 1,000 | 5,000 |\n| standard | 10,000 | 50,000 |\n| best-effort | 100,000 | 500,000 |\n| compliance | 500 | 2,000 |"
+          }
+        },
+        {
+          "title": "Per-Partition Lag",
+          "layout": { "column": 1, "row": 5, "width": 12, "height": 4 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(consumer.lag) AS 'Lag (records)' FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' FACET consumerGroup, topic, partition"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Connect Status",
+      "description": "Kafka Connect connector state monitoring",
+      "widgets": [
+        {
+          "title": "Connector Status",
+          "layout": { "column": 1, "row": 1, "width": 8, "height": 4 },
+          "visualization": { "id": "viz.table" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(connector.status) AS 'Status', latest(connector.workerID) AS 'Worker' FROM KafkaConnectSample FACET connectorName"
+              }
+            ]
+          }
+        },
+        {
+          "title": "FAILED Connectors",
+          "layout": { "column": 9, "row": 1, "width": 4, "height": 4 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT filter(uniqueCount(connectorName), WHERE connector.status = 'FAILED') AS 'Failed' FROM KafkaConnectSample"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "CRITICAL", "value": 1 }
+            ]
+          }
+        },
+        {
+          "title": "Connector State Distribution",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.pie" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT uniqueCount(connectorName) FROM KafkaConnectSample FACET connector.status"
+              }
+            ],
+            "colors": {
+              "seriesOverrides": [
+                { "seriesName": "RUNNING", "color": "#22C55E" },
+                { "seriesName": "PAUSED", "color": "#EAB308" },
+                { "seriesName": "FAILED", "color": "#EF4444" },
+                { "seriesName": "UNASSIGNED", "color": "#6B7280" }
+              ]
+            }
+          }
+        },
+        {
+          "title": "Task Restart Count (15m)",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT sum(connector.taskRestartCount) FROM KafkaConnectSample FACET connectorName TIMESERIES 15 MINUTES"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "DR Readiness",
+      "description": "Mirror lag per topic, cluster link health, failover readiness",
+      "widgets": [
+        {
+          "title": "Mirror Lag by Topic (Seconds)",
+          "layout": { "column": 1, "row": 1, "width": 8, "height": 4 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' FACET mirrorTopicName TIMESERIES"
+              }
+            ],
+            "yAxisLeft": { "zero": true },
+            "colors": {
+              "seriesOverrides": [
+                { "color": "#3B82F6" }
+              ]
+            }
+          }
+        },
+        {
+          "title": "SLA Tier Thresholds (Seconds)",
+          "layout": { "column": 9, "row": 1, "width": 4, "height": 4 },
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Mirror Lag Thresholds\n\n| SLA Tier | Warn | Alert |\n|----------|------|-------|\n| critical | 30s | 60s |\n| standard | 300s | 900s |\n| best-effort | 3,600s | 14,400s |\n| compliance | 10s | 30s |"
+          }
+        },
+        {
+          "title": "Mirror Topic Offset Lag (Records)",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 4 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(cluster_link_mirror_topic_offset_lag) FROM ConfluentCloudMetric WHERE kafka_id = '{{CLUSTER_ID}}' AND topic LIKE '{{DOMAIN_PREFIX}}%' FACET topic TIMESERIES"
+              }
+            ],
+            "yAxisLeft": { "zero": true },
+            "colors": {
+              "seriesOverrides": [
+                { "color": "#3B82F6" }
+              ]
+            }
+          }
+        },
+        {
+          "title": "Cluster Link State",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 4 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(cluster_link_state) AS 'Link State' FROM ConfluentCloudMetric WHERE kafka_id = '{{CLUSTER_ID}}'"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Flink Jobs",
+      "description": "Flink job metrics - stub for Phase 6 deployment",
+      "widgets": [
+        {
+          "title": "Flink Jobs - Phase 6 Placeholder",
+          "layout": { "column": 1, "row": 1, "width": 12, "height": 3 },
+          "visualization": { "id": "viz.markdown" },
+          "rawConfiguration": {
+            "text": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\nMetrics to be wired:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput"
+          }
+        },
+        {
+          "title": "Job Uptime (Stub)",
+          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(job_uptime) FROM FlinkMetric FACET job_name TIMESERIES"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Checkpoint Alignment Time (Stub)",
+          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT average(checkpointAlignmentTime) FROM FlinkMetric FACET job_name TIMESERIES"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Backpressure (Stub)",
+          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT average(backPressuredTimeMsPerSecond) FROM FlinkMetric FACET job_name, task_name TIMESERIES"
+              }
+            ]
+          }
+        },
+        {
+          "title": "Output Throughput (Stub)",
+          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.line" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT average(numRecordsOutPerSecond) FROM FlinkMetric FACET job_name, task_name TIMESERIES"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

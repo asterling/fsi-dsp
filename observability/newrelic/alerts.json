@@ -1,0 +1,405 @@
+{
+  "name": "FSI Kafka Platform - Alert Conditions",
+  "description": "NRQL alert conditions for FSI Kafka Platform. Import via NerdGraph alertsNrqlConditionStaticCreate mutation.",
+  "conditions": [
+    {
+      "name": "MirrorLagCritical - Warning",
+      "description": "Mirror lag exceeds warn threshold for critical tier (30s). Monitor for further degradation.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'critical'"
+      },
+      "terms": [
+        {
+          "threshold": 30,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "MirrorLagCritical - Alert",
+      "description": "Mirror lag exceeds alert threshold for critical tier (60s). Potential data loss risk. Evaluate failover readiness.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'critical'"
+      },
+      "terms": [
+        {
+          "threshold": 60,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "MirrorLagStandard - Warning",
+      "description": "Mirror lag exceeds warn threshold for standard tier (300s). Monitor for further degradation.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'standard'"
+      },
+      "terms": [
+        {
+          "threshold": 300,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "MirrorLagStandard - Alert",
+      "description": "Mirror lag exceeds alert threshold for standard tier (900s). Potential data loss risk. Evaluate failover readiness.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'standard'"
+      },
+      "terms": [
+        {
+          "threshold": 900,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "MirrorLagBestEffort - Warning",
+      "description": "Mirror lag exceeds warn threshold for best-effort tier (3600s). Monitor for further degradation.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'best-effort'"
+      },
+      "terms": [
+        {
+          "threshold": 3600,
+          "thresholdDuration": 900,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "MirrorLagBestEffort - Alert",
+      "description": "Mirror lag exceeds alert threshold for best-effort tier (14400s). Potential data loss risk. Evaluate failover readiness.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'best-effort'"
+      },
+      "terms": [
+        {
+          "threshold": 14400,
+          "thresholdDuration": 900,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "MirrorLagCompliance - Warning",
+      "description": "Mirror lag exceeds warn threshold for compliance tier (10s). Monitor for further degradation.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'compliance'"
+      },
+      "terms": [
+        {
+          "threshold": 10,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "MirrorLagCompliance - Alert",
+      "description": "Mirror lag exceeds alert threshold for compliance tier (30s). Potential data loss risk. Evaluate failover readiness.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(replication.mirrorLagMs) / 1000 AS 'Mirror Lag (seconds)' FROM KafkaClusterLinkSample WHERE sla_tier = 'compliance'"
+      },
+      "terms": [
+        {
+          "threshold": 30,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConsumerLagCritical - Warning",
+      "description": "Consumer lag exceeds warn threshold (1000 records) for critical-tier topic.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'critical' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 1000,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "ConsumerLagCritical - Alert",
+      "description": "Consumer lag exceeds alert threshold (5000 records) for critical-tier topic. Investigate consumer health.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'critical' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 5000,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "critical" }
+    },
+    {
+      "name": "ConsumerLagStandard - Warning",
+      "description": "Consumer lag exceeds warn threshold (10000 records) for standard-tier topic.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'standard' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 10000,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "ConsumerLagStandard - Alert",
+      "description": "Consumer lag exceeds alert threshold (50000 records) for standard-tier topic. Investigate consumer health.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'standard' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 50000,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "standard" }
+    },
+    {
+      "name": "ConsumerLagBestEffort - Warning",
+      "description": "Consumer lag exceeds warn threshold (100000 records) for best-effort-tier topic.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'best-effort' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 100000,
+          "thresholdDuration": 600,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "ConsumerLagBestEffort - Alert",
+      "description": "Consumer lag exceeds alert threshold (500000 records) for best-effort-tier topic.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'best-effort' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 500000,
+          "thresholdDuration": 600,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "best-effort" }
+    },
+    {
+      "name": "ConsumerLagCompliance - Warning",
+      "description": "Consumer lag exceeds warn threshold (500 records) for compliance-tier topic.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'compliance' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 500,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConsumerLagCompliance - Alert",
+      "description": "Consumer lag exceeds alert threshold (2000 records) for compliance-tier topic. Investigate immediately.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(consumer.totalLag) FROM KafkaConsumerSample WHERE topic LIKE '{{DOMAIN_PREFIX}}%' AND sla_tier = 'compliance' FACET consumerGroup, topic"
+      },
+      "terms": [
+        {
+          "threshold": 2000,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka", "sla_tier": "compliance" }
+    },
+    {
+      "name": "ConnectTaskFailed",
+      "description": "One or more Kafka Connect connector tasks are in FAILED state. Check Connect logs and restart if appropriate.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT filter(uniqueCount(connectorName), WHERE connector.status = 'FAILED') AS 'Failed Connectors' FROM KafkaConnectSample"
+      },
+      "terms": [
+        {
+          "threshold": 0,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka" }
+    },
+    {
+      "name": "ConnectTaskRestartLoop",
+      "description": "A Kafka Connect task has restarted 3 or more times in the last 15 minutes. Investigate root cause to prevent repeated failures.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT max(connector.taskRestartCount) FROM KafkaConnectSample FACET connectorName SINCE 15 MINUTES AGO"
+      },
+      "terms": [
+        {
+          "threshold": 3,
+          "thresholdDuration": 60,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE_OR_EQUALS",
+          "priority": "WARNING"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 900 },
+      "labels": { "team": "fsi-kafka" }
+    },
+    {
+      "name": "UnderReplicatedPartitions",
+      "description": "Under-replicated partitions detected. This indicates broker health issues or network problems. Investigate immediately.",
+      "type": "STATIC",
+      "enabled": true,
+      "nrql": {
+        "query": "SELECT latest(broker.underReplicatedPartitions) FROM KafkaBrokerSample WHERE clusterName = '{{CLUSTER_ID}}'"
+      },
+      "terms": [
+        {
+          "threshold": 0,
+          "thresholdDuration": 300,
+          "thresholdOccurrences": "ALL",
+          "operator": "ABOVE",
+          "priority": "CRITICAL"
+        }
+      ],
+      "violationTimeLimitSeconds": 86400,
+      "signal": { "aggregationWindow": 60 },
+      "labels": { "team": "fsi-kafka" }
+    }
+  ]
+}

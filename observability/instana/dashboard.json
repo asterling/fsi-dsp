@@ -1,0 +1,458 @@
+{
+  "title": "FSI Kafka Platform - Observability",
+  "description": "FSI Kafka Platform observability dashboard covering cluster health, consumer lag, Connect status, DR readiness, and Flink jobs. Import via Instana API POST /api/custom-dashboards.",
+  "accessRules": [
+    { "accessType": "READ_WRITE", "relationType": "GLOBAL" }
+  ],
+  "widgets": [
+    {
+      "id": "cluster-health-broker-count",
+      "title": "Cluster Health: Broker Count",
+      "type": "singleValue",
+      "bounds": { "x": 0, "y": 0, "width": 300, "height": 200 },
+      "metrics": [
+        {
+          "metric": "active_connection_count",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "DISTINCT_COUNT",
+          "groupBy": "entity.host"
+        }
+      ],
+      "config": {
+        "thresholds": [],
+        "description": "Number of active Kafka brokers in the cluster"
+      }
+    },
+    {
+      "id": "cluster-health-under-replicated",
+      "title": "Cluster Health: Under-Replicated Partitions",
+      "type": "threshold",
+      "bounds": { "x": 300, "y": 0, "width": 300, "height": 200 },
+      "metrics": [
+        {
+          "metric": "under_replicated_partitions",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "SUM"
+        }
+      ],
+      "config": {
+        "thresholds": [
+          { "value": 1, "severity": "CRITICAL", "color": "#EF4444" }
+        ],
+        "okColor": "#22C55E",
+        "description": "Under-replicated partitions (0 = healthy). Red if >= 1."
+      }
+    },
+    {
+      "id": "cluster-health-request-rate",
+      "title": "Cluster Health: Request Rate",
+      "type": "timeSeries",
+      "bounds": { "x": 600, "y": 0, "width": 300, "height": 200 },
+      "metrics": [
+        {
+          "metric": "request_count",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "SUM",
+          "rate": true,
+          "rateInterval": 300
+        }
+      ],
+      "config": {
+        "yAxisLabel": "requests/sec",
+        "description": "Kafka broker request rate (produce + fetch + metadata)"
+      }
+    },
+    {
+      "id": "cluster-health-active-controller",
+      "title": "Cluster Health: Active Controller",
+      "type": "singleValue",
+      "bounds": { "x": 900, "y": 0, "width": 300, "height": 200 },
+      "metrics": [
+        {
+          "metric": "active_controller_count",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "SUM"
+        }
+      ],
+      "config": {
+        "thresholds": [
+          { "value": 0, "severity": "CRITICAL", "color": "#EF4444", "operator": "EQUALS" }
+        ],
+        "description": "Active controller count (should be 1)"
+      }
+    },
+    {
+      "id": "cluster-health-partition-count",
+      "title": "Cluster Health: Partitions per Broker",
+      "type": "chart",
+      "bounds": { "x": 0, "y": 200, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "partition_count",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "SUM",
+          "groupBy": "broker_id"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "partitions",
+        "description": "Partition distribution across brokers"
+      }
+    },
+    {
+      "id": "cluster-health-connections",
+      "title": "Cluster Health: Active Connections",
+      "type": "timeSeries",
+      "bounds": { "x": 600, "y": 200, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "active_connection_count",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "MEAN"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "connections",
+        "description": "Active broker connections over time"
+      }
+    },
+    {
+      "id": "consumer-lag-by-group",
+      "title": "Consumer Lag: Records Behind by Group",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 420, "width": 800, "height": 300 },
+      "metrics": [
+        {
+          "metric": "consumer_lag_offsets",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" },
+              { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+            ]
+          },
+          "aggregation": "SUM",
+          "groupBy": "consumer_group_id"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "records behind",
+        "thresholds": [
+          { "value": 1000, "label": "critical-warn", "color": "#EAB308" },
+          { "value": 5000, "label": "critical-alert", "color": "#EF4444" },
+          { "value": 10000, "label": "standard-warn", "color": "#EAB308" },
+          { "value": 50000, "label": "standard-alert", "color": "#EF4444" }
+        ],
+        "description": "Consumer group lag (records) with domain prefix auto-discovery (DOMAIN_PREFIX wildcard)"
+      }
+    },
+    {
+      "id": "consumer-lag-thresholds",
+      "title": "Consumer Lag: SLA Tier Thresholds",
+      "type": "markdown",
+      "bounds": { "x": 800, "y": 420, "width": 400, "height": 300 },
+      "config": {
+        "text": "## Consumer Lag Thresholds\n\n| SLA Tier | Warn | Alert |\n|----------|------|-------|\n| critical | 1,000 | 5,000 |\n| standard | 10,000 | 50,000 |\n| best-effort | 100,000 | 500,000 |\n| compliance | 500 | 2,000 |"
+      }
+    },
+    {
+      "id": "consumer-lag-per-partition",
+      "title": "Consumer Lag: Per-Partition Detail",
+      "type": "table",
+      "bounds": { "x": 0, "y": 720, "width": 1200, "height": 280 },
+      "metrics": [
+        {
+          "metric": "consumer_lag_offsets",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" },
+              { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+            ]
+          },
+          "aggregation": "SUM",
+          "groupBy": ["consumer_group_id", "topic", "partition"]
+        }
+      ],
+      "config": {
+        "columns": ["consumer_group_id", "topic", "partition", "consumer_lag_offsets"],
+        "description": "Per-partition consumer lag for drill-down analysis"
+      }
+    },
+    {
+      "id": "connect-status-table",
+      "title": "Connect Status: Connector State",
+      "type": "table",
+      "bounds": { "x": 0, "y": 1020, "width": 800, "height": 280 },
+      "metrics": [],
+      "dataSource": {
+        "type": "http",
+        "url": "{{CONNECT_REST_URL}}/connectors?expand=status",
+        "method": "GET",
+        "interval": "30s"
+      },
+      "config": {
+        "columns": ["name", "connector.state", "connector.worker_id", "tasks[0].state"],
+        "colorMapping": {
+          "connector.state": {
+            "RUNNING": "#22C55E",
+            "PAUSED": "#EAB308",
+            "FAILED": "#EF4444",
+            "UNASSIGNED": "#6B7280"
+          }
+        },
+        "description": "Connector state via Connect REST API auto-discovery"
+      }
+    },
+    {
+      "id": "connect-status-failed",
+      "title": "Connect Status: FAILED Connectors",
+      "type": "singleValue",
+      "bounds": { "x": 800, "y": 1020, "width": 400, "height": 140 },
+      "metrics": [],
+      "dataSource": {
+        "type": "http",
+        "url": "{{CONNECT_REST_URL}}/connectors?expand=status",
+        "method": "GET",
+        "interval": "30s",
+        "transform": "filter(status.connector.state == 'FAILED').length"
+      },
+      "config": {
+        "thresholds": [
+          { "value": 1, "severity": "CRITICAL", "color": "#EF4444" }
+        ],
+        "okColor": "#22C55E",
+        "description": "Count of connectors in FAILED state"
+      }
+    },
+    {
+      "id": "connect-status-distribution",
+      "title": "Connect Status: State Distribution",
+      "type": "chart",
+      "bounds": { "x": 800, "y": 1160, "width": 400, "height": 140 },
+      "metrics": [],
+      "dataSource": {
+        "type": "http",
+        "url": "{{CONNECT_REST_URL}}/connectors?expand=status",
+        "method": "GET",
+        "interval": "30s",
+        "transform": "groupBy(status.connector.state).count()"
+      },
+      "config": {
+        "colorMapping": {
+          "RUNNING": "#22C55E",
+          "PAUSED": "#EAB308",
+          "FAILED": "#EF4444",
+          "UNASSIGNED": "#6B7280"
+        },
+        "description": "Distribution of connector states"
+      }
+    },
+    {
+      "id": "dr-readiness-mirror-lag",
+      "title": "DR Readiness: Mirror Lag (Seconds)",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 1320, "width": 800, "height": 300 },
+      "metrics": [
+        {
+          "metric": "cluster_link_mirror_topic_offset_lag",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" },
+              { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+            ]
+          },
+          "aggregation": "MAX",
+          "groupBy": "topic",
+          "transform": "divide(1000)"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "seconds",
+        "thresholds": [
+          { "value": 30, "label": "critical-warn", "color": "#EAB308" },
+          { "value": 60, "label": "critical-alert", "color": "#EF4444" },
+          { "value": 300, "label": "standard-warn", "color": "#EAB308" },
+          { "value": 900, "label": "standard-alert", "color": "#EF4444" }
+        ],
+        "seriesColor": "#3B82F6",
+        "description": "Mirror lag per topic in seconds with SLA tier threshold lines"
+      }
+    },
+    {
+      "id": "dr-readiness-thresholds",
+      "title": "DR Readiness: SLA Tier Thresholds",
+      "type": "markdown",
+      "bounds": { "x": 800, "y": 1320, "width": 400, "height": 300 },
+      "config": {
+        "text": "## Mirror Lag Thresholds\n\n| SLA Tier | Warn | Alert |\n|----------|------|-------|\n| critical | 30s | 60s |\n| standard | 300s | 900s |\n| best-effort | 3,600s | 14,400s |\n| compliance | 10s | 30s |"
+      }
+    },
+    {
+      "id": "dr-readiness-offset-lag",
+      "title": "DR Readiness: Offset Lag (Records)",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 1620, "width": 600, "height": 260 },
+      "metrics": [
+        {
+          "metric": "cluster_link_mirror_topic_offset_lag",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" },
+              { "name": "topic", "operator": "STARTS_WITH", "value": "{{DOMAIN_PREFIX}}" }
+            ]
+          },
+          "aggregation": "MAX",
+          "groupBy": "topic"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "records",
+        "seriesColor": "#3B82F6",
+        "description": "Mirror topic offset lag in records"
+      }
+    },
+    {
+      "id": "dr-readiness-link-state",
+      "title": "DR Readiness: Cluster Link State",
+      "type": "singleValue",
+      "bounds": { "x": 600, "y": 1620, "width": 600, "height": 260 },
+      "metrics": [
+        {
+          "metric": "cluster_link_state",
+          "tagFilterExpression": {
+            "type": "EXPRESSION",
+            "logicalOperator": "AND",
+            "elements": [
+              { "name": "kafka_id", "operator": "EQUALS", "value": "{{CLUSTER_ID}}" }
+            ]
+          },
+          "aggregation": "MAX"
+        }
+      ],
+      "config": {
+        "description": "Cluster link active/inactive state"
+      }
+    },
+    {
+      "id": "flink-jobs-placeholder",
+      "title": "Flink Jobs: Phase 6 Placeholder",
+      "type": "markdown",
+      "bounds": { "x": 0, "y": 1900, "width": 1200, "height": 150 },
+      "config": {
+        "text": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\nMetrics to be wired:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput",
+        "backgroundColor": "#6B7280"
+      }
+    },
+    {
+      "id": "flink-jobs-uptime-stub",
+      "title": "Flink Jobs: Job Uptime (Stub)",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 2050, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "flink_job_uptime",
+          "aggregation": "MAX",
+          "groupBy": "job_name"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "ms",
+        "description": "Flink job uptime (stub -- wired in Phase 6)"
+      }
+    },
+    {
+      "id": "flink-jobs-checkpoint-stub",
+      "title": "Flink Jobs: Checkpoint Alignment (Stub)",
+      "type": "timeSeries",
+      "bounds": { "x": 600, "y": 2050, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "checkpoint_alignment_time",
+          "aggregation": "MEAN",
+          "groupBy": "job_name"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "ms",
+        "description": "Flink checkpoint alignment time (stub -- wired in Phase 6)"
+      }
+    },
+    {
+      "id": "flink-jobs-backpressure-stub",
+      "title": "Flink Jobs: Backpressure (Stub)",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 2250, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "back_pressured_time",
+          "aggregation": "MEAN",
+          "groupBy": ["job_name", "task_name"]
+        }
+      ],
+      "config": {
+        "yAxisLabel": "ms/s",
+        "description": "Flink backpressure time (stub -- wired in Phase 6)"
+      }
+    },
+    {
+      "id": "flink-jobs-throughput-stub",
+      "title": "Flink Jobs: Output Throughput (Stub)",
+      "type": "timeSeries",
+      "bounds": { "x": 600, "y": 2250, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "records_out_per_second",
+          "aggregation": "MEAN",
+          "groupBy": ["job_name", "task_name"]
+        }
+      ],
+      "config": {
+        "yAxisLabel": "records/sec",
+        "description": "Flink output throughput (stub -- wired in Phase 6)"
+      }
+    }
+  ]
+}

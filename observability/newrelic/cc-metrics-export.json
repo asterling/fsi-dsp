@@ -1,0 +1,19 @@
+{
+  "name": "Confluent Cloud Metrics",
+  "description": "New Relic Flex integration config for Confluent Cloud Metrics API. Configure via New Relic Infrastructure agent Flex integration or Confluent Cloud integration tile.",
+  "type": "flex",
+  "config": {
+    "apis": [
+      {
+        "name": "ConfluentCloudMetrics",
+        "url": "https://api.telemetry.confluent.cloud/v2/metrics/cloud/export?resource.kafka.id={{CLUSTER_ID}}",
+        "headers": {
+          "Authorization": "Basic {{CC_METRICS_API_KEY_BASE64}}"
+        },
+        "interval": "60s",
+        "timeout": "30s"
+      }
+    ]
+  },
+  "note": "Configure via New Relic Infrastructure agent Flex integration or Confluent Cloud integration tile. The CC_METRICS_API_KEY_BASE64 value is the Base64 encoding of CC_METRICS_API_KEY:CC_METRICS_API_SECRET."
+}

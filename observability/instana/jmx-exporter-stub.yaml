@@ -1,0 +1,35 @@
+# =============================================================================
+# FSI Kafka Platform -- Instana JMX Sensor Stub
+# =============================================================================
+# Instana JMX sensor stub for CFK/CP deployments.
+# Wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+#
+# Instana auto-discovers JMX MBeans via its Java agent. This config defines
+# which MBeans to monitor explicitly for Kafka broker health metrics.
+# =============================================================================
+
+com.instana.plugin.kafka:
+  host: "{{JMX_EXPORTER_HOST}}"
+  port: 9101
+  custom_mbeans:
+    - object_name: "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions"
+      attribute: "Value"
+      metric_name: "under_replicated_partitions"
+    - object_name: "kafka.server:type=BrokerTopicMetrics,name=MessagesInPerSec"
+      attribute: "OneMinuteRate"
+      metric_name: "messages_in_per_sec"
+    - object_name: "kafka.controller:type=KafkaController,name=ActiveControllerCount"
+      attribute: "Value"
+      metric_name: "active_controller_count"
+    - object_name: "kafka.server:type=ReplicaManager,name=PartitionCount"
+      attribute: "Value"
+      metric_name: "partition_count"
+    - object_name: "kafka.server:type=BrokerTopicMetrics,name=BytesInPerSec"
+      attribute: "OneMinuteRate"
+      metric_name: "bytes_in_per_sec"
+    - object_name: "kafka.server:type=BrokerTopicMetrics,name=BytesOutPerSec"
+      attribute: "OneMinuteRate"
+      metric_name: "bytes_out_per_sec"
+    - object_name: "kafka.controller:type=KafkaController,name=OfflinePartitionsCount"
+      attribute: "Value"
+      metric_name: "offline_partitions_count"
