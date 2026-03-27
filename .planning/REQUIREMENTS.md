@@ -64,11 +64,11 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ### Flink
 
-- [ ] **FLINK-01**: CC Flink compute pool provisioned via Terraform (`confluent_flink_compute_pool`, `confluent_flink_statement`)
+- [x] **FLINK-01**: CC Flink compute pool provisioned via Terraform (`confluent_flink_compute_pool`, `confluent_flink_statement`)
 - [ ] **FLINK-02**: CFK Flink deployed via Flink Kubernetes Operator Helm chart on OpenShift
 - [ ] **FLINK-03**: CP standalone Flink deployed via Ansible roles with systemd service management
 - [x] **FLINK-04**: Flink SQL reference templates for tumbling window aggregation, stream-table join enrichment, and filter-and-route patterns
-- [ ] **FLINK-05**: Flink integrates with Schema Registry for Avro serde (CC Flink auto-discovers SR subjects; CFK/CP uses Flink Avro format connector)
+- [x] **FLINK-05**: Flink integrates with Schema Registry for Avro serde (CC Flink auto-discovers SR subjects; CFK/CP uses Flink Avro format connector)
 - [ ] **FLINK-06**: Flink job metrics (checkpoint duration, backpressure, throughput) exported to each provider's dashboard templates
 - [x] **FLINK-07**: Flink dead letter handling routes deserialization failures to `{topic}.dlq` topics via CC Flink error-handling.mode table properties
 
@@ -183,11 +183,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OBS-08 | Phase 5 | Complete |
 | OBS-09 | Phase 5 | Complete |
 | OBS-10 | Phase 5 | Complete |
-| FLINK-01 | Phase 6 | Pending |
+| FLINK-01 | Phase 6 | Complete |
 | FLINK-02 | Phase 8 | Pending |
 | FLINK-03 | Phase 9 | Pending |
 | FLINK-04 | Phase 6 | Complete |
-| FLINK-05 | Phase 6 | Pending |
+| FLINK-05 | Phase 6 | Complete |
 | FLINK-06 | Phase 6 | Pending |
 | FLINK-07 | Phase 6 | Complete |
 | ONBOARD-01 | Phase 7 | Pending |
