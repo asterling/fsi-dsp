@@ -117,8 +117,8 @@ Plans:
   1. Operator can provision a CC Flink compute pool and submit Flink SQL statements via Terraform
   2. Reference SQL templates exist for tumbling window aggregation, stream-table join enrichment, and filter-and-route patterns
   3. Flink auto-discovers Schema Registry subjects for Avro serde in CC deployments
-  4. Flink job metrics (checkpoint duration, backpressure, throughput) appear in observability provider dashboards
-  5. Deserialization and processing failures route to `{topic}.dlq` topics via Flink side output pattern
+  4. Flink job metrics (pending records for backpressure, records throughput) appear in observability provider dashboards
+  5. Deserialization failures route to `{topic}.dlq` topics via CC Flink error-handling.mode table properties
 **Plans**: 3 plans
 
 Plans:

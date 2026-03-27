@@ -70,7 +70,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [ ] **FLINK-04**: Flink SQL reference templates for tumbling window aggregation, stream-table join enrichment, and filter-and-route patterns
 - [ ] **FLINK-05**: Flink integrates with Schema Registry for Avro serde (CC Flink auto-discovers SR subjects; CFK/CP uses Flink Avro format connector)
 - [ ] **FLINK-06**: Flink job metrics (checkpoint duration, backpressure, throughput) exported to each provider's dashboard templates
-- [ ] **FLINK-07**: Flink dead letter handling routes deserialization/processing failures to `{topic}.dlq` topics via side output pattern
+- [ ] **FLINK-07**: Flink dead letter handling routes deserialization failures to `{topic}.dlq` topics via CC Flink error-handling.mode table properties
 
 ### Onboarding
 
@@ -211,4 +211,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-21 after roadmap creation*
+*Last updated: 2026-03-26 after Phase 6 plan revision (FLINK-07 wording update)*
