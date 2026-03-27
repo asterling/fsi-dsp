@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 07-02-PLAN.md
-last_updated: "2026-03-27T14:42:32.244Z"
+stopped_at: Completed 07-03-PLAN.md
+last_updated: "2026-03-27T16:06:30.317Z"
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
 ---
 
 # Project State
@@ -66,6 +66,7 @@ Plan: 3 of 3
 | Phase 06 P03 | 17min | 2 tasks | 9 files |
 | Phase 07 P01 | 3min | 2 tasks | 4 files |
 | Phase 07 P02 | 6min | 2 tasks | 11 files |
+| Phase 07 P03 | 4min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -140,6 +141,10 @@ Recent decisions affecting current work:
 - [Phase 07]: Python uses modern AvroSerializer/AvroDeserializer API (not deprecated AvroProducer/AvroConsumer)
 - [Phase 07]: DLQ handler uses separate raw-bytes producer in all 3 languages to avoid serialization coupling
 - [Phase 07]: Per-language idiomatic DLQ observability: Java JMX, Python Prometheus, .NET public property
+- [Phase 07]: Flink connector version 3.2.0-1.20 chosen over 3.4.0-1.20 for Kafka 3.6/7.6 protocol compatibility
+- [Phase 07]: Flink UI mapped to port 8085 (8081 taken by Schema Registry)
+- [Phase 07]: RBAC denial test uses ACL authorizer with ANONYMOUS super user + DENY ACL on separate topic
+- [Phase 07]: Docker Compose Flink services opt-in via --profile flink (default startup unchanged)
 
 ### Pending Todos
 
@@ -154,6 +159,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T14:42:32.242Z
-Stopped at: Completed 07-02-PLAN.md
+Last session: 2026-03-27T16:06:30.315Z
+Stopped at: Completed 07-03-PLAN.md
 Resume file: None

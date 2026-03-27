@@ -77,8 +77,8 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [x] **ONBOARD-01**: Generic FSI intake form template includes deployment model selection field and removes all client-specific references
 - [x] **ONBOARD-02**: C4E review automation in CI validates naming, schema compat, RBAC completeness, and SLA tier before human review gate
 - [x] **ONBOARD-03**: Python reference producer/consumer using confluent-kafka-python added alongside existing Java and .NET
-- [ ] **ONBOARD-04**: Integration test suite covers error paths: serialization failure, RBAC denial, schema incompatibility, and broker failure
-- [ ] **ONBOARD-05**: Local dev Docker Compose extended to include Flink for stream processing development and testing
+- [x] **ONBOARD-04**: Integration test suite covers error paths: serialization failure, RBAC denial, schema incompatibility, and broker failure
+- [x] **ONBOARD-05**: Local dev Docker Compose extended to include Flink for stream processing development and testing
 - [x] **ONBOARD-06**: DLQ pattern in reference producers (Java, .NET, Python) with exponential backoff retry, error categorization, and JMX metrics
 
 ### Compliance
@@ -193,8 +193,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ONBOARD-01 | Phase 7 | Complete |
 | ONBOARD-02 | Phase 7 | Complete |
 | ONBOARD-03 | Phase 7 | Complete |
-| ONBOARD-04 | Phase 7 | Pending |
-| ONBOARD-05 | Phase 7 | Pending |
+| ONBOARD-04 | Phase 7 | Complete |
+| ONBOARD-05 | Phase 7 | Complete |
 | ONBOARD-06 | Phase 7 | Complete |
 | COMP-01 | Phase 3 | Complete |
 | COMP-02 | Phase 3 | Complete |
