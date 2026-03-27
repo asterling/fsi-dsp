@@ -1,0 +1,197 @@
+name: New Topic Request
+description: Request a new Kafka topic via the C4E
+labels: ["topic-request", "c4e-review"]
+body:
+  # ── Topic Identity ──
+  - type: markdown
+    attributes:
+      value: "## Topic Identity"
+
+  - type: input
+    id: domain
+    attributes:
+      label: Domain
+      description: "Business domain that owns this topic"
+      placeholder: "e.g., corebanking, fraud, compliance"
+    validations:
+      required: true
+
+  - type: input
+    id: application
+    attributes:
+      label: Application
+      description: "Application within the domain"
+      placeholder: "e.g., transactions, detection, screening"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "Schema version identifier"
+      placeholder: "e.g., v1"
+    validations:
+      required: true
+
+  - type: input
+    id: entity
+    attributes:
+      label: Entity
+      description: "The data entity this topic carries"
+      placeholder: "e.g., account-transaction, alert-signal"
+    validations:
+      required: true
+
+  # ── Governance ──
+  - type: markdown
+    attributes:
+      value: "## Governance"
+
+  - type: dropdown
+    id: deployment-model
+    attributes:
+      label: Deployment Model
+      description: "Target deployment model for this topic"
+      options:
+        - Confluent Cloud - AWS
+        - Confluent Cloud - Azure
+        - Confluent Cloud - GCP
+        - Confluent for Kubernetes (OpenShift)
+        - Confluent Platform (RHEL)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sla-tier
+    attributes:
+      label: SLA Tier
+      description: "Determines compatibility mode, partition count, retention, and DR priority"
+      options:
+        - critical
+        - standard
+        - best-effort
+        - compliance
+    validations:
+      required: true
+
+  - type: dropdown
+    id: data-classification
+    attributes:
+      label: Data Classification
+      description: "Data classification per FSI policy"
+      options:
+        - public
+        - internal
+        - confidential
+    validations:
+      required: true
+
+  - type: input
+    id: owner-email
+    attributes:
+      label: Owner Email
+      description: "Team email responsible for this topic"
+      placeholder: "e.g., corebanking-team@fsi.org"
+    validations:
+      required: true
+
+  # ── Access Control ──
+  - type: markdown
+    attributes:
+      value: "## Access Control"
+
+  - type: textarea
+    id: producer-service-accounts
+    attributes:
+      label: Producer Service Accounts
+      description: "Service accounts that produce to this topic"
+      placeholder: "One service account per line"
+    validations:
+      required: true
+
+  - type: textarea
+    id: consumer-service-accounts
+    attributes:
+      label: Consumer Service Accounts
+      description: "Service accounts that consume from this topic"
+      placeholder: "One service account per line"
+    validations:
+      required: true
+
+  # ── Schema ──
+  - type: markdown
+    attributes:
+      value: "## Schema"
+
+  - type: input
+    id: pii-fields
+    attributes:
+      label: PII Fields
+      description: "Comma-separated field names containing PII, or 'none'"
+      placeholder: "Comma-separated field names, or 'none'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: schema-file
+    attributes:
+      label: Avro Schema (.avsc)
+      description: "Paste your Avro schema JSON or attach as file"
+      render: json
+    validations:
+      required: true
+
+  # ── Flink (Optional) ──
+  - type: markdown
+    attributes:
+      value: "## Flink (Optional)"
+
+  - type: dropdown
+    id: flink-required
+    attributes:
+      label: Flink Processing Required
+      description: "Does this topic require Flink stream processing?"
+      options:
+        - "No"
+        - "Yes"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: flink-compute-pool-cfu
+    attributes:
+      label: Flink Compute Pool Size (CFU)
+      description: "Confluent Flink Units for the compute pool (CC only)"
+      options:
+        - "5"
+        - "10"
+        - "20"
+        - "30"
+        - "40"
+        - "50"
+    validations:
+      required: false
+
+  - type: textarea
+    id: flink-sql-statements
+    attributes:
+      label: Flink SQL Statements
+      description: "Flink SQL statements to deploy (if applicable)"
+      render: sql
+    validations:
+      required: false
+
+  # ── Special Requirements ──
+  - type: markdown
+    attributes:
+      value: "## Special Requirements"
+
+  - type: textarea
+    id: special-requirements
+    attributes:
+      label: Special Requirements
+      description: "Any custom configuration or exceptions"
+      placeholder: "Custom retention, compaction, compatibility override with ADR/JIRA reference, etc."
+    validations:
+      required: false

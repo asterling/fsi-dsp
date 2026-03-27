@@ -1,11 +1,12 @@
+<!-- DEPRECATED: Replaced by new-topic-request.yml (GitHub issue form). Kept for reference. -->
 ---
-name: New Topic Request
-about: Request a new Kafka topic via the C4E
+name: New Topic Request (Legacy)
+about: "[DEPRECATED] Request a new Kafka topic via the C4E — use the new form instead"
 ---
 
 ## Topic Identity
-- **Domain:** (e.g., cncb, rtfd, ofac, eventgrid)
-- **Application:** (e.g., core, alerts, screening)
+- **Domain:** (e.g., corebanking, fraud, compliance)
+- **Application:** (e.g., transactions, detection, screening)
 - **Version:** (e.g., v1)
 - **Entity:** (e.g., account-transaction)
 
