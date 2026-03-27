@@ -13,7 +13,12 @@
 #   Kafka bootstrap:   localhost:9092
 #   Schema Registry:   http://localhost:8081
 #   Connect REST API:  http://localhost:8083
+#   Flink UI:          http://localhost:8085 (with --profile flink)
 #   Control Center:    http://localhost:9021 (optional)
+#
+# Flink (optional):
+#   docker compose --profile flink up -d
+#   docker exec -it fsi-flink-sql-client /opt/flink/bin/sql-client.sh
 # =============================================================================
 
 services:
@@ -105,3 +110,72 @@ services:
       timeout: 10s
       retries: 10
       start_period: 60s
+
+  # -- Flink (optional -- use --profile flink) --
+
+  flink-jobmanager:
+    build:
+      context: ./flink-sql
+      dockerfile: Dockerfile
+    hostname: flink-jobmanager
+    container_name: fsi-flink-jobmanager
+    depends_on:
+      broker:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    ports:
+      - "8085:8081"
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+        execution.checkpointing.interval: 60000
+    command: jobmanager
+    healthcheck:
+      test: curl -f http://localhost:8081/overview || exit 1
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    profiles:
+      - flink
+
+  flink-taskmanager:
+    build:
+      context: ./flink-sql
+      dockerfile: Dockerfile
+    hostname: flink-taskmanager
+    container_name: fsi-flink-taskmanager
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+        state.checkpoints.dir: file:///tmp/flink-checkpoints
+        state.savepoints.dir: file:///tmp/flink-savepoints
+    command: taskmanager
+    profiles:
+      - flink
+
+  flink-sql-client:
+    build:
+      context: ./flink-sql
+      dockerfile: Dockerfile
+    hostname: flink-sql-client
+    container_name: fsi-flink-sql-client
+    depends_on:
+      flink-jobmanager:
+        condition: service_healthy
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        execution.target: remote
+        rest.address: flink-jobmanager
+        rest.port: 8081
+    command: sleep infinity
+    profiles:
+      - flink
