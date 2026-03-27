@@ -47,10 +47,10 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Shared module library consumed by all scenarios (topic, schema, RBAC, observability) — Validated in Phase 1
 
 **Flink Runtime:**
-- [ ] Flink cluster deployment per scenario (CC Flink, CFK Flink, standalone Flink)
-- [ ] Flink SQL reference job templates (windowing, enrichment, filtering)
-- [ ] Flink integration with Schema Registry (Avro serde)
-- [ ] Flink observability integration (metrics export per provider)
+- [x] Flink cluster deployment per scenario (CC Flink, CFK Flink, standalone Flink) — Validated in Phase 6 (CC Flink compute pool module + scenario wiring)
+- [x] Flink SQL reference job templates (windowing, enrichment, filtering) — Validated in Phase 6
+- [x] Flink integration with Schema Registry (Avro serde) — Validated in Phase 6 (SR auto-discovery, no manual CREATE TABLE)
+- [x] Flink observability integration (metrics export per provider) — Validated in Phase 6
 
 **DR Framework:**
 - [x] Pluggable DR abstraction — unified failover CLI with backend adapters — Validated in Phase 4
@@ -136,7 +136,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 |----------|-----------|---------|
 | Scenario directories over CLI | Lower barrier to entry, teams browse and pick | ✓ Good — Phase 2 delivered 3 scenarios |
 | Per-provider observability templates | Simpler to maintain, each FSI has one provider | ✓ Good — Phase 5 delivered 6 providers |
-| Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | — Pending |
+| Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | ✓ Good — Phase 6 delivered CC Flink module + 3 SQL templates |
 | DR framework with pluggable backends | Same CLI/UX regardless of deployment model | — Pending |
 | MRC 2.5-cluster for RPO=0 | FSI compliance may require zero data loss | — Pending |
 | Avro over Protobuf (existing ADR-001) | FSI ecosystem alignment, SR compatibility | ✓ Good |
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after Phase 5 completion — Observability templates for 6 providers (Dynatrace, Grafana, Datadog, Splunk, New Relic, Instana) with SLA-tier alerting, auto-discovery, and metrics export*
+*Last updated: 2026-03-27 after Phase 6 completion — Flink on Confluent Cloud: reusable Terraform module for compute pools + SQL statements, 3 FSI reference SQL templates, real CC Flink metrics wired into all 6 observability providers*
