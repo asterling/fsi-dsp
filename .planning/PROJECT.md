@@ -41,7 +41,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Confluent Cloud on AWS scenario directory with Terraform modules — Validated in Phase 2
 - [x] Confluent Cloud on Azure scenario directory with Terraform modules — Validated in Phase 2
 - [x] Confluent Cloud on GCP scenario directory with Terraform modules — Validated in Phase 2
-- [ ] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests
+- [x] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests — Validated in Phase 8
 - [ ] Confluent Platform on RHEL scenario with Ansible/systemd deployment
 - [ ] Confluent Private Cloud scenario directory
 - [x] Shared module library consumed by all scenarios (topic, schema, RBAC, observability) — Validated in Phase 1
@@ -55,7 +55,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 **DR Framework:**
 - [x] Pluggable DR abstraction — unified failover CLI with backend adapters — Validated in Phase 4
 - [x] CC backend: Cluster Linking with automated failover/failback — Validated in Phase 4
-- [ ] CFK/CP backend: MirrorMaker 2 with automated failover/failback
+- [x] CFK/CP backend: MirrorMaker 2 with automated failover/failback — Validated in Phase 8
 - [ ] MRC with automatic observer promotion (2.5-cluster pattern) for RPO=0
 - [x] Orchestrated failover script replacing 6 manual steps with single command — Validated in Phase 4
 - [x] Dry-run mode for all DR operations — Validated in Phase 4
@@ -137,7 +137,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 | Scenario directories over CLI | Lower barrier to entry, teams browse and pick | ✓ Good — Phase 2 delivered 3 scenarios |
 | Per-provider observability templates | Simpler to maintain, each FSI has one provider | ✓ Good — Phase 5 delivered 6 providers |
 | Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | ✓ Good — Phase 6 delivered CC Flink module + 3 SQL templates |
-| DR framework with pluggable backends | Same CLI/UX regardless of deployment model | — Pending |
+| DR framework with pluggable backends | Same CLI/UX regardless of deployment model | ✓ Good — Phase 4 CL + Phase 8 MM2 |
 | MRC 2.5-cluster for RPO=0 | FSI compliance may require zero data loss | — Pending |
 | Avro over Protobuf (existing ADR-001) | FSI ecosystem alignment, SR compatibility | ✓ Good |
 | Consul for service discovery (existing ADR-003) | Atomic failover across Kafka/SR/DB | ✓ Good |
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after Phase 7 completion — Onboarding & DX: structured intake form, C4E pre-check automation (5 categories), Python reference producer/consumer, DLQ handlers in all 3 languages, error-path integration tests, Flink local dev environment*
+*Last updated: 2026-03-27 after Phase 8 completion — CFK on OpenShift: scenario directory with Helm values, KafkaTopic CRDs with governance parity, MM2 DR backend (5 functions), Flink Kubernetes Operator with FlinkDeployment CRDs, JMX observability*
