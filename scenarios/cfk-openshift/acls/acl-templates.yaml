@@ -1,0 +1,146 @@
+# =============================================================================
+# ACL Templates -- CFK on OpenShift
+# =============================================================================
+# Reference ACL definitions mapping to CC DeveloperWrite/DeveloperRead role
+# bindings. CI validates all declared topics have matching ACL entries.
+#
+# CFK uses authorization.type: simple (Kafka ACLs). These templates define
+# the same producer/consumer access control patterns as CC scenarios.
+#
+# For MDS/Confluent RBAC (CC-equivalent role bindings), see
+# acl-mds-alternative.yaml.
+# =============================================================================
+
+# -- Producer ACLs (DeveloperWrite equivalent) --
+#
+# Grants: WRITE + DESCRIBE on TOPIC, WRITE + DESCRIBE on TRANSACTIONAL_ID
+# for idempotent producers.
+#
+# Usage: Replace {principal} and {topic} with actual values.
+
+producer_acls:
+  - principal: "User:sa-corebanking-producer"
+    resource_type: TOPIC
+    resource_name: "corebanking.transactions.v1.account-transaction"
+    pattern_type: LITERAL
+    operations:
+      - WRITE
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-corebanking-producer"
+    resource_type: TRANSACTIONAL_ID
+    resource_name: "sa-corebanking-producer-"
+    pattern_type: PREFIXED
+    operations:
+      - WRITE
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-fraud-producer"
+    resource_type: TOPIC
+    resource_name: "fraud.alerts.v1.signal"
+    pattern_type: LITERAL
+    operations:
+      - WRITE
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-compliance-producer"
+    resource_type: TOPIC
+    resource_name: "compliance.screening.v1.result"
+    pattern_type: LITERAL
+    operations:
+      - WRITE
+      - DESCRIBE
+    permission: ALLOW
+
+# -- Consumer ACLs (DeveloperRead equivalent) --
+#
+# Grants: READ + DESCRIBE on TOPIC, READ + DESCRIBE on GROUP.
+
+consumer_acls:
+  - principal: "User:sa-corebanking-consumer"
+    resource_type: TOPIC
+    resource_name: "corebanking.transactions.v1.account-transaction"
+    pattern_type: LITERAL
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-corebanking-consumer"
+    resource_type: GROUP
+    resource_name: "sa-corebanking-consumer-"
+    pattern_type: PREFIXED
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-fraud-investigator"
+    resource_type: TOPIC
+    resource_name: "fraud.alerts.v1.signal"
+    pattern_type: LITERAL
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-fraud-investigator"
+    resource_type: GROUP
+    resource_name: "sa-fraud-investigator-"
+    pattern_type: PREFIXED
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-compliance-reviewer"
+    resource_type: TOPIC
+    resource_name: "compliance.screening.v1.result"
+    pattern_type: LITERAL
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+  - principal: "User:sa-compliance-reviewer"
+    resource_type: GROUP
+    resource_name: "sa-compliance-reviewer-"
+    pattern_type: PREFIXED
+    operations:
+      - READ
+      - DESCRIBE
+    permission: ALLOW
+
+# =============================================================================
+# Applying ACLs via kafka-acls CLI
+# =============================================================================
+#
+# Producer ACL example:
+#   kafka-acls --bootstrap-server kafka:9092 \
+#     --command-config client.properties \
+#     --add \
+#     --allow-principal User:sa-corebanking-producer \
+#     --operation Write --operation Describe \
+#     --topic corebanking.transactions.v1.account-transaction
+#
+# Consumer ACL example:
+#   kafka-acls --bootstrap-server kafka:9092 \
+#     --command-config client.properties \
+#     --add \
+#     --allow-principal User:sa-corebanking-consumer \
+#     --operation Read --operation Describe \
+#     --topic corebanking.transactions.v1.account-transaction
+#
+#   kafka-acls --bootstrap-server kafka:9092 \
+#     --command-config client.properties \
+#     --add \
+#     --allow-principal User:sa-corebanking-consumer \
+#     --operation Read --operation Describe \
+#     --group sa-corebanking-consumer- --resource-pattern-type prefixed
+#
+# Maps to CC DeveloperWrite/DeveloperRead role bindings. CI validates all
+# declared topics have matching ACL entries.
+# =============================================================================

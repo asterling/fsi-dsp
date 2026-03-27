@@ -1,0 +1,25 @@
+# =============================================================================
+# KafkaTopic CRD -- Fraud Alert Signal (Critical Tier)
+# =============================================================================
+# Critical tier defaults: 12 partitions, 7-day retention.
+# See modules/topic/main.tf for CC tier mappings.
+# =============================================================================
+
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: fraud.alerts.v1.signal
+  namespace: confluent
+  labels:
+    fsi.sla-tier: critical
+    fsi.domain: fraud
+    fsi.owner: fraud-team@fsi.org
+    fsi.data-classification: internal
+spec:
+  replicas: 3
+  partitionCount: 12
+  kafkaClusterRef:
+    name: kafka
+  configs:
+    cleanup.policy: "delete"
+    retention.ms: "604800000"

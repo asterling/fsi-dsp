@@ -1,0 +1,48 @@
+# =============================================================================
+# MirrorCheckpointConnector -- MM2 Consumer Offset Sync
+# =============================================================================
+# Syncs consumer offsets from East to West for failover. Consumers use
+# RemoteClusterUtils to translate offsets when failing over to DR cluster.
+#
+# Emits checkpoints every 30 seconds to the {source-alias}.checkpoints.internal
+# topic on the target cluster. These checkpoints contain translated consumer
+# group offsets that allow consumers to resume from the correct position
+# after failover.
+# =============================================================================
+
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: mm2-checkpoint-east-west
+  namespace: confluent
+spec:
+  class: org.apache.kafka.connect.mirror.MirrorCheckpointConnector
+  taskMax: 1
+  connectClusterRef:
+    name: connect-mm2
+  configs:
+    # -- Cluster aliases --
+    source.cluster.alias: "east"
+    target.cluster.alias: "west"
+
+    # -- Bootstrap servers --
+    source.cluster.bootstrap.servers: "{{EAST_BOOTSTRAP}}"
+    target.cluster.bootstrap.servers: "kafka.confluent.svc.cluster.local:9092"
+
+    # -- Checkpoint settings --
+    emit.checkpoints.enabled: "true"
+    emit.checkpoints.interval.seconds: "30"
+
+    # -- mTLS authentication for source cluster --
+    source.cluster.security.protocol: "SSL"
+    source.cluster.ssl.keystore.location: "/mnt/secrets/source/keystore.jks"
+    source.cluster.ssl.keystore.password: "${file:/mnt/secrets/source/credentials:keystore.password}"
+    source.cluster.ssl.truststore.location: "/mnt/secrets/source/truststore.jks"
+    source.cluster.ssl.truststore.password: "${file:/mnt/secrets/source/credentials:truststore.password}"
+
+    # -- mTLS authentication for target cluster --
+    target.cluster.security.protocol: "SSL"
+    target.cluster.ssl.keystore.location: "/mnt/secrets/target/keystore.jks"
+    target.cluster.ssl.keystore.password: "${file:/mnt/secrets/target/credentials:keystore.password}"
+    target.cluster.ssl.truststore.location: "/mnt/secrets/target/truststore.jks"
+    target.cluster.ssl.truststore.password: "${file:/mnt/secrets/target/credentials:truststore.password}"

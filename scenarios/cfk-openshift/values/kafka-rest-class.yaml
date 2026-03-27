@@ -1,0 +1,16 @@
+# =============================================================================
+# KafkaRestClass -- CFK on OpenShift
+# =============================================================================
+# Defines the REST class for KafkaTopic CRD management. KafkaTopic CRDs
+# reference this KafkaRestClass to determine which Kafka cluster to manage
+# topics on.
+# =============================================================================
+
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaRestClass
+metadata:
+  name: default
+  namespace: confluent
+spec:
+  kafkaClusterRef:
+    name: kafka

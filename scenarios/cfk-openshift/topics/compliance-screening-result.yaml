@@ -1,0 +1,26 @@
+# =============================================================================
+# KafkaTopic CRD -- Compliance Screening Result (Compliance Tier)
+# =============================================================================
+# Compliance tier defaults: 6 partitions, infinite retention (-1).
+# Infinite retention ensures regulatory audit trail is preserved indefinitely
+# (OFAC/AML requirements). See modules/topic/main.tf for CC tier mappings.
+# =============================================================================
+
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: compliance.screening.v1.result
+  namespace: confluent
+  labels:
+    fsi.sla-tier: compliance
+    fsi.domain: compliance
+    fsi.owner: compliance-team@fsi.org
+    fsi.data-classification: confidential
+spec:
+  replicas: 3
+  partitionCount: 6
+  kafkaClusterRef:
+    name: kafka
+  configs:
+    cleanup.policy: "delete"
+    retention.ms: "-1"

@@ -1,0 +1,31 @@
+# =============================================================================
+# KafkaTopic CRD -- Core Banking Account Transaction (Critical Tier)
+# =============================================================================
+# Critical tier defaults: 12 partitions, 7-day retention.
+# See modules/topic/main.tf for CC tier mappings.
+#
+# Governance labels provide the same metadata as CC schema subject properties:
+#   fsi.sla-tier         -> SLA tier (drives partition/retention defaults)
+#   fsi.domain           -> Business domain
+#   fsi.owner            -> Team email responsible for this topic
+#   fsi.data-classification -> Data classification per FSI policy
+# =============================================================================
+
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: corebanking.transactions.v1.account-transaction
+  namespace: confluent
+  labels:
+    fsi.sla-tier: critical
+    fsi.domain: corebanking
+    fsi.owner: corebanking-team@fsi.org
+    fsi.data-classification: confidential
+spec:
+  replicas: 3
+  partitionCount: 12
+  kafkaClusterRef:
+    name: kafka
+  configs:
+    cleanup.policy: "delete"
+    retention.ms: "604800000"

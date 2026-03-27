@@ -1,0 +1,26 @@
+# =============================================================================
+# PodMonitor for Kafka JMX Metrics -- CFK on OpenShift
+# =============================================================================
+# Prometheus scrapes CFK Kafka broker JMX metrics via PodMonitor.
+# Works with OpenShift built-in monitoring (Prometheus Operator).
+#
+# CFK Kafka brokers expose Prometheus-format metrics on port 7778 by default.
+# This PodMonitor tells Prometheus where to scrape.
+# =============================================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kafka-jmx-metrics
+  namespace: confluent
+  labels:
+    app: kafka
+spec:
+  selector:
+    matchLabels:
+      platform.confluent.io/type: kafka
+  podMetricsEndpoints:
+    - port: "prometheus"
+      targetPort: 7778
+      interval: 30s
+      path: /metrics

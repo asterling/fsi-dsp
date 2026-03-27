@@ -1,0 +1,94 @@
+# =============================================================================
+# MDS RBAC Configuration -- Advanced Alternative (per D-14)
+# =============================================================================
+# This file documents the MDS (Metadata Service) RBAC configuration as an
+# advanced alternative to Kafka ACLs.
+#
+# MDS provides Confluent RBAC (CC-equivalent role bindings) for teams needing
+# centralized identity management with LDAP/Active Directory integration.
+#
+# NOTE: This is an ADVANCED option. Most deployments should start with Kafka
+# ACLs (authorization.type: simple) and upgrade to MDS when needed.
+# See D-14 for decision context.
+# =============================================================================
+
+# -- Prerequisites for MDS --
+#
+# 1. LDAP or Active Directory backend configured and reachable
+# 2. MDS service deployed and running (separate component)
+# 3. confluent-metadata-service enabled on Kafka brokers
+# 4. Token-based authentication configured for inter-component communication
+#
+# MDS adds operational complexity but provides:
+#   - Centralized role management via LDAP groups
+#   - CC-equivalent DeveloperWrite/DeveloperRead/ResourceOwner role bindings
+#   - Audit logging of all access decisions
+#   - Group-based access control (no per-principal ACL management)
+
+# -- Kafka CR changes for MDS --
+#
+# Replace authorization.type: simple with:
+#
+# spec:
+#   authorization:
+#     type: rbac
+#     superUsers:
+#       - User:kafka
+#       - User:connect
+#       - User:schemaregistry
+#   services:
+#     mds:
+#       tls:
+#         enabled: true
+#       tokenKeyPair:
+#         secretRef: mds-token-keypair
+#       provider:
+#         type: ldap
+#         ldap:
+#           address: ldap://ldap.example.com:389
+#           authentication:
+#             type: simple
+#             principal: cn=admin,dc=example,dc=com
+#             credentials:
+#               secretRef: ldap-credentials
+#           configurations:
+#             groupNameAttribute: cn
+#             groupObjectClass: groupOfNames
+#             groupMemberAttribute: member
+#             groupSearchBase: ou=groups,dc=example,dc=com
+#             userNameAttribute: cn
+#             userObjectClass: inetOrgPerson
+#             userSearchBase: ou=users,dc=example,dc=com
+
+# -- Example Confluent role bindings (via confluent CLI or API) --
+#
+# DeveloperWrite for producers:
+#   confluent iam rbac role-binding create \
+#     --principal User:sa-corebanking-producer \
+#     --role DeveloperWrite \
+#     --resource Topic:corebanking.transactions.v1.account-transaction \
+#     --kafka-cluster-id ${KAFKA_CLUSTER_ID}
+#
+# DeveloperRead for consumers:
+#   confluent iam rbac role-binding create \
+#     --principal User:sa-corebanking-consumer \
+#     --role DeveloperRead \
+#     --resource Topic:corebanking.transactions.v1.account-transaction \
+#     --kafka-cluster-id ${KAFKA_CLUSTER_ID}
+#
+#   confluent iam rbac role-binding create \
+#     --principal User:sa-corebanking-consumer \
+#     --role DeveloperRead \
+#     --resource Group:sa-corebanking-consumer- \
+#     --prefix \
+#     --kafka-cluster-id ${KAFKA_CLUSTER_ID}
+
+# -- Migration path from ACLs to MDS --
+#
+# 1. Deploy and configure MDS alongside existing ACL-based setup
+# 2. Create equivalent role bindings in MDS for all existing ACLs
+# 3. Switch authorization.type from simple to rbac
+# 4. Verify all producers and consumers can authenticate and authorize
+# 5. Remove legacy ACLs once MDS is confirmed working
+#
+# NOTE: MDS requires LDAP/AD backend + MDS service. See D-14.
