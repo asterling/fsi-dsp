@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 08-02-PLAN.md
-last_updated: "2026-03-27T22:42:11.007Z"
+stopped_at: Completed 08-03-PLAN.md
+last_updated: "2026-03-27T23:01:23.733Z"
 progress:
   total_phases: 9
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 24
-  completed_plans: 23
+  completed_plans: 24
 ---
 
 # Project State
@@ -69,6 +69,7 @@ Plan: 3 of 3
 | Phase 07 P03 | 4min | 2 tasks | 4 files |
 | Phase 08 P01 | 6min | 2 tasks | 17 files |
 | Phase 08 P02 | 10min | 2 tasks | 4 files |
+| Phase 08 P03 | 4min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -153,6 +154,9 @@ Recent decisions affecting current work:
 - [Phase 08]: MM2 failover pauses connectors without promotion (DR topics already writable per D-06)
 - [Phase 08]: MM2 per-topic lag reports -1 via REST API; Prometheus/JMX needed for granularity (D-08)
 - [Phase 08]: MM2 failback reverses replication by deleting and recreating connectors with swapped source/target aliases
+- [Phase 08]: FlinkDeployment CRDs use Application mode with SQL mounted via ConfigMap (not embedded in JAR)
+- [Phase 08]: All FlinkDeployment CRDs include podTemplate volumeMount for flink-jmx-exporter-config (D-11 compliance)
+- [Phase 08]: .env.example CFK section uses Section 15 to avoid collision with existing sections 12-14
 
 ### Pending Todos
 
@@ -167,6 +171,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T22:42:11.006Z
-Stopped at: Completed 08-02-PLAN.md
+Last session: 2026-03-27T23:01:23.731Z
+Stopped at: Completed 08-03-PLAN.md
 Resume file: None
