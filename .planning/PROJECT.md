@@ -78,17 +78,17 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Post-apply Terraform validation (topic exists, schema registered, RBAC applied) — Validated in Phase 2
 - [x] Credential rotation automation with zero-downtime support — Validated in Phase 3 (Vault dual-credential window, rotation runbook)
 - [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
-- [ ] DLQ pattern in reference producer with retry and alerting
+- [x] DLQ pattern in reference producer with retry and alerting — Validated in Phase 7 (Java, .NET, Python with 3-retry backoff, error categorization, Kafka headers)
 - [x] Connect state tracking for pause/resume coordination — Validated in Phase 4
 - [x] Compliance-tier retention (configurable up to 7-year) — Validated in Phase 1
-- [ ] Error-path integration tests (serialization failure, RBAC denial, broker failure)
+- [x] Error-path integration tests (serialization failure, RBAC denial, broker failure) — Validated in Phase 7
 - [x] Unified DR runbook with decision trees and rollback guidance — Validated in Phase 4
 - [x] Schema namespace collision prevention in CI — Validated in Phase 1
 - [x] Kafka topic health metrics export per deployment model — Validated in Phase 5
 
 **Governance & Onboarding:**
-- [ ] Generic FSI intake form template (no client-specific names)
-- [ ] C4E review automation (lint + validate in CI, human review as gate)
+- [x] Generic FSI intake form template (no client-specific names) — Validated in Phase 7
+- [x] C4E review automation (lint + validate in CI, human review as gate) — Validated in Phase 7
 - [x] Additional ADRs: OAuth vs API keys, topic naming rationale, DR tier classification — Validated in Phase 1
 
 ### Out of Scope
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after Phase 6 completion — Flink on Confluent Cloud: reusable Terraform module for compute pools + SQL statements, 3 FSI reference SQL templates, real CC Flink metrics wired into all 6 observability providers*
+*Last updated: 2026-03-27 after Phase 7 completion — Onboarding & DX: structured intake form, C4E pre-check automation (5 categories), Python reference producer/consumer, DLQ handlers in all 3 languages, error-path integration tests, Flink local dev environment*
