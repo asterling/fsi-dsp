@@ -3,7 +3,7 @@
     {
       "name": "DS_PROMETHEUS",
       "label": "Prometheus",
-      "description": "Prometheus datasource for Flink metrics (when available after Phase 6 deployment)",
+      "description": "Prometheus datasource for CC Flink metrics via CC Metrics API Prometheus export",
       "type": "datasource",
       "pluginId": "prometheus",
       "pluginName": "Prometheus"
@@ -22,7 +22,7 @@
       }
     ]
   },
-  "description": "FSI Kafka Platform - Flink Jobs monitoring. Stub dashboard -- Flink metrics will be available after Phase 6 deployment. This dashboard shows placeholder structure for running jobs, checkpoint duration, backpressure, and throughput.",
+  "description": "FSI Kafka Platform - Flink Jobs monitoring. Tracks running Flink SQL statements, records throughput (in/out), pending records (backpressure proxy), per-statement output, and CFU utilization via CC Metrics API (io.confluent.flink/* namespace).",
   "editable": true,
   "gnetId": null,
   "graphTooltip": 1,
@@ -31,15 +31,15 @@
   "panels": [
     {
       "id": 1,
-      "title": "Running Flink Jobs",
-      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "title": "Running Flink Statements",
+      "description": "Count of active Flink SQL statements producing output. Uses io.confluent.flink/num_records_out to detect active statements.",
       "type": "stat",
       "gridPos": { "h": 8, "w": 6, "x": 0, "y": 0 },
       "datasource": "${DS_PROMETHEUS}",
       "targets": [
         {
-          "expr": "count(flink_jobmanager_job_uptime > 0)",
-          "legendFormat": "Running Jobs",
+          "expr": "count(io_confluent_flink_num_records_out{resource_type=\"flink_statement\"} > 0)",
+          "legendFormat": "Running Statements",
           "refId": "A"
         }
       ],
@@ -53,7 +53,7 @@
             ]
           },
           "unit": "short",
-          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+          "noValue": "No Flink statements running"
         }
       },
       "options": {
@@ -64,27 +64,31 @@
     },
     {
       "id": 2,
-      "title": "Checkpoint Duration",
-      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "title": "Records Throughput",
+      "description": "Flink SQL statement records throughput (in and out) via CC Metrics API. Rate of io.confluent.flink/num_records_out and io.confluent.flink/num_records_in over 5m window.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 18, "x": 6, "y": 0 },
       "datasource": "${DS_PROMETHEUS}",
       "targets": [
         {
-          "expr": "flink_taskmanager_job_task_checkpointAlignmentTime{job_name=~\".*\"}",
-          "legendFormat": "{{job_name}} - {{task_name}}",
+          "expr": "rate(io_confluent_flink_num_records_out{resource_type=\"flink_statement\"}[5m])",
+          "legendFormat": "{{statement_name}} out",
           "refId": "A"
+        },
+        {
+          "expr": "rate(io_confluent_flink_num_records_in{resource_type=\"flink_statement\"}[5m])",
+          "legendFormat": "{{statement_name}} in",
+          "refId": "B"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "ops",
           "color": { "mode": "palette-classic" },
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 10
-          },
-          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+          }
         }
       },
       "options": {
@@ -94,33 +98,31 @@
     },
     {
       "id": 3,
-      "title": "Backpressure",
-      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "title": "Pending Records",
+      "description": "Maximum pending records across Flink SQL statements. Serves as a backpressure proxy -- high pending records indicate slow processing or backpressure. CC Metrics API metric: io.confluent.flink/pending_records.",
       "type": "gauge",
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
       "datasource": "${DS_PROMETHEUS}",
       "targets": [
         {
-          "expr": "max(flink_taskmanager_job_task_backPressuredTimeMsPerSecond{job_name=~\".*\"})",
-          "legendFormat": "Max Backpressure",
+          "expr": "max(io_confluent_flink_pending_records{resource_type=\"flink_statement\"})",
+          "legendFormat": "Max Pending Records",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "short",
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": null },
               { "color": "#22C55E", "value": 0 },
-              { "color": "#EAB308", "value": 100 },
-              { "color": "#EF4444", "value": 500 }
+              { "color": "#EAB308", "value": 1000 },
+              { "color": "#EF4444", "value": 10000 }
             ]
           },
-          "min": 0,
-          "max": 1000,
-          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+          "min": 0
         }
       },
       "options": {
@@ -131,27 +133,26 @@
     },
     {
       "id": 4,
-      "title": "Throughput (Records/sec)",
-      "description": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.",
+      "title": "Records Out Per Statement",
+      "description": "Cumulative records produced by each Flink SQL statement. CC Metrics API metric: io.confluent.flink/num_records_out.",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 16, "x": 8, "y": 8 },
       "datasource": "${DS_PROMETHEUS}",
       "targets": [
         {
-          "expr": "flink_taskmanager_job_task_numRecordsOutPerSecond{job_name=~\".*\"}",
-          "legendFormat": "{{job_name}} - {{task_name}}",
+          "expr": "io_confluent_flink_num_records_out{resource_type=\"flink_statement\"}",
+          "legendFormat": "{{statement_name}}",
           "refId": "A"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "ops",
+          "unit": "short",
           "color": { "mode": "palette-classic" },
           "custom": {
             "lineWidth": 2,
             "fillOpacity": 10
-          },
-          "noValue": "No data available. Verify metrics export is configured and the target cluster is reachable."
+          }
         }
       },
       "options": {
@@ -161,19 +162,44 @@
     },
     {
       "id": 5,
-      "title": "Flink Stub Notice",
-      "description": "Information about Phase 6 wiring.",
-      "type": "text",
+      "title": "CFU Utilization (%)",
+      "description": "Flink Compute Unit (CFU) utilization as a percentage of max_cfu. CC Metrics API metrics: io.confluent.flink/current_cfu and io.confluent.flink/max_cfu.",
+      "type": "gauge",
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 16 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "io_confluent_flink_current_cfu{resource_type=\"flink_compute_pool\"} / io_confluent_flink_max_cfu{resource_type=\"flink_compute_pool\"} * 100",
+          "legendFormat": "{{compute_pool_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#22C55E", "value": 0 },
+              { "color": "#EAB308", "value": 70 },
+              { "color": "#EF4444", "value": 90 }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        }
+      },
       "options": {
-        "mode": "markdown",
-        "content": "### Flink Jobs Dashboard - Stub\n\nThis dashboard is a **placeholder structure** for Flink job monitoring. Flink metrics will be available after **Phase 6** deployment.\n\nMetrics wired in Phase 6:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents."
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "showThresholdLabels": true,
+        "showThresholdMarkers": true
       }
     }
   ],
   "refresh": "30s",
   "schemaVersion": 39,
-  "tags": ["fsi-kafka", "flink-jobs", "observability", "stub"],
+  "tags": ["fsi-kafka", "flink-jobs", "observability"],
   "templating": {
     "list": [
       {
@@ -222,5 +248,5 @@
   "timezone": "browser",
   "title": "FSI Kafka - Flink Jobs",
   "uid": "fsi-kafka-flink-jobs",
-  "version": 1
+  "version": 2
 }

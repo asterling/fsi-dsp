@@ -826,3 +826,122 @@ groups:
         annotations:
           summary: "No active Kafka controller"
           description: "No active controller elected on cluster {{ $labels.kafka_id }}. This is a critical condition -- the cluster cannot process metadata requests or partition leadership changes. Investigate immediately."
+
+  # ---------------------------------------------------------------------------
+  # Flink Alerts
+  # ---------------------------------------------------------------------------
+  - orgId: 1
+    name: fsi-kafka-flink
+    folder: FSI Kafka
+    interval: 1m
+    rules:
+      - uid: fsi-flink-pending-records-warn
+        title: FlinkPendingRecords - Warning
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (statement_name) (io_confluent_flink_pending_records{resource_type=\"flink_statement\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [1000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          severity: warning
+        annotations:
+          summary: "Flink statement has >1000 pending records"
+          description: "Flink statement {{ $labels.statement_name }} has {{ $value }} pending records. This may indicate backpressure or slow processing."
+
+      - uid: fsi-flink-pending-records-alert
+        title: FlinkPendingRecords - Alert
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "max by (statement_name) (io_confluent_flink_pending_records{resource_type=\"flink_statement\"})"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [10000]
+              refId: C
+        for: 5m
+        labels:
+          team: fsi-kafka
+          severity: critical
+        annotations:
+          summary: "Flink statement has >10000 pending records -- backpressure critical"
+          description: "Flink statement {{ $labels.statement_name }} has {{ $value }} pending records. Investigate immediately: check source throughput, statement complexity, and CFU allocation."
+
+      - uid: fsi-flink-throughput-drop
+        title: FlinkThroughputDrop
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: "${DS_PROMETHEUS}"
+            model:
+              expr: "rate(io_confluent_flink_num_records_out{resource_type=\"flink_statement\"}[10m])"
+              refId: A
+          - refId: B
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              expression: A
+              reducer: last
+              refId: B
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: lt
+                    params: [1]
+              refId: C
+        for: 10m
+        labels:
+          team: fsi-kafka
+          severity: warning
+        annotations:
+          summary: "Flink statement output throughput dropped to zero"
+          description: "Flink statement {{ $labels.statement_name }} has produced < 1 record/sec for 10 minutes. The job may be stalled, failed, or its source topic is empty."
