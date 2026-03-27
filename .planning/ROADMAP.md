@@ -151,11 +151,12 @@ Plans:
   1. Operator can deploy KafkaCluster, SchemaRegistry, Connect, and KafkaTopic CRDs on OpenShift via CFK operator with governance parity to CC scenarios
   2. MirrorMaker 2 adapter handles CFK failover/failback with topic replication using the same `fsi-dr` CLI interface as Cluster Linking
   3. Flink Kubernetes Operator is deployed via Helm chart on OpenShift with Flink SR integration and job metrics export
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 08-01-PLAN.md -- CFK scenario directory with Helm values, topic CRDs, ACLs, MM2 connectors, and CI validation extension
+- [ ] 08-02-PLAN.md -- MM2 backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
+- [ ] 08-03-PLAN.md -- Flink Kubernetes Operator deployment, FlinkDeployment examples, JMX observability, and .env.example
 
 ### Phase 9: CP on RHEL and Private Cloud
 **Goal**: Operators can deploy Kafka on bare-metal RHEL via Ansible and on Confluent Private Cloud via Terraform -- with FIPS compliance, MRC RPO=0, and standalone Flink
@@ -189,5 +190,5 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 | 5. Observability Templates | 0/3 | Not started | - |
 | 6. Flink on Confluent Cloud | 2/3 | In Progress|  |
 | 7. Onboarding and Developer Experience | 0/3 | Not started | - |
-| 8. CFK on OpenShift | 0/2 | Not started | - |
+| 8. CFK on OpenShift | 0/3 | Not started | - |
 | 9. CP on RHEL and Private Cloud | 0/3 | Not started | - |
