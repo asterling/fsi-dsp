@@ -140,7 +140,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md -- Intake form YAML conversion and C4E pre-check automation suite
-- [ ] 07-02-PLAN.md -- Python reference producer/consumer and DLQ pattern across all three languages
+- [x] 07-02-PLAN.md -- Python reference producer/consumer and DLQ pattern across all three languages
 - [ ] 07-03-PLAN.md -- Error-path integration tests and local dev Docker Compose with Flink
 
 ### Phase 8: CFK on OpenShift
