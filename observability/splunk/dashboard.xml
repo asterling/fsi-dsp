@@ -242,25 +242,39 @@
   </row>
 
   <!-- ===================================================================== -->
-  <!-- Row 5: Flink Jobs (Stub)                                               -->
+  <!-- Row 5: Flink Jobs                                                      -->
   <!-- ===================================================================== -->
   <row>
     <panel>
       <title>Flink Jobs</title>
-      <html>
-        <div style="background-color:#6B7280; padding:24px; border-radius:4px; color:white;">
-          <h2>Flink Jobs</h2>
-          <p>Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.</p>
-          <p><strong>Planned metrics:</strong></p>
-          <ul>
-            <li><code>flink_jobmanager_job_uptime</code> -- Job uptime</li>
-            <li><code>flink_taskmanager_job_task_checkpointAlignmentTime</code> -- Checkpoint alignment time</li>
-            <li><code>flink_taskmanager_job_task_backPressuredTimeMsPerSecond</code> -- Backpressure</li>
-            <li><code>flink_taskmanager_job_task_numRecordsOutPerSecond</code> -- Output throughput</li>
-          </ul>
-          <p>See <code>observability/metrics-mapping.md</code> for cross-provider query equivalents.</p>
-        </div>
-      </html>
+      <chart>
+        <title>Flink Records Throughput</title>
+        <search>
+          <query>index=confluent_cloud source="cc_metrics_api" metric_name="io.confluent.flink/num_records_out" env="$ENVIRONMENT$"
+| timechart avg(metric_value) by statement_name</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleY.text">records/sec</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    <panel>
+      <single>
+        <title>Flink Pending Records</title>
+        <search>
+          <query>index=confluent_cloud source="cc_metrics_api" metric_name="io.confluent.flink/pending_records" env="$ENVIRONMENT$"
+| stats max(metric_value) as pending by statement_name</query>
+          <earliest>-1h</earliest>
+          <latest>now</latest>
+        </search>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["#22C55E","#EAB308","#EF4444"]</option>
+        <option name="rangeValues">[1000,10000]</option>
+        <option name="useColors">1</option>
+        <option name="underLabel">Pending Records (backpressure proxy)</option>
+      </single>
     </panel>
   </row>
 

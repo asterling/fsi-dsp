@@ -277,65 +277,71 @@
     },
     {
       "name": "Flink Jobs",
-      "description": "Flink job metrics - stub for Phase 6 deployment",
+      "description": "Flink SQL statement metrics via CC Metrics API (io.confluent.flink/* namespace)",
       "widgets": [
         {
-          "title": "Flink Jobs - Phase 6 Placeholder",
-          "layout": { "column": 1, "row": 1, "width": 12, "height": 3 },
-          "visualization": { "id": "viz.markdown" },
-          "rawConfiguration": {
-            "text": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\nMetrics to be wired:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput"
-          }
-        },
-        {
-          "title": "Job Uptime (Stub)",
-          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
+          "title": "Flink Records Throughput",
+          "layout": { "column": 1, "row": 1, "width": 8, "height": 4 },
           "visualization": { "id": "viz.line" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
-                "query": "SELECT latest(job_uptime) FROM FlinkMetric FACET job_name TIMESERIES"
+                "query": "SELECT rate(sum(io.confluent.flink.num_records_out), 1 minute) AS 'Records Out/sec' FROM ConfluentCloudFlinkSample FACET statement_name TIMESERIES"
+              },
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT rate(sum(io.confluent.flink.num_records_in), 1 minute) AS 'Records In/sec' FROM ConfluentCloudFlinkSample FACET statement_name TIMESERIES"
               }
+            ],
+            "yAxisLeft": { "zero": true }
+          }
+        },
+        {
+          "title": "Flink Pending Records",
+          "layout": { "column": 9, "row": 1, "width": 4, "height": 4 },
+          "visualization": { "id": "viz.billboard" },
+          "rawConfiguration": {
+            "nrqlQueries": [
+              {
+                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
+                "query": "SELECT latest(io.confluent.flink.pending_records) AS 'Pending Records' FROM ConfluentCloudFlinkSample FACET statement_name"
+              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 1000 },
+              { "alertSeverity": "CRITICAL", "value": 10000 }
             ]
           }
         },
         {
-          "title": "Checkpoint Alignment Time (Stub)",
-          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
+          "title": "Records Out Per Statement",
+          "layout": { "column": 1, "row": 5, "width": 6, "height": 3 },
           "visualization": { "id": "viz.line" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
-                "query": "SELECT average(checkpointAlignmentTime) FROM FlinkMetric FACET job_name TIMESERIES"
+                "query": "SELECT latest(io.confluent.flink.num_records_out) FROM ConfluentCloudFlinkSample FACET statement_name TIMESERIES"
               }
-            ]
+            ],
+            "yAxisLeft": { "zero": true }
           }
         },
         {
-          "title": "Backpressure (Stub)",
-          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
+          "title": "CFU Utilization",
+          "layout": { "column": 7, "row": 5, "width": 6, "height": 3 },
+          "visualization": { "id": "viz.billboard" },
           "rawConfiguration": {
             "nrqlQueries": [
               {
                 "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
-                "query": "SELECT average(backPressuredTimeMsPerSecond) FROM FlinkMetric FACET job_name, task_name TIMESERIES"
+                "query": "SELECT latest(io.confluent.flink.current_cfu) / latest(io.confluent.flink.max_cfu) * 100 AS 'CFU Utilization %' FROM ConfluentCloudFlinkSample FACET compute_pool_name"
               }
-            ]
-          }
-        },
-        {
-          "title": "Output Throughput (Stub)",
-          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
-          "visualization": { "id": "viz.line" },
-          "rawConfiguration": {
-            "nrqlQueries": [
-              {
-                "accountId": "{{NEWRELIC_ACCOUNT_ID}}",
-                "query": "SELECT average(numRecordsOutPerSecond) FROM FlinkMetric FACET job_name, task_name TIMESERIES"
-              }
+            ],
+            "thresholds": [
+              { "alertSeverity": "WARNING", "value": 70 },
+              { "alertSeverity": "CRITICAL", "value": 90 }
             ]
           }
         }

@@ -289,13 +289,63 @@
       "tileFilter": {}
     },
     {
-      "name": "Flink Jobs Placeholder",
-      "tileType": "MARKDOWN",
+      "name": "Flink Records Throughput",
+      "tileType": "DATA_EXPLORER",
       "configured": true,
-      "bounds": { "top": 1368, "left": 0, "width": 1520, "height": 152 },
+      "bounds": { "top": 1368, "left": 0, "width": 760, "height": 304 },
       "tileFilter": {},
-      "markdown": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\n**Planned metrics:**\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents.",
-      "backgroundColor": "#6B7280"
+      "customName": "Flink Records Throughput (in/out)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "AVG",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["statement_name"],
+          "metricSelector": "timeseries avg(io.confluent.flink.num_records_out), by:{statement_name} | fieldsRename value = \"Records Out/sec\"",
+          "enabled": true
+        },
+        {
+          "id": "B",
+          "spaceAggregation": "AVG",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["statement_name"],
+          "metricSelector": "timeseries avg(io.confluent.flink.num_records_in), by:{statement_name} | fieldsRename value = \"Records In/sec\"",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH",
+        "global": { "theme": "DEFAULT" }
+      }
+    },
+    {
+      "name": "Flink Pending Records",
+      "tileType": "DATA_EXPLORER",
+      "configured": true,
+      "bounds": { "top": 1368, "left": 760, "width": 760, "height": 304 },
+      "tileFilter": {},
+      "customName": "Flink Pending Records (Backpressure Proxy)",
+      "queries": [
+        {
+          "id": "A",
+          "spaceAggregation": "MAX",
+          "timeAggregation": "DEFAULT",
+          "splitBy": ["statement_name"],
+          "metricSelector": "timeseries max(io.confluent.flink.pending_records), by:{statement_name} | fieldsRename value = \"Pending Records\"",
+          "enabled": true
+        }
+      ],
+      "visualConfig": {
+        "type": "GRAPH",
+        "global": { "theme": "DEFAULT" },
+        "thresholds": [
+          { "axisTarget": "LEFT", "rules": [
+            { "color": "#22C55E" },
+            { "color": "#EAB308", "value": 1000 },
+            { "color": "#EF4444", "value": 10000 }
+          ]}
+        ]
+      }
     }
   ]
 }

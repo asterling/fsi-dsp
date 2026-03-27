@@ -377,81 +377,86 @@
       }
     },
     {
-      "id": "flink-jobs-placeholder",
-      "title": "Flink Jobs: Phase 6 Placeholder",
-      "type": "markdown",
-      "bounds": { "x": 0, "y": 1900, "width": 1200, "height": 150 },
-      "config": {
-        "text": "## Flink Jobs\n\nFlink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\nMetrics to be wired:\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput",
-        "backgroundColor": "#6B7280"
-      }
-    },
-    {
-      "id": "flink-jobs-uptime-stub",
-      "title": "Flink Jobs: Job Uptime (Stub)",
+      "id": "flink-jobs-throughput",
+      "title": "Flink Jobs: Records Throughput",
       "type": "timeSeries",
-      "bounds": { "x": 0, "y": 2050, "width": 600, "height": 200 },
+      "bounds": { "x": 0, "y": 1900, "width": 600, "height": 300 },
       "metrics": [
         {
-          "metric": "flink_job_uptime",
-          "aggregation": "MAX",
-          "groupBy": "job_name"
-        }
-      ],
-      "config": {
-        "yAxisLabel": "ms",
-        "description": "Flink job uptime (stub -- wired in Phase 6)"
-      }
-    },
-    {
-      "id": "flink-jobs-checkpoint-stub",
-      "title": "Flink Jobs: Checkpoint Alignment (Stub)",
-      "type": "timeSeries",
-      "bounds": { "x": 600, "y": 2050, "width": 600, "height": 200 },
-      "metrics": [
-        {
-          "metric": "checkpoint_alignment_time",
+          "metric": "io.confluent.flink/num_records_out",
           "aggregation": "MEAN",
-          "groupBy": "job_name"
-        }
-      ],
-      "config": {
-        "yAxisLabel": "ms",
-        "description": "Flink checkpoint alignment time (stub -- wired in Phase 6)"
-      }
-    },
-    {
-      "id": "flink-jobs-backpressure-stub",
-      "title": "Flink Jobs: Backpressure (Stub)",
-      "type": "timeSeries",
-      "bounds": { "x": 0, "y": 2250, "width": 600, "height": 200 },
-      "metrics": [
+          "groupBy": "statement_name",
+          "rollup": "rate"
+        },
         {
-          "metric": "back_pressured_time",
+          "metric": "io.confluent.flink/num_records_in",
           "aggregation": "MEAN",
-          "groupBy": ["job_name", "task_name"]
-        }
-      ],
-      "config": {
-        "yAxisLabel": "ms/s",
-        "description": "Flink backpressure time (stub -- wired in Phase 6)"
-      }
-    },
-    {
-      "id": "flink-jobs-throughput-stub",
-      "title": "Flink Jobs: Output Throughput (Stub)",
-      "type": "timeSeries",
-      "bounds": { "x": 600, "y": 2250, "width": 600, "height": 200 },
-      "metrics": [
-        {
-          "metric": "records_out_per_second",
-          "aggregation": "MEAN",
-          "groupBy": ["job_name", "task_name"]
+          "groupBy": "statement_name",
+          "rollup": "rate"
         }
       ],
       "config": {
         "yAxisLabel": "records/sec",
-        "description": "Flink output throughput (stub -- wired in Phase 6)"
+        "description": "Flink SQL statement records throughput (in/out) via CC Metrics API"
+      }
+    },
+    {
+      "id": "flink-jobs-pending",
+      "title": "Flink Jobs: Pending Records",
+      "type": "timeSeries",
+      "bounds": { "x": 600, "y": 1900, "width": 600, "height": 300 },
+      "metrics": [
+        {
+          "metric": "io.confluent.flink/pending_records",
+          "aggregation": "MAX",
+          "groupBy": "statement_name",
+          "rollup": "max"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "records",
+        "thresholds": [
+          { "value": 1000, "label": "warn", "color": "#EAB308" },
+          { "value": 10000, "label": "alert", "color": "#EF4444" }
+        ],
+        "description": "Flink pending records (backpressure proxy) via CC Metrics API"
+      }
+    },
+    {
+      "id": "flink-jobs-records-out",
+      "title": "Flink Jobs: Records Out Per Statement",
+      "type": "timeSeries",
+      "bounds": { "x": 0, "y": 2200, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "io.confluent.flink/num_records_out",
+          "aggregation": "SUM",
+          "groupBy": "statement_name"
+        }
+      ],
+      "config": {
+        "yAxisLabel": "records",
+        "description": "Cumulative records produced by each Flink SQL statement"
+      }
+    },
+    {
+      "id": "flink-jobs-cfu",
+      "title": "Flink Jobs: CFU Utilization",
+      "type": "singleValue",
+      "bounds": { "x": 600, "y": 2200, "width": 600, "height": 200 },
+      "metrics": [
+        {
+          "metric": "io.confluent.flink/current_cfu",
+          "aggregation": "MAX",
+          "groupBy": "compute_pool_name"
+        }
+      ],
+      "config": {
+        "thresholds": [
+          { "value": 70, "severity": "WARNING", "color": "#EAB308", "operator": "GREATER_THAN_OR_EQUAL" },
+          { "value": 90, "severity": "CRITICAL", "color": "#EF4444", "operator": "GREATER_THAN_OR_EQUAL" }
+        ],
+        "description": "Current CFU usage by compute pool via CC Metrics API"
       }
     }
   ]

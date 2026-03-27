@@ -249,13 +249,40 @@
         "widgets": [
           {
             "definition": {
-              "title": "Flink Jobs (Stub)",
-              "type": "note",
-              "content": "Flink metrics will be available after Phase 6 deployment. This panel shows placeholder structure.\n\n**Planned metrics:**\n- `flink_jobmanager_job_uptime` -- Job uptime\n- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time\n- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure\n- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput\n\nSee `observability/metrics-mapping.md` for cross-provider query equivalents.",
-              "background_color": "gray",
-              "font_size": "14",
-              "text_align": "left",
-              "show_tick": false
+              "title": "Flink Records Throughput",
+              "type": "timeseries",
+              "requests": [
+                {
+                  "q": "avg:confluent_cloud.flink.num_records_out{*} by {statement_name}",
+                  "display_type": "line",
+                  "style": { "palette": "dog_classic", "line_type": "solid", "line_width": "normal" }
+                },
+                {
+                  "q": "avg:confluent_cloud.flink.num_records_in{*} by {statement_name}",
+                  "display_type": "line",
+                  "style": { "palette": "cool", "line_type": "dashed", "line_width": "normal" }
+                }
+              ],
+              "yaxis": { "label": "records/sec", "scale": "linear" }
+            }
+          },
+          {
+            "definition": {
+              "title": "Flink Pending Records",
+              "type": "query_value",
+              "requests": [
+                {
+                  "q": "max:confluent_cloud.flink.pending_records{*} by {statement_name}",
+                  "aggregator": "last",
+                  "conditional_formats": [
+                    { "comparator": ">=", "value": 10000, "palette": "white_on_red" },
+                    { "comparator": ">=", "value": 1000, "palette": "white_on_yellow" },
+                    { "comparator": "<", "value": 1000, "palette": "white_on_green" }
+                  ]
+                }
+              ],
+              "autoscale": true,
+              "precision": 0
             }
           }
         ]
