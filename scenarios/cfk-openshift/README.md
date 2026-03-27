@@ -112,6 +112,69 @@ For teams needing CC-equivalent role bindings with centralized identity manageme
 
 See `acls/acl-mds-alternative.yaml` for MDS configuration reference.
 
+## Flink Kubernetes Operator
+
+Flink Kubernetes Operator 1.14.0 is bundled in this scenario (per D-09) for stream processing parity with CC Flink. Single scenario = complete platform (Kafka + SR + Connect + MM2 + Flink).
+
+### Prerequisites
+
+- Flink Kubernetes Operator Helm chart (see installation below)
+- Custom Flink Docker image with Avro-Confluent connector JARs (see below)
+
+### Installation
+
+```bash
+helm repo add flink-operator \
+  https://archive.apache.org/dist/flink/flink-kubernetes-operator-1.14.0/
+helm install flink-kubernetes-operator \
+  flink-operator/flink-kubernetes-operator \
+  --namespace flink --create-namespace \
+  -f flink/flink-operator-values.yaml
+```
+
+### Custom Docker Image
+
+The base Flink image does not include the avro-confluent format connector JARs. Build the custom image before deploying FlinkDeployment CRDs:
+
+```bash
+docker build -t fsi-flink:1.20 flink/flink-docker/
+```
+
+> **Air-gapped environments:** Download the connector JARs locally and modify the Dockerfile to use `COPY` instead of `wget`. See comments in `flink/flink-docker/Dockerfile`.
+
+### Deploy Examples
+
+```bash
+kubectl apply -f flink/flink-session-cluster.yaml -n flink
+kubectl apply -f flink/examples/tumbling-window.yaml -n flink
+kubectl apply -f flink/examples/stream-table-join.yaml -n flink
+kubectl apply -f flink/examples/filter-and-route.yaml -n flink
+```
+
+### CC Flink to CFK Flink Template Mapping
+
+CC Flink auto-discovers SR subjects. CFK Flink requires explicit CREATE TABLE statements with avro-confluent format connector. See Pitfall 5 in research.
+
+| CC Flink Template | CFK FlinkDeployment | Key Difference |
+|-------------------|---------------------|----------------|
+| tumbling-window-aggregation.sql | flink/examples/tumbling-window.yaml | Explicit CREATE TABLE with avro-confluent format |
+| stream-table-join-enrichment.sql | flink/examples/stream-table-join.yaml | Temporal table source requires explicit table definition |
+| filter-and-route.sql | flink/examples/filter-and-route.yaml | EXECUTE STATEMENT SET preserved, tables defined explicitly |
+
+## Observability
+
+### Kafka JMX Metrics
+
+CFK exposes metrics on port 7778 (Prometheus JMX exporter). PodMonitor in `observability/pod-monitor-kafka.yaml` scrapes these. The Kafka CR in `values/kafka.yaml` includes matching Prometheus rules in `spec.metrics.prometheus.rules`.
+
+### Flink Metrics
+
+Flink uses built-in PrometheusReporterFactory on port 9249. PodMonitor in `observability/pod-monitor-flink.yaml` scrapes these. JMX exporter sidecar config (`observability/jmx-exporter-flink.yaml`) is mounted in FlinkDeployment CRDs via podTemplate volumeMount (per D-11).
+
+### Dashboard Templates
+
+Import dashboards from `observability/{provider}/` directories. CFK/CP metrics use JMX exporter stubs from Phase 5. See the main platform `observability/` directory for provider-specific dashboards (Grafana, Dynatrace, Datadog, Splunk, New Relic, Instana).
+
 ## CFK Topic Reconciliation
 
 **Important:** All topic changes must go through KafkaTopic CRDs (GitOps workflow). The CFK operator continuously reconciles KafkaTopic CRDs against the actual Kafka topic state. Manual topic changes made via CLI or Control Center will be **reverted** by the reconciliation loop.
@@ -133,8 +196,16 @@ See `acls/acl-mds-alternative.yaml` for MDS configuration reference.
 | mm2/ | mm2-source-connector.yaml | MirrorSourceConnector for DR replication |
 | mm2/ | mm2-checkpoint-connector.yaml | MirrorCheckpointConnector for offset sync |
 | mm2/ | mm2-heartbeat-connector.yaml | MirrorHeartbeatConnector for liveness |
+| flink/ | flink-operator-values.yaml | Helm values for Flink Kubernetes Operator 1.14.0 |
+| flink/ | flink-session-cluster.yaml | FlinkDeployment for interactive SQL session |
+| flink/examples/ | tumbling-window.yaml | FlinkDeployment: tumbling window aggregation |
+| flink/examples/ | stream-table-join.yaml | FlinkDeployment: stream-table join enrichment |
+| flink/examples/ | filter-and-route.yaml | FlinkDeployment: filter-and-route pattern |
+| flink/flink-docker/ | Dockerfile | Custom Flink image with Avro-Confluent JARs |
 | observability/ | jmx-exporter-kafka.yaml | JMX exporter ConfigMap for Kafka metrics |
-| observability/ | pod-monitor-kafka.yaml | PodMonitor for Prometheus scraping |
+| observability/ | jmx-exporter-flink.yaml | JMX exporter ConfigMap for Flink metrics |
+| observability/ | pod-monitor-kafka.yaml | PodMonitor for Prometheus scraping (Kafka) |
+| observability/ | pod-monitor-flink.yaml | PodMonitor for Prometheus scraping (Flink) |
 
 ## Cloud-Specific Notes
 

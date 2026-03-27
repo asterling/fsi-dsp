@@ -1,0 +1,90 @@
+# =============================================================================
+# Flink JMX Exporter ConfigMap -- CFK on OpenShift
+# =============================================================================
+# Flink JMX exporter configuration for CFK scenario. Exports Flink job metrics
+# matching Phase 5 observability dashboard panels. Mounted as sidecar config
+# in FlinkDeployment podTemplate (D-11). The FlinkDeployment CRDs in flink/
+# reference this ConfigMap via podTemplate.spec.volumes.
+#
+# NOTE: These metrics are available via Flink's built-in PrometheusReporterFactory
+# on port 9249 without JMX exporter. The JMX exporter ConfigMap provides an
+# alternative collection path for environments where Prometheus native metrics
+# are not available. Use PodMonitor port 9249 for Prometheus-native, or JMX
+# exporter sidecar for JMX-to-Prometheus conversion.
+#
+# Usage:
+#   1. Apply this ConfigMap: oc apply -f observability/jmx-exporter-flink.yaml
+#   2. FlinkDeployment CRDs already mount this via podTemplate volumeMount
+#   3. Apply the PodMonitor: oc apply -f observability/pod-monitor-flink.yaml
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flink-jmx-exporter-config
+  namespace: flink
+data:
+  jmx-exporter.yaml: |
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+
+    rules:
+      # -- TaskManager throughput metrics --
+
+      - pattern: "org.apache.flink.taskmanager.job.task.numRecordsOut"
+        name: flink_taskmanager_job_task_num_records_out
+        type: GAUGE
+        help: "Total number of records emitted by a task"
+
+      - pattern: "org.apache.flink.taskmanager.job.task.numRecordsIn"
+        name: flink_taskmanager_job_task_num_records_in
+        type: GAUGE
+        help: "Total number of records received by a task"
+
+      - pattern: "org.apache.flink.taskmanager.job.task.numRecordsOutPerSecond"
+        name: flink_taskmanager_job_task_num_records_out_per_second
+        type: GAUGE
+        help: "Records emitted per second (throughput indicator)"
+
+      # -- JobManager metrics --
+
+      - pattern: "org.apache.flink.jobmanager.job.numberOfRunningJobs"
+        name: flink_jobmanager_num_running_jobs
+        type: GAUGE
+        help: "Number of currently running Flink jobs"
+
+      - pattern: "org.apache.flink.jobmanager.job.uptime"
+        name: flink_jobmanager_job_uptime
+        type: GAUGE
+        help: "Job uptime in milliseconds"
+
+      # -- Checkpoint metrics --
+
+      - pattern: "org.apache.flink.jobmanager.job.lastCheckpointDuration"
+        name: flink_jobmanager_job_last_checkpoint_duration
+        type: GAUGE
+        help: "Duration of the last checkpoint in milliseconds"
+
+      - pattern: "org.apache.flink.jobmanager.job.lastCheckpointSize"
+        name: flink_jobmanager_job_last_checkpoint_size
+        type: GAUGE
+        help: "Size of the last checkpoint in bytes"
+
+      # -- Backpressure / pending records --
+
+      - pattern: "org.apache.flink.taskmanager.job.task.pendingRecords"
+        name: flink_taskmanager_job_task_pending_records
+        type: GAUGE
+        help: "Number of pending records (backpressure indicator). Thresholds: warn at 1000, critical at 10000 (matching Phase 5 observability alerts)."
+
+      # -- Kafka connector metrics --
+
+      - pattern: "org.apache.flink.taskmanager.job.task.operator.KafkaSourceReader.currentOffset"
+        name: flink_kafka_source_current_offset
+        type: GAUGE
+        help: "Current read offset of the Kafka source reader"
+
+      - pattern: "org.apache.flink.taskmanager.job.task.operator.KafkaSourceReader.committedOffset"
+        name: flink_kafka_source_committed_offset
+        type: GAUGE
+        help: "Last committed offset of the Kafka source reader"

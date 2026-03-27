@@ -1,0 +1,31 @@
+# =============================================================================
+# PodMonitor for Flink Metrics -- CFK on OpenShift
+# =============================================================================
+# Scrapes Flink's built-in Prometheus metrics reporter (port 9249). Works with
+# OpenShift built-in monitoring (Prometheus Operator).
+#
+# Flink uses PrometheusReporterFactory configured in FlinkDeployment CRDs to
+# expose metrics natively on port 9249. No JMX exporter sidecar is needed
+# for Prometheus scraping -- the sidecar config is available as an alternative
+# collection path (see jmx-exporter-flink.yaml).
+#
+# Usage:
+#   oc apply -f observability/pod-monitor-flink.yaml
+# =============================================================================
+
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: flink-metrics
+  namespace: flink
+  labels:
+    app.kubernetes.io/component: flink-monitoring
+spec:
+  selector:
+    matchLabels:
+      type: flink-native-kubernetes
+  podMetricsEndpoints:
+    - port: "metrics"
+      targetPort: 9249
+      interval: 30s
+      path: /
