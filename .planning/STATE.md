@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 06-01-PLAN.md
-last_updated: "2026-03-27T01:27:14.184Z"
+stopped_at: Completed 06-03-PLAN.md
+last_updated: "2026-03-27T12:51:49.554Z"
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 18
-  completed_plans: 17
+  completed_plans: 18
 ---
 
 # Project State
@@ -63,6 +63,7 @@ Plan: 3 of 3
 | Phase 05 P02 | 7min | 2 tasks | 15 files |
 | Phase 06 P02 | 2min | 2 tasks | 5 files |
 | Phase 06 P01 | 3min | 2 tasks | 9 files |
+| Phase 06 P03 | 17min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -129,6 +130,8 @@ Recent decisions affecting current work:
 - [Phase 06]: Flink is opt-in via flink_enabled boolean (default false) using count conditional
 - [Phase 06]: max_cfu restricted to [5, 10, 20, 30, 40, 50] with increase-only constraint documented in validation
 - [Phase 06]: cc_environment_id passed as dedicated variable, not extracted via regex from cluster ID
+- [Phase 06]: CC Metrics API does not expose checkpoint duration -- replaced with pending_records (backpressure proxy) and num_records_out (throughput)
+- [Phase 06]: PromQL uses underscore form of CC Flink metrics (io_confluent_flink_num_records_out) since Prometheus scraping replaces dots/slashes
 
 ### Pending Todos
 
@@ -143,6 +146,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T01:27:14.182Z
-Stopped at: Completed 06-01-PLAN.md
+Last session: 2026-03-27T12:51:49.552Z
+Stopped at: Completed 06-03-PLAN.md
 Resume file: None

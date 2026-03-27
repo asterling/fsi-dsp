@@ -124,7 +124,7 @@ Plans:
 Plans:
 - [x] 06-01-PLAN.md -- Flink Terraform module (compute pool + SQL statements) and CC scenario wiring
 - [x] 06-02-PLAN.md -- Flink SQL reference templates (tumbling window, stream-table join, filter-route, DLQ)
-- [ ] 06-03-PLAN.md -- Observability dashboard wiring (6 providers) with real CC Flink metrics and .env.example
+- [x] 06-03-PLAN.md -- Observability dashboard wiring (6 providers) with real CC Flink metrics and .env.example
 
 ### Phase 7: Onboarding and Developer Experience
 **Goal**: New FSI teams can go from intake form to first message produced in under a day -- with Python reference clients, error-path tests, local dev with Flink, and DLQ patterns across all languages

@@ -69,7 +69,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 - [ ] **FLINK-03**: CP standalone Flink deployed via Ansible roles with systemd service management
 - [x] **FLINK-04**: Flink SQL reference templates for tumbling window aggregation, stream-table join enrichment, and filter-and-route patterns
 - [x] **FLINK-05**: Flink integrates with Schema Registry for Avro serde (CC Flink auto-discovers SR subjects; CFK/CP uses Flink Avro format connector)
-- [ ] **FLINK-06**: Flink job metrics (checkpoint duration, backpressure, throughput) exported to each provider's dashboard templates
+- [x] **FLINK-06**: Flink job metrics (checkpoint duration, backpressure, throughput) exported to each provider's dashboard templates
 - [x] **FLINK-07**: Flink dead letter handling routes deserialization failures to `{topic}.dlq` topics via CC Flink error-handling.mode table properties
 
 ### Onboarding
@@ -188,7 +188,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FLINK-03 | Phase 9 | Pending |
 | FLINK-04 | Phase 6 | Complete |
 | FLINK-05 | Phase 6 | Complete |
-| FLINK-06 | Phase 6 | Pending |
+| FLINK-06 | Phase 6 | Complete |
 | FLINK-07 | Phase 6 | Complete |
 | ONBOARD-01 | Phase 7 | Pending |
 | ONBOARD-02 | Phase 7 | Pending |
