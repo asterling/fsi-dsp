@@ -555,10 +555,10 @@ mm2_preflight() {
   # Check 1: MM2 Connect cluster reachable
   if curl -sf "${mm2_url}/" >/dev/null 2>&1; then
     echo "  PASS: MM2 Connect cluster reachable"
-    ((pass++))
+    ((pass++)) || true
   else
     echo "  FAIL: MM2 Connect cluster unreachable at ${mm2_url}"
-    ((fail++))
+    ((fail++)) || true
   fi
 
   # Check 2: MirrorSourceConnector exists and is RUNNING
@@ -567,13 +567,13 @@ mm2_preflight() {
     | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
   if [ "${src_state}" = "RUNNING" ]; then
     echo "  PASS: MirrorSourceConnector (${src}) is RUNNING"
-    ((pass++))
+    ((pass++)) || true
   elif [ "${src_state}" = "PAUSED" ]; then
     echo "  WARN: MirrorSourceConnector (${src}) is PAUSED"
-    ((warn++))
+    ((warn++)) || true
   else
     echo "  FAIL: MirrorSourceConnector (${src}) state: ${src_state}"
-    ((fail++))
+    ((fail++)) || true
   fi
 
   # Check 3: MirrorCheckpointConnector exists and is RUNNING
@@ -582,36 +582,36 @@ mm2_preflight() {
     | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
   if [ "${chk_state}" = "RUNNING" ]; then
     echo "  PASS: MirrorCheckpointConnector (${chk}) is RUNNING"
-    ((pass++))
+    ((pass++)) || true
   elif [ "${chk_state}" = "PAUSED" ]; then
     echo "  WARN: MirrorCheckpointConnector (${chk}) is PAUSED"
-    ((warn++))
+    ((warn++)) || true
   else
     echo "  FAIL: MirrorCheckpointConnector (${chk}) state: ${chk_state}"
-    ((fail++))
+    ((fail++)) || true
   fi
 
   # Check 4: DR cluster Kafka bootstrap reachable (if set)
   if [ -n "${FSI_DR_DR_BOOTSTRAP:-}" ]; then
     if curl -sf "${FSI_DR_DR_BOOTSTRAP}" >/dev/null 2>&1; then
       echo "  PASS: DR cluster bootstrap reachable"
-      ((pass++))
+      ((pass++)) || true
     else
       echo "  WARN: DR cluster bootstrap unreachable at ${FSI_DR_DR_BOOTSTRAP}"
-      ((warn++))
+      ((warn++)) || true
     fi
   else
     echo "  WARN: DR cluster bootstrap not configured (FSI_DR_DR_BOOTSTRAP)"
-    ((warn++))
+    ((warn++)) || true
   fi
 
   # Check 5: Consul reachable
   if curl -sf "${CONSUL_HTTP_ADDR}/v1/status/leader" >/dev/null 2>&1; then
     echo "  PASS: Consul reachable"
-    ((pass++))
+    ((pass++)) || true
   else
     echo "  FAIL: Consul unreachable at ${CONSUL_HTTP_ADDR}"
-    ((fail++))
+    ((fail++)) || true
   fi
 
   echo ""
@@ -650,7 +650,7 @@ mm2_failover_mirrors() {
         | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
       if [ "${state}" = "PAUSED" ]; then
         echo "  ${name}: PAUSED"
-        ((paused++))
+        ((paused++)) || true
         break
       fi
       sleep 2

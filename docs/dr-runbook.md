@@ -1,23 +1,29 @@
 # FSI Kafka Platform -- DR Runbook
 
-**Last Updated:** 2026-03-24
+**Last Updated:** 2026-03-27
 **Owner:** FSI C4E
 **Status:** Active
 
 ## Overview
 
-This runbook covers disaster recovery procedures for the FSI Kafka Platform using Confluent Cloud Cluster Linking. It is the authoritative reference for on-call engineers during DR events.
+This runbook covers disaster recovery procedures for the FSI Kafka Platform. It supports two DR backends: **Cluster Linking** (Confluent Cloud) and **MirrorMaker 2** (CFK on OpenShift / CP on RHEL). It is the authoritative reference for on-call engineers during DR events.
 
-**Architecture:** East (primary, active) <-> West (DR, passive) via bidirectional Cluster Link.
+**Architecture:** East (primary, active) <-> West (DR, passive). Backend-dependent replication.
 **Service Discovery:** Consul KV (`fsi/kafka/active-region`) flips Kafka, Schema Registry, and Oracle endpoints atomically.
-**DR CLI:** `scripts/fsi-dr.sh` automates the procedures below. Manual steps are documented as fallback.
+**DR CLI:** `scripts/fsi-dr.sh` automates the procedures below. Backend selected via `FSI_DR_BACKEND` env var. Manual steps are documented as fallback.
 
 **Key architectural decisions:**
 - ADR-003: Consul for service discovery (single KV flip for all endpoints)
 - ADR-005: Cluster Linking over MRC (async replication, manual 6-step failover)
 - ADR-008: DR tier classification (SLA-based RPO/RTO targets and mirror lag thresholds)
 
+**Supported backends:**
+- `cluster-linking` -- Confluent Cloud deployments (default)
+- `mm2` -- CFK on OpenShift and Confluent Platform on RHEL deployments
+
 ## Quick Reference
+
+### Cluster Linking (Confluent Cloud -- default)
 
 | Action | Command |
 |--------|---------|
@@ -29,9 +35,23 @@ This runbook covers disaster recovery procedures for the FSI Kafka Platform usin
 | Execute failback | `fsi-dr.sh failback` |
 | Execute failback (CI) | `fsi-dr.sh failback --force` |
 
+### MirrorMaker 2 (CFK/CP)
+
+| Action | Command |
+|--------|---------|
+| MM2 status | `FSI_DR_BACKEND=mm2 fsi-dr.sh status` |
+| MM2 failover | `FSI_DR_BACKEND=mm2 fsi-dr.sh failover` |
+| MM2 failover (dry-run) | `FSI_DR_BACKEND=mm2 fsi-dr.sh failover --dry-run` |
+| MM2 failover (CI) | `FSI_DR_BACKEND=mm2 fsi-dr.sh failover --force` |
+| MM2 failback | `FSI_DR_BACKEND=mm2 fsi-dr.sh failback` |
+| MM2 failback (dry-run) | `FSI_DR_BACKEND=mm2 fsi-dr.sh failback --dry-run` |
+| MM2 failback (CI) | `FSI_DR_BACKEND=mm2 fsi-dr.sh failback --force` |
+
 ## Prerequisites
 
 ### Environment Variables
+
+#### Common Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
@@ -41,18 +61,30 @@ This runbook covers disaster recovery procedures for the FSI Kafka Platform usin
 | `FSI_DR_DR_CLUSTER_ID` | Yes | -- | DR (West) cluster ID |
 | `FSI_CONNECT_URL` | No | `http://localhost:8083` | Kafka Connect REST endpoint |
 | `CONSUL_HTTP_ADDR` | No | `http://localhost:8500` | Consul HTTP address |
-| `FSI_CLUSTER_LINK_NAME` | No | `cluster_link_bidir_east_west` | Cluster link name |
+| `FSI_CLUSTER_LINK_NAME` | No | `cluster_link_bidir_east_west` | Cluster link name (CL backend) |
 | `FSI_DR_STATE_FILE` | No | `/tmp/fsi-dr-state.json` | State file path |
-| `FSI_DR_BACKEND` | No | `cluster-linking` | DR backend (cluster-linking or mm2) |
+| `FSI_DR_BACKEND` | No | `cluster-linking` | DR backend (`cluster-linking` or `mm2`) |
 | `FSI_DR_SYNC_TIMEOUT` | No | `300` | Failback sync wait timeout (seconds) |
+
+#### MM2 Backend Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `FSI_MM2_CONNECT_URL` | No | `FSI_CONNECT_URL` | Connect REST API for MM2 dedicated cluster |
+| `FSI_MM2_SOURCE_CONNECTOR` | No | `mm2-source-east-west` | MirrorSourceConnector name |
+| `FSI_MM2_CHECKPOINT_CONNECTOR` | No | `mm2-checkpoint-east-west` | MirrorCheckpointConnector name |
+| `FSI_MM2_HEARTBEAT_CONNECTOR` | No | `mm2-heartbeat-east-west` | MirrorHeartbeatConnector name |
+| `FSI_MM2_SOURCE_ALIAS` | No | `east` | Source cluster alias in MM2 config |
+| `FSI_MM2_TARGET_ALIAS` | No | `west` | Target cluster alias in MM2 config |
 
 ### Tool Dependencies
 
-- `confluent` CLI (2.x) -- authenticated with appropriate service account
+- `confluent` CLI (2.x) -- authenticated with appropriate service account (CL backend)
 - `consul` CLI (1.x) -- configured with `CONSUL_HTTP_ADDR`
 - `jq` (1.6+) -- JSON processing
 - `curl` (7.x) -- Connect REST API calls
 - `dig` (system) -- DNS endpoint verification
+- For MM2 backend: `kubectl` (for CFK cluster access), no `confluent` CLI needed
 
 ### Pre-Deployment Verification
 
@@ -444,6 +476,175 @@ East is ready (R/W) but applications still resolve to West.
 2. Verify: `consul kv get fsi/kafka/active-region`
 3. If Consul is completely down, update application configurations directly to point to East endpoints.
 
+## MirrorMaker 2 DR Procedures (CFK/CP)
+
+### Overview
+
+For CFK on OpenShift and Confluent Platform on RHEL deployments, DR uses MirrorMaker 2 (MM2) instead of Cluster Linking. The `fsi-dr` CLI abstracts the backend difference -- all commands work identically when `FSI_DR_BACKEND=mm2` is set.
+
+### Architecture Difference
+
+MM2 replicates via Kafka Connect connectors (MirrorSourceConnector, MirrorCheckpointConnector, MirrorHeartbeatConnector) running on a dedicated Connect cluster. DR topics are standard Kafka topics (not mirror topics), so **no promotion is needed during failover**. MM2 uses prefix-based topic naming: `east.{original-topic}` on the DR cluster (per D-05).
+
+**Key differences from Cluster Linking:**
+
+| Aspect | Cluster Linking (CC) | MirrorMaker 2 (CFK/CP) |
+|--------|---------------------|------------------------|
+| Replication mechanism | Cluster link (broker-level) | Kafka Connect connectors |
+| Mirror promotion | Required (mirror failover) | Not needed (topics already writable) |
+| Topic naming on DR | Same name as source | Prefixed: `east.{name}` |
+| Failover speed | ~5 min (6 steps) | ~3 min (simpler -- no promotion) |
+| Consumer offset handling | Automatic (same topic name) | Needs translation (MirrorCheckpointConnector) |
+| Per-topic lag monitoring | Via `confluent kafka mirror list` | Via Prometheus/JMX (REST API for connector state) |
+| CLI dependency | `confluent` CLI required | No `confluent` CLI needed (uses `curl` to Connect REST API) |
+
+### MM2 Pre-flight Checks
+
+The MM2 preflight verifies 5 checks (same pattern as CL preflight):
+
+1. MM2 Connect cluster reachable (health endpoint)
+2. MirrorSourceConnector exists and is RUNNING
+3. MirrorCheckpointConnector exists and is RUNNING
+4. DR cluster bootstrap reachable (if `FSI_DR_DR_BOOTSTRAP` is set)
+5. Consul reachable
+
+```bash
+# Run MM2 pre-flight
+FSI_DR_BACKEND=mm2 fsi-dr.sh status
+```
+
+### MM2 Failover Procedure
+
+**Command:** `FSI_DR_BACKEND=mm2 fsi-dr.sh failover`
+
+**What happens:**
+1. Pre-flight checks verify MM2 Connect health
+2. Pauses all 3 MM2 connectors (MirrorSource, MirrorCheckpoint, MirrorHeartbeat)
+3. Flips Consul to DR region
+4. Verifies DNS endpoint resolution
+5. Resumes application connectors (if applicable)
+6. Final validation
+
+**Why simpler than CL:** Step 2 (promote mirrors) is not needed. MM2 replicated topics on the DR cluster are standard writable Kafka topics. Pausing MM2 connectors stops replication, and the DR cluster is immediately ready to serve traffic.
+
+**Dry-run:**
+```bash
+FSI_DR_BACKEND=mm2 fsi-dr.sh failover --dry-run
+```
+
+**Manual fallback** (if CLI is unavailable):
+```bash
+# Pause MM2 connectors
+curl -s -X PUT $FSI_MM2_CONNECT_URL/connectors/mm2-source-east-west/pause
+curl -s -X PUT $FSI_MM2_CONNECT_URL/connectors/mm2-checkpoint-east-west/pause
+curl -s -X PUT $FSI_MM2_CONNECT_URL/connectors/mm2-heartbeat-east-west/pause
+
+# Flip Consul
+consul kv put fsi/kafka/active-region west
+```
+
+**Consumer note:** DR consumers read from prefixed topics (e.g., `east.corebanking.transactions.v1.account-transaction`). Use MirrorCheckpointConnector offset translation for consumer group offset migration. The checkpoint connector writes translated offsets to `{source-alias}.checkpoints.internal` topic. Consumers can use `RemoteClusterUtils` API to look up translated offsets.
+
+### MM2 Failback Procedure
+
+**Command:** `FSI_DR_BACKEND=mm2 fsi-dr.sh failback`
+
+**What happens:**
+1. Verify primary (East) cluster is reachable
+2. Pause application connectors on DR (West)
+3. Delete existing MM2 connectors (east->west direction)
+4. Create reversed MM2 connectors (west->east direction) with swapped source/target aliases and bootstrap servers
+5. Wait for reversed connectors to sync (data flows DR -> Primary)
+6. Stop reversed connectors, flip Consul back to primary
+7. Recreate original MM2 connectors (east->west)
+8. Resume application connectors, final validation
+
+**Dry-run:**
+```bash
+FSI_DR_BACKEND=mm2 fsi-dr.sh failback --dry-run
+```
+
+**Manual fallback** (if CLI is unavailable):
+```bash
+# Step 1: Delete existing MM2 connectors
+curl -s -X DELETE $FSI_MM2_CONNECT_URL/connectors/mm2-source-east-west
+curl -s -X DELETE $FSI_MM2_CONNECT_URL/connectors/mm2-checkpoint-east-west
+curl -s -X DELETE $FSI_MM2_CONNECT_URL/connectors/mm2-heartbeat-east-west
+
+# Step 2: Create reversed connectors (swap source/target)
+curl -s -X POST $FSI_MM2_CONNECT_URL/connectors \
+  -H "Content-Type: application/json" \
+  -d '{"name":"mm2-source-west-east","config":{
+    "connector.class":"org.apache.kafka.connect.mirror.MirrorSourceConnector",
+    "source.cluster.alias":"west","target.cluster.alias":"east",
+    "source.cluster.bootstrap.servers":"<west-bootstrap>",
+    "target.cluster.bootstrap.servers":"<east-bootstrap>",
+    "topics":".*","replication.factor":"3"}}'
+
+# Step 3: Monitor lag until near-zero, then stop reversed connectors
+# Step 4: Flip Consul back to east
+consul kv put fsi/kafka/active-region east
+
+# Step 5: Recreate original connectors (east->west)
+```
+
+### MM2 Mirror Lag Monitoring
+
+MM2 does not expose per-topic mirror lag via a REST API like Cluster Linking does. The `fsi-dr status` command reports:
+
+- **Connector state** (RUNNING/PAUSED/FAILED) via Connect REST API
+- **Connector-level lag indicator** -- reports `-1` for per-topic lag to signal that detailed lag requires Prometheus/JMX
+
+For production monitoring, use one of these approaches for per-topic granularity:
+1. **Prometheus JMX Exporter** (recommended for CFK): MM2 exposes `replication-latency-ms` metric via JMX on MirrorSourceConnector tasks. CFK Connect pods expose JMX on port 7203.
+2. **Consumer group lag**: Monitor the consumer group lag of MM2's internal consumer on the source cluster.
+3. **Checkpoint topic**: Query the `{source-alias}.checkpoints.internal` topic on the target cluster for offset translation data.
+
+### MM2 Troubleshooting
+
+#### MM2 connector in FAILED state
+
+- **Check:** `curl -s $FSI_MM2_CONNECT_URL/connectors/mm2-source-east-west/status | jq .`
+- **Common causes:**
+  - Source cluster connectivity lost (network partition, cert expiry)
+  - Insufficient permissions on source or target cluster
+  - Topic auto-creation disabled on target and topic does not exist
+- **Action:** Check task-level errors in connector status. Fix the root cause, then restart:
+  ```bash
+  curl -s -X POST $FSI_MM2_CONNECT_URL/connectors/mm2-source-east-west/restart
+  ```
+
+#### High replication lag
+
+- **Check:** Monitor MM2 JMX metrics for `replication-latency-ms` or consumer group lag
+- **Common causes:**
+  - Insufficient task count (increase `tasks.max` in connector config)
+  - Network bandwidth saturation between clusters
+  - High topic volume (partition count mismatch)
+- **Action:** Scale up task count, check network throughput, verify partition alignment.
+
+#### Offset translation issues after failover
+
+- **Check:** Verify MirrorCheckpointConnector was RUNNING before failover
+- **Common causes:**
+  - MirrorCheckpointConnector was not running (no translated offsets available)
+  - Checkpoint interval too long (offsets stale)
+- **Action:** If checkpoint connector was running, use `RemoteClusterUtils.translateOffsets()` API in consumer application. If not, consumers must reset offsets to `latest` or a specific timestamp.
+  ```bash
+  # Check if checkpoint data exists on DR cluster
+  kafka-console-consumer --bootstrap-server <dr-bootstrap> \
+    --topic east.checkpoints.internal \
+    --from-beginning --max-messages 5
+  ```
+
+#### MM2 connectors not visible after CFK deployment
+
+- **Check:** `kubectl get connectors -n confluent`
+- **Common causes:**
+  - Connector CRDs not applied to the correct Connect cluster
+  - Connect cluster not ready (pods not running)
+- **Action:** Verify Connect pods are running and Connector CRDs reference the correct `connectClusterRef`.
+
 ## Emergency Contacts
 
 | Role | Contact | Scope |
@@ -459,4 +660,5 @@ East is ready (R/W) but applications still resolve to West.
 
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-03-27 | Added MirrorMaker 2 DR procedures, MM2 env vars, comparison table, troubleshooting | FSI C4E |
 | 2026-03-24 | Initial runbook creation with failover, failback, troubleshooting | FSI C4E |
