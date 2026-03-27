@@ -136,12 +136,12 @@ Plans:
   3. Python reference producer/consumer works alongside existing Java and .NET examples with identical patterns (idempotent, Avro, metrics)
   4. Integration test suite covers error paths: serialization failure, RBAC denial, schema incompatibility, and broker failure
   5. Local dev Docker Compose includes Flink alongside Kafka, SR, and Connect for stream processing development
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
-- [ ] 07-03: TBD
+- [ ] 07-01-PLAN.md -- Intake form YAML conversion and C4E pre-check automation suite
+- [ ] 07-02-PLAN.md -- Python reference producer/consumer and DLQ pattern across all three languages
+- [ ] 07-03-PLAN.md -- Error-path integration tests and local dev Docker Compose with Flink
 
 ### Phase 8: CFK on OpenShift
 **Goal**: Operators can deploy a fully governed Kafka environment on OpenShift using CFK operator manifests -- with identical governance to CC scenarios, MM2 DR, and Flink Kubernetes Operator
