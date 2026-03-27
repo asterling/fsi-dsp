@@ -119,11 +119,12 @@ Plans:
   3. Flink auto-discovers Schema Registry subjects for Avro serde in CC deployments
   4. Flink job metrics (checkpoint duration, backpressure, throughput) appear in observability provider dashboards
   5. Deserialization and processing failures route to `{topic}.dlq` topics via Flink side output pattern
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md -- Flink Terraform module (compute pool + SQL statements) and CC scenario wiring
+- [ ] 06-02-PLAN.md -- Flink SQL reference templates (tumbling window, stream-table join, filter-route, DLQ)
+- [ ] 06-03-PLAN.md -- Observability dashboard wiring (6 providers) with real CC Flink metrics and .env.example
 
 ### Phase 7: Onboarding and Developer Experience
 **Goal**: New FSI teams can go from intake form to first message produced in under a day -- with Python reference clients, error-path tests, local dev with Flink, and DLQ patterns across all languages
@@ -186,7 +187,7 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 | 3. Access Control and Compliance | 0/4 | Planned | - |
 | 4. DR Automation Framework | 2/3 | In Progress|  |
 | 5. Observability Templates | 0/3 | Not started | - |
-| 6. Flink on Confluent Cloud | 0/2 | Not started | - |
+| 6. Flink on Confluent Cloud | 0/3 | Not started | - |
 | 7. Onboarding and Developer Experience | 0/3 | Not started | - |
 | 8. CFK on OpenShift | 0/2 | Not started | - |
 | 9. CP on RHEL and Private Cloud | 0/3 | Not started | - |
