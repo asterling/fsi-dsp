@@ -126,6 +126,15 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: bash ci/scripts/check-overrides.sh
 
+      - name: C4E Pre-Check Suite
+        if: inputs.mode == 'plan'
+        run: |
+          echo "Running C4E pre-check suite..."
+          python3 ci/scripts/c4e-precheck.py \
+            --scenario-dir ${{ inputs.scenario-dir }} \
+            --schemas-dir schemas/ \
+            --verbose
+
       - name: Terraform Init
         run: terraform init -backend=false
         working-directory: ${{ inputs.scenario-dir }}
