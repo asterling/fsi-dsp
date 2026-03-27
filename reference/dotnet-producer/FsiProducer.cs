@@ -8,6 +8,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Confluent.Kafka;
@@ -25,6 +26,7 @@ namespace Fsi.Kafka.Producer
     {
         private readonly IProducer<string, GenericRecord> _producer;
         private readonly CachedSchemaRegistryClient _schemaRegistry;
+        private readonly FsiDlqHandler _dlqHandler;
         private readonly string _topicName;
 
         // Metrics for Dynatrace (exposed via Statistics callback)
@@ -85,6 +87,9 @@ namespace Fsi.Kafka.Producer
                 })
                 .Build();
 
+            // DLQ handler for routing failed messages
+            _dlqHandler = new FsiDlqHandler(config, _topicName);
+
             Console.WriteLine($"[FSI Producer] Initialized for topic: {_topicName}");
         }
 
@@ -110,6 +115,11 @@ namespace Fsi.Kafka.Producer
                 Interlocked.Increment(ref _totalErrors);
                 Console.Error.WriteLine(
                     $"[FSI Producer] Failed to produce [key={key}]: {ex.Error.Reason}");
+
+                // Route to DLQ
+                var keyBytes = key != null ? Encoding.UTF8.GetBytes(key) : null;
+                await _dlqHandler.SendToDlqAsync(keyBytes, null, ex, 0);
+
                 throw;
             }
         }
@@ -155,8 +165,9 @@ namespace Fsi.Kafka.Producer
 
         public void Dispose()
         {
-            Console.WriteLine($"[FSI Producer] Shutting down. sent={_totalSent} errors={_totalErrors}");
+            Console.WriteLine($"[FSI Producer] Shutting down. sent={_totalSent} errors={_totalErrors} dlq={_dlqHandler?.DlqSent ?? 0}");
             _producer?.Flush(TimeSpan.FromSeconds(30));
+            _dlqHandler?.Dispose();
             _producer?.Dispose();
             _schemaRegistry?.Dispose();
         }

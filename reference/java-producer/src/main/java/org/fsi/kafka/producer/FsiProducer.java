@@ -33,6 +33,7 @@ public class FsiProducer implements AutoCloseable {
 
     private final KafkaProducer<String, GenericRecord> producer;
     private final String topicName;
+    private final FsiDlqHandler dlqHandler;
 
     // Metrics for Dynatrace JMX exposure
     private final AtomicLong totalSent = new AtomicLong(0);
@@ -59,6 +60,10 @@ public class FsiProducer implements AutoCloseable {
         this.producer = new KafkaProducer<>(props);
 
         registerJmxMetrics();
+
+        // DLQ handler for routing failed messages
+        this.dlqHandler = new FsiDlqHandler(config, topicName);
+
         log.info("FSI Producer initialized for topic: {}", topicName);
     }
 
@@ -135,10 +140,12 @@ public class FsiProducer implements AutoCloseable {
                 totalErrors.incrementAndGet();
                 log.error("Failed to produce to {} [key={}]: {}",
                         topicName, key, exception.getMessage(), exception);
-                // Application-specific error handling here:
-                // - Write to DLQ
-                // - Store for retry
-                // - Alert via Dynatrace custom event
+                // DLQ routing with retry classification
+                if (dlqHandler != null) {
+                    byte[] keyBytes = key != null ? key.getBytes(java.nio.charset.StandardCharsets.UTF_8) : null;
+                    // Note: value bytes not available in callback -- serialize for DLQ
+                    dlqHandler.sendToDlq(keyBytes, null, exception, 0);
+                }
             } else {
                 totalSent.incrementAndGet();
                 log.debug("Produced to {}-{} offset={} latency={}ms",
@@ -179,8 +186,10 @@ public class FsiProducer implements AutoCloseable {
     public void close() {
         log.info("Shutting down producer for topic: {}", topicName);
         producer.flush();
+        dlqHandler.close();
         producer.close(Duration.ofSeconds(30));
-        log.info("Producer closed. Total sent: {}, errors: {}", totalSent.get(), totalErrors.get());
+        log.info("Producer closed. Total sent: {}, errors: {}, DLQ: {}",
+                totalSent.get(), totalErrors.get(), dlqHandler.getDlqSent());
     }
 
     // ── JMX Metrics for Dynatrace ──
@@ -209,6 +218,7 @@ public class FsiProducer implements AutoCloseable {
         long getTotalSent();
         long getTotalErrors();
         long getLastLatencyMs();
+        long getDlqSent();
         double getErrorRate();
     }
 
@@ -217,6 +227,7 @@ public class FsiProducer implements AutoCloseable {
         public long getTotalSent() { return totalSent.get(); }
         public long getTotalErrors() { return totalErrors.get(); }
         public long getLastLatencyMs() { return lastLatencyMs.get(); }
+        public long getDlqSent() { return dlqHandler != null ? dlqHandler.getDlqSent() : 0; }
         public double getErrorRate() {
             long total = totalSent.get() + totalErrors.get();
             return total > 0 ? (double) totalErrors.get() / total : 0.0;
