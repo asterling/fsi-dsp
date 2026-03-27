@@ -123,7 +123,7 @@ Plans:
 
 Plans:
 - [ ] 06-01-PLAN.md -- Flink Terraform module (compute pool + SQL statements) and CC scenario wiring
-- [ ] 06-02-PLAN.md -- Flink SQL reference templates (tumbling window, stream-table join, filter-route, DLQ)
+- [x] 06-02-PLAN.md -- Flink SQL reference templates (tumbling window, stream-table join, filter-route, DLQ)
 - [ ] 06-03-PLAN.md -- Observability dashboard wiring (6 providers) with real CC Flink metrics and .env.example
 
 ### Phase 7: Onboarding and Developer Experience
@@ -187,7 +187,7 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 | 3. Access Control and Compliance | 0/4 | Planned | - |
 | 4. DR Automation Framework | 2/3 | In Progress|  |
 | 5. Observability Templates | 0/3 | Not started | - |
-| 6. Flink on Confluent Cloud | 0/3 | Not started | - |
+| 6. Flink on Confluent Cloud | 1/3 | In Progress|  |
 | 7. Onboarding and Developer Experience | 0/3 | Not started | - |
 | 8. CFK on OpenShift | 0/2 | Not started | - |
 | 9. CP on RHEL and Private Cloud | 0/3 | Not started | - |
