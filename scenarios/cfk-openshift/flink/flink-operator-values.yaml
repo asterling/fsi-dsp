@@ -1,0 +1,56 @@
+# =============================================================================
+# Flink Kubernetes Operator -- Helm Values for CFK Scenario
+# =============================================================================
+# Bundled in CFK scenario per D-09. Single scenario = complete platform
+# (Kafka + SR + Connect + MM2 + Flink).
+#
+# Install:
+#   helm repo add flink-operator \
+#     https://archive.apache.org/dist/flink/flink-kubernetes-operator-1.14.0/
+#   helm install flink-kubernetes-operator \
+#     flink-operator/flink-kubernetes-operator \
+#     --namespace flink --create-namespace \
+#     -f flink/flink-operator-values.yaml
+# =============================================================================
+
+image:
+  repository: apache/flink-kubernetes-operator
+  tag: "1.14.0"
+
+# Watch only the flink namespace for FlinkDeployment CRDs
+watchNamespaces:
+  - "flink"
+
+# Enable admission webhook for FlinkDeployment validation
+webhook:
+  create: true
+
+# Prometheus metrics from the operator itself
+metrics:
+  port: 9249
+
+# Operator pod resources
+operatorPod:
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1000m"
+      memory: "1Gi"
+
+# Default Flink configuration applied to all FlinkDeployments
+# Individual FlinkDeployments can override these
+defaultConfiguration:
+  create: true
+  flink-conf.yaml: |
+    # Prometheus metrics reporter (port 9249)
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+    # Checkpoint defaults
+    state.backend: hashmap
+    execution.checkpointing.interval: "60000"
+
+# RBAC for the operator service account
+rbac:
+  create: true

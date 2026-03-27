@@ -1,0 +1,59 @@
+# =============================================================================
+# FlinkDeployment -- Session Cluster for Flink SQL
+# =============================================================================
+# Session cluster for running Flink SQL jobs. Submit SQL via Flink SQL client
+# or FlinkSessionJob CRDs.
+#
+# Usage:
+#   kubectl apply -f flink/flink-session-cluster.yaml -n flink
+#   kubectl exec -it deploy/fsi-sql-session -- /opt/flink/bin/sql-client.sh
+# =============================================================================
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: fsi-sql-session
+  namespace: flink
+  labels:
+    app.kubernetes.io/component: flink-session
+    fsi.domain: platform
+spec:
+  image: fsi-flink:1.20
+  flinkVersion: v1_20
+  serviceAccount: flink
+
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    # Prometheus metrics reporter
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+    # State backend and checkpointing
+    state.backend: hashmap
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    execution.checkpointing.interval: "60000"
+
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+
+  taskManager:
+    resource:
+      memory: "4096m"
+      cpu: 2
+    replicas: 2
+
+  mode: native
+
+  # -- Pod template with JMX exporter sidecar config (D-11) --
+  podTemplate:
+    spec:
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: jmx-exporter-config
+              mountPath: /opt/jmx-exporter
+      volumes:
+        - name: jmx-exporter-config
+          configMap:
+            name: flink-jmx-exporter-config

@@ -1,0 +1,160 @@
+# =============================================================================
+# FlinkDeployment -- Stream-Table Join Enrichment
+# =============================================================================
+# CFK port of reference/flink-sql/stream-table-join-enrichment.sql.
+# Temporal join uses FOR SYSTEM_TIME AS OF for point-in-time lookup.
+#
+# Unlike CC Flink, CFK Flink requires explicit CREATE TABLE with avro-confluent
+# format (Pitfall 5 from research).
+#
+# Deploy:
+#   kubectl apply -f flink/examples/stream-table-join.yaml -n flink
+# =============================================================================
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: fsi-stream-table-join
+  namespace: flink
+  labels:
+    fsi.pattern: stream-table-join
+    fsi.domain: corebanking
+spec:
+  image: fsi-flink:1.20
+  flinkVersion: v1_20
+  serviceAccount: flink
+
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    # Prometheus metrics reporter
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+    # State backend and checkpointing
+    state.backend: hashmap
+    state.checkpoints.dir: file:///flink-data/checkpoints
+    execution.checkpointing.interval: "60000"
+
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+
+  taskManager:
+    resource:
+      memory: "4096m"
+      cpu: 2
+
+  job:
+    jarURI: local:///opt/flink/usrlib/fsi-sql-runner.jar
+    entryClass: org.apache.flink.table.gateway.SqlRunner
+    args: ["--sql-file", "/opt/flink/sql/stream-table-join.sql"]
+    parallelism: 2
+    upgradeMode: savepoint
+    state: running
+
+  # -- Pod template with JMX exporter sidecar config (D-11) and SQL mount --
+  podTemplate:
+    spec:
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: jmx-exporter-config
+              mountPath: /opt/jmx-exporter
+            - name: sql-scripts
+              mountPath: /opt/flink/sql
+      volumes:
+        - name: jmx-exporter-config
+          configMap:
+            name: flink-jmx-exporter-config
+        - name: sql-scripts
+          configMap:
+            name: fsi-stream-table-join-sql
+
+---
+# =============================================================================
+# ConfigMap -- Stream-Table Join SQL
+# =============================================================================
+# CFK port of reference/flink-sql/stream-table-join-enrichment.sql.
+# CFK Flink requires explicit CREATE TABLE (CC Flink auto-discovers SR subjects).
+# =============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fsi-stream-table-join-sql
+  namespace: flink
+data:
+  stream-table-join.sql: |
+    -- Source: CFK port of reference/flink-sql/stream-table-join-enrichment.sql
+    -- Temporal join uses FOR SYSTEM_TIME AS OF for point-in-time lookup
+
+    -- Source: real-time transaction stream
+    CREATE TABLE account_transaction (
+      transaction_id STRING,
+      account_number STRING,
+      amount DECIMAL(15, 2),
+      transaction_type STRING,
+      `timestamp` TIMESTAMP(3),
+      WATERMARK FOR `timestamp` AS `timestamp` - INTERVAL '5' SECOND
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'corebanking.transactions.v1.account-transaction',
+      'properties.bootstrap.servers' = 'kafka.confluent.svc.cluster.local:9092',
+      'value.format' = 'avro-confluent',
+      'value.avro-confluent.url' = 'http://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol' = 'SSL',
+      'properties.ssl.truststore.location' = '/opt/certs/truststore.jks',
+      'scan.startup.mode' = 'latest-offset'
+    );
+
+    -- Dimension: compacted account master table for temporal join
+    CREATE TABLE account_master (
+      account_number STRING,
+      account_holder_name STRING,
+      account_type STRING,
+      branch_code STRING,
+      PRIMARY KEY (account_number) NOT ENFORCED
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'corebanking.reference.v1.account-master',
+      'properties.bootstrap.servers' = 'kafka.confluent.svc.cluster.local:9092',
+      'value.format' = 'avro-confluent',
+      'value.avro-confluent.url' = 'http://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol' = 'SSL',
+      'properties.ssl.truststore.location' = '/opt/certs/truststore.jks',
+      'scan.startup.mode' = 'latest-offset'
+    );
+
+    -- Sink: enriched transaction with account master fields
+    CREATE TABLE account_transaction_enriched (
+      transaction_id STRING,
+      account_number STRING,
+      amount DECIMAL(15, 2),
+      transaction_type STRING,
+      `timestamp` TIMESTAMP(3),
+      account_holder_name STRING,
+      account_type STRING,
+      branch_code STRING
+    ) WITH (
+      'connector' = 'kafka',
+      'topic' = 'corebanking.enriched.v1.account-transaction-enriched',
+      'properties.bootstrap.servers' = 'kafka.confluent.svc.cluster.local:9092',
+      'value.format' = 'avro-confluent',
+      'value.avro-confluent.url' = 'http://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol' = 'SSL',
+      'properties.ssl.truststore.location' = '/opt/certs/truststore.jks'
+    );
+
+    INSERT INTO account_transaction_enriched
+    SELECT
+      t.transaction_id,
+      t.account_number,
+      t.amount,
+      t.transaction_type,
+      t.`timestamp`,
+      a.account_holder_name,
+      a.account_type,
+      a.branch_code
+    FROM account_transaction t
+    JOIN account_master FOR SYSTEM_TIME AS OF t.`timestamp` AS a
+    ON t.account_number = a.account_number;
