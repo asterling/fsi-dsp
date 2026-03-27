@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Phase 8 context gathered
-last_updated: "2026-03-27T21:12:37.047Z"
+stopped_at: Completed 08-01-PLAN.md
+last_updated: "2026-03-27T22:38:36.664Z"
 progress:
   total_phases: 9
   completed_phases: 7
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 22
 ---
 
 # Project State
@@ -19,12 +19,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-21)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 07 — onboarding-and-developer-experience
+**Current focus:** Phase 08 — cfk-on-openshift
 
 ## Current Position
 
-Phase: 8
-Plan: Not started
+Phase: 08 (cfk-on-openshift) — EXECUTING
+Plan: 2 of 3
 
 ## Performance Metrics
 
@@ -67,6 +67,7 @@ Plan: Not started
 | Phase 07 P01 | 3min | 2 tasks | 4 files |
 | Phase 07 P02 | 6min | 2 tasks | 11 files |
 | Phase 07 P03 | 4min | 2 tasks | 4 files |
+| Phase 08 P01 | 6min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -145,6 +146,9 @@ Recent decisions affecting current work:
 - [Phase 07]: Flink UI mapped to port 8085 (8081 taken by Schema Registry)
 - [Phase 07]: RBAC denial test uses ACL authorizer with ANONYMOUS super user + DENY ACL on separate topic
 - [Phase 07]: Docker Compose Flink services opt-in via --profile flink (default startup unchanged)
+- [Phase 08]: Stdlib YAML parser over PyYAML to maintain zero-dependency CI pipeline
+- [Phase 08]: MM2 on dedicated connect-mm2 cluster (CFK has no KafkaMirrorMaker2 CRD; D-07 intent via dedicated Connect cluster)
+- [Phase 08]: ACLs as default CFK authorization (simple), MDS documented as advanced alternative per D-14
 
 ### Pending Todos
 
@@ -159,6 +163,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-27T21:12:37.045Z
-Stopped at: Phase 8 context gathered
-Resume file: .planning/phases/08-cfk-on-openshift/08-CONTEXT.md
+Last session: 2026-03-27T22:38:36.662Z
+Stopped at: Completed 08-01-PLAN.md
+Resume file: None
