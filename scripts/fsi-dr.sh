@@ -53,6 +53,20 @@ _tier_alert_threshold() {
 FSI_DR_BACKEND="${FSI_DR_BACKEND:-cluster-linking}"
 FSI_DR_STATE_FILE="${FSI_DR_STATE_FILE:-/tmp/fsi-dr-state.json}"
 
+# MM2 backend environment variables
+# FSI_MM2_CONNECT_URL -- Connect REST API for MM2 dedicated cluster (default: FSI_CONNECT_URL)
+# FSI_MM2_SOURCE_CONNECTOR -- MirrorSourceConnector name (default: mm2-source-east-west)
+# FSI_MM2_CHECKPOINT_CONNECTOR -- MirrorCheckpointConnector name (default: mm2-checkpoint-east-west)
+# FSI_MM2_HEARTBEAT_CONNECTOR -- MirrorHeartbeatConnector name (default: mm2-heartbeat-east-west)
+# FSI_MM2_SOURCE_ALIAS -- Source cluster alias (default: east)
+# FSI_MM2_TARGET_ALIAS -- Target cluster alias (default: west)
+FSI_MM2_CONNECT_URL="${FSI_MM2_CONNECT_URL:-${FSI_CONNECT_URL:-http://localhost:8083}}"
+FSI_MM2_SOURCE_CONNECTOR="${FSI_MM2_SOURCE_CONNECTOR:-mm2-source-east-west}"
+FSI_MM2_CHECKPOINT_CONNECTOR="${FSI_MM2_CHECKPOINT_CONNECTOR:-mm2-checkpoint-east-west}"
+FSI_MM2_HEARTBEAT_CONNECTOR="${FSI_MM2_HEARTBEAT_CONNECTOR:-mm2-heartbeat-east-west}"
+FSI_MM2_SOURCE_ALIAS="${FSI_MM2_SOURCE_ALIAS:-east}"
+FSI_MM2_TARGET_ALIAS="${FSI_MM2_TARGET_ALIAS:-west}"
+
 # ---------------------------------------------------------------------------
 # Color output helpers
 # ---------------------------------------------------------------------------
@@ -520,6 +534,328 @@ cl_get_mirror_status() {
 }
 
 # ---------------------------------------------------------------------------
+# MirrorMaker 2 backend functions (Phase 8)
+# MM2 uses Connect REST API to manage MM2 connectors on a dedicated
+# Connect cluster. DR topics are standard Kafka topics (no mirror
+# promotion needed during failover). Per D-06: "stop MM2 connectors +
+# flip Consul to DR."
+# ---------------------------------------------------------------------------
+
+# mm2_preflight -- MM2-specific pre-flight checks
+# Verifies MM2 Connect cluster, connector health, and Consul reachability
+mm2_preflight() {
+  local mm2_url="${FSI_MM2_CONNECT_URL}"
+  local src="${FSI_MM2_SOURCE_CONNECTOR}"
+  local chk="${FSI_MM2_CHECKPOINT_CONNECTOR}"
+  local pass=0 warn=0 fail=0
+
+  echo "=== Pre-flight Checks (MM2 Backend) ==="
+  echo ""
+
+  # Check 1: MM2 Connect cluster reachable
+  if curl -sf "${mm2_url}/" >/dev/null 2>&1; then
+    echo "  PASS: MM2 Connect cluster reachable"
+    ((pass++))
+  else
+    echo "  FAIL: MM2 Connect cluster unreachable at ${mm2_url}"
+    ((fail++))
+  fi
+
+  # Check 2: MirrorSourceConnector exists and is RUNNING
+  local src_state
+  src_state=$(curl -s "${mm2_url}/connectors/${src}/status" 2>/dev/null \
+    | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+  if [ "${src_state}" = "RUNNING" ]; then
+    echo "  PASS: MirrorSourceConnector (${src}) is RUNNING"
+    ((pass++))
+  elif [ "${src_state}" = "PAUSED" ]; then
+    echo "  WARN: MirrorSourceConnector (${src}) is PAUSED"
+    ((warn++))
+  else
+    echo "  FAIL: MirrorSourceConnector (${src}) state: ${src_state}"
+    ((fail++))
+  fi
+
+  # Check 3: MirrorCheckpointConnector exists and is RUNNING
+  local chk_state
+  chk_state=$(curl -s "${mm2_url}/connectors/${chk}/status" 2>/dev/null \
+    | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+  if [ "${chk_state}" = "RUNNING" ]; then
+    echo "  PASS: MirrorCheckpointConnector (${chk}) is RUNNING"
+    ((pass++))
+  elif [ "${chk_state}" = "PAUSED" ]; then
+    echo "  WARN: MirrorCheckpointConnector (${chk}) is PAUSED"
+    ((warn++))
+  else
+    echo "  FAIL: MirrorCheckpointConnector (${chk}) state: ${chk_state}"
+    ((fail++))
+  fi
+
+  # Check 4: DR cluster Kafka bootstrap reachable (if set)
+  if [ -n "${FSI_DR_DR_BOOTSTRAP:-}" ]; then
+    if curl -sf "${FSI_DR_DR_BOOTSTRAP}" >/dev/null 2>&1; then
+      echo "  PASS: DR cluster bootstrap reachable"
+      ((pass++))
+    else
+      echo "  WARN: DR cluster bootstrap unreachable at ${FSI_DR_DR_BOOTSTRAP}"
+      ((warn++))
+    fi
+  else
+    echo "  WARN: DR cluster bootstrap not configured (FSI_DR_DR_BOOTSTRAP)"
+    ((warn++))
+  fi
+
+  # Check 5: Consul reachable
+  if curl -sf "${CONSUL_HTTP_ADDR}/v1/status/leader" >/dev/null 2>&1; then
+    echo "  PASS: Consul reachable"
+    ((pass++))
+  else
+    echo "  FAIL: Consul unreachable at ${CONSUL_HTTP_ADDR}"
+    ((fail++))
+  fi
+
+  echo ""
+  echo "Pre-flight: ${pass} passed, ${warn} warnings, ${fail} failed"
+  [ "${fail}" -eq 0 ]
+}
+
+# mm2_failover_mirrors -- Pause all MM2 connectors (DR topics already writable)
+# Per D-06: MM2 failover is simpler than CL -- stop replication, no promotion needed.
+# NOTE: Does NOT call flip_consul -- orchestrator handles that via cmd_failover step 3.
+mm2_failover_mirrors() {
+  local mm2_url="${FSI_MM2_CONNECT_URL}"
+  local src="${FSI_MM2_SOURCE_CONNECTOR}"
+  local chk="${FSI_MM2_CHECKPOINT_CONNECTOR}"
+  local hbt="${FSI_MM2_HEARTBEAT_CONNECTOR}"
+
+  if [ "${DRY_RUN}" = true ]; then
+    echo "  [DRY-RUN] Would pause MM2 connectors:"
+    echo "    - ${src}"
+    echo "    - ${chk}"
+    echo "    - ${hbt}"
+    echo ""
+    echo "  MM2 failover is simpler than Cluster Linking:"
+    echo "  DR topics are already writable (no mirror promotion needed)."
+    return 0
+  fi
+
+  echo "  Pausing MM2 connectors..."
+  local paused=0
+  for name in "${src}" "${chk}" "${hbt}"; do
+    curl -s -X PUT "${mm2_url}/connectors/${name}/pause" >/dev/null 2>&1 || true
+    # Poll for PAUSED state (up to 30 iterations, 2s sleep)
+    local i state
+    for i in $(seq 1 30); do
+      state=$(curl -s "${mm2_url}/connectors/${name}/status" 2>/dev/null \
+        | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+      if [ "${state}" = "PAUSED" ]; then
+        echo "  ${name}: PAUSED"
+        ((paused++))
+        break
+      fi
+      sleep 2
+    done
+    if [ "${state}" != "PAUSED" ]; then
+      echo "  WARNING: ${name} did not reach PAUSED state within timeout"
+    fi
+  done
+
+  echo "  MM2 connectors paused (${paused}/3). DR topics are already writable (no mirror promotion needed)."
+}
+
+# mm2_failback_mirrors -- Reverse MM2 replication direction (DR -> Primary)
+# Deletes existing connectors and creates reversed ones with swapped source/target.
+mm2_failback_mirrors() {
+  local mm2_url="${FSI_MM2_CONNECT_URL}"
+  local src="${FSI_MM2_SOURCE_CONNECTOR}"
+  local chk="${FSI_MM2_CHECKPOINT_CONNECTOR}"
+  local hbt="${FSI_MM2_HEARTBEAT_CONNECTOR}"
+  local src_alias="${FSI_MM2_SOURCE_ALIAS}"
+  local tgt_alias="${FSI_MM2_TARGET_ALIAS}"
+
+  if [ "${DRY_RUN}" = true ]; then
+    echo "  [DRY-RUN] Would reverse MM2 replication direction:"
+    echo "    Phase 1 -- Delete existing connectors:"
+    echo "      - Would delete: ${src}"
+    echo "      - Would delete: ${chk}"
+    echo "      - Would delete: ${hbt}"
+    echo "    Phase 2 -- Create reversed connectors:"
+    echo "      - Would create: mm2-source-${tgt_alias}-${src_alias} (reversed)"
+    echo "      - Would create: mm2-checkpoint-${tgt_alias}-${src_alias} (reversed)"
+    echo "      - Would create: mm2-heartbeat-${tgt_alias}-${src_alias} (reversed)"
+    echo ""
+    echo "  Replication direction: ${tgt_alias} -> ${src_alias} (DR -> Primary)"
+    return 0
+  fi
+
+  # Phase 1: Delete existing MM2 connectors
+  echo "  Deleting existing MM2 connectors..."
+  for name in "${src}" "${chk}" "${hbt}"; do
+    curl -s -X DELETE "${mm2_url}/connectors/${name}" >/dev/null 2>&1 || true
+    echo "  Deleted: ${name}"
+  done
+
+  # Phase 2: Create reversed connectors with swapped source/target
+  local reversed_src="mm2-source-${tgt_alias}-${src_alias}"
+  local reversed_chk="mm2-checkpoint-${tgt_alias}-${src_alias}"
+  local reversed_hbt="mm2-heartbeat-${tgt_alias}-${src_alias}"
+
+  # Get original source connector config for bootstrap servers
+  local original_config
+  original_config=$(curl -s "${mm2_url}/connectors/${src}/config" 2>/dev/null || echo "{}")
+  local source_bootstrap target_bootstrap
+  source_bootstrap=$(echo "${original_config}" | jq -r '.["source.cluster.bootstrap.servers"] // "kafka-east:9092"' 2>/dev/null || echo "kafka-east:9092")
+  target_bootstrap=$(echo "${original_config}" | jq -r '.["target.cluster.bootstrap.servers"] // "kafka-west:9092"' 2>/dev/null || echo "kafka-west:9092")
+
+  echo "  Creating reversed MirrorSourceConnector (${reversed_src})..."
+  curl -s -X POST "${mm2_url}/connectors" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"name\": \"${reversed_src}\",
+      \"config\": {
+        \"connector.class\": \"org.apache.kafka.connect.mirror.MirrorSourceConnector\",
+        \"source.cluster.alias\": \"${tgt_alias}\",
+        \"target.cluster.alias\": \"${src_alias}\",
+        \"source.cluster.bootstrap.servers\": \"${target_bootstrap}\",
+        \"target.cluster.bootstrap.servers\": \"${source_bootstrap}\",
+        \"topics\": \".*\",
+        \"topics.exclude\": \".*\\\\.internal,.*\\\\.replica,__.*\",
+        \"replication.factor\": \"3\",
+        \"sync.topic.configs.enabled\": \"true\"
+      }
+    }" >/dev/null 2>&1 || true
+
+  echo "  Creating reversed MirrorCheckpointConnector (${reversed_chk})..."
+  curl -s -X POST "${mm2_url}/connectors" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"name\": \"${reversed_chk}\",
+      \"config\": {
+        \"connector.class\": \"org.apache.kafka.connect.mirror.MirrorCheckpointConnector\",
+        \"source.cluster.alias\": \"${tgt_alias}\",
+        \"target.cluster.alias\": \"${src_alias}\",
+        \"source.cluster.bootstrap.servers\": \"${target_bootstrap}\",
+        \"target.cluster.bootstrap.servers\": \"${source_bootstrap}\",
+        \"emit.checkpoints.enabled\": \"true\"
+      }
+    }" >/dev/null 2>&1 || true
+
+  echo "  Creating reversed MirrorHeartbeatConnector (${reversed_hbt})..."
+  curl -s -X POST "${mm2_url}/connectors" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"name\": \"${reversed_hbt}\",
+      \"config\": {
+        \"connector.class\": \"org.apache.kafka.connect.mirror.MirrorHeartbeatConnector\",
+        \"source.cluster.alias\": \"${tgt_alias}\",
+        \"target.cluster.alias\": \"${src_alias}\",
+        \"source.cluster.bootstrap.servers\": \"${target_bootstrap}\",
+        \"target.cluster.bootstrap.servers\": \"${source_bootstrap}\"
+      }
+    }" >/dev/null 2>&1 || true
+
+  # Wait for new connectors to reach RUNNING state
+  echo "  Waiting for reversed connectors to start..."
+  for name in "${reversed_src}" "${reversed_chk}" "${reversed_hbt}"; do
+    local i state
+    for i in $(seq 1 30); do
+      state=$(curl -s "${mm2_url}/connectors/${name}/status" 2>/dev/null \
+        | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+      if [ "${state}" = "RUNNING" ]; then
+        echo "  ${name}: RUNNING"
+        break
+      fi
+      sleep 2
+    done
+    if [ "${state}" != "RUNNING" ]; then
+      echo "  WARNING: ${name} did not reach RUNNING state within timeout"
+    fi
+  done
+
+  echo "  MM2 replication reversed (${tgt_alias} -> ${src_alias}). Monitor lag before cutover."
+}
+
+# mm2_get_mirror_lag -- Report per-topic replication lag for MM2
+# Queries MirrorSourceConnector status and config via Connect REST API.
+# Returns JSON array matching CL format for fsi-dr status compatibility.
+# NOTE: Per-topic lag granularity requires Prometheus/JMX; this function
+# reports connector-level state with topic list from connector config.
+mm2_get_mirror_lag() {
+  local mm2_url="${FSI_MM2_CONNECT_URL}"
+  local src="${FSI_MM2_SOURCE_CONNECTOR}"
+
+  # Get connector status for task states
+  local status_json
+  status_json=$(curl -s "${mm2_url}/connectors/${src}/status" 2>/dev/null || echo "{}")
+  local connector_state
+  connector_state=$(echo "${status_json}" | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+
+  # Get replicated topics from connector config
+  local config_json
+  config_json=$(curl -s "${mm2_url}/connectors/${src}/config" 2>/dev/null || echo "{}")
+  local topics_pattern
+  topics_pattern=$(echo "${config_json}" | jq -r '.["topics"] // ".*"' 2>/dev/null || echo ".*")
+  local src_alias
+  src_alias=$(echo "${config_json}" | jq -r '.["source.cluster.alias"] // "east"' 2>/dev/null || echo "east")
+
+  # Build lag entries -- MM2 does not expose per-topic lag via REST API,
+  # so we report connector-level status with -1 lag to indicate
+  # that per-topic granularity requires Prometheus/JMX metrics
+  local lag_status
+  case "${connector_state}" in
+    RUNNING) lag_status="ACTIVE" ;;
+    PAUSED)  lag_status="PAUSED" ;;
+    FAILED)  lag_status="FAILED" ;;
+    *)       lag_status="UNKNOWN" ;;
+  esac
+
+  # Return JSON array compatible with CL format
+  # mirror_lag_ms=-1 signals that detailed per-topic lag needs JMX/Prometheus
+  jq -n \
+    --arg src_alias "${src_alias}" \
+    --arg topics "${topics_pattern}" \
+    --arg status "${lag_status}" \
+    --arg note "MM2 per-topic lag requires Prometheus/JMX. Connector state shown." \
+    '[{
+      "mirror_topic_name": ($src_alias + ".*"),
+      "mirror_lag_ms": -1,
+      "status": $status,
+      "partition_mirror_lags": [{"partition": 0, "lag": -1}],
+      "note": $note
+    }]'
+}
+
+# mm2_get_mirror_status -- Report MM2 connector states
+# Returns JSON array with status of all 3 MM2 connectors.
+mm2_get_mirror_status() {
+  local mm2_url="${FSI_MM2_CONNECT_URL}"
+  local src="${FSI_MM2_SOURCE_CONNECTOR}"
+  local chk="${FSI_MM2_CHECKPOINT_CONNECTOR}"
+  local hbt="${FSI_MM2_HEARTBEAT_CONNECTOR}"
+
+  local result="["
+  local first=true
+  for name in "${src}" "${chk}" "${hbt}"; do
+    local status_json
+    status_json=$(curl -s "${mm2_url}/connectors/${name}/status" 2>/dev/null || echo "{}")
+    local state
+    state=$(echo "${status_json}" | jq -r '.connector.state // "UNKNOWN"' 2>/dev/null || echo "UNKNOWN")
+    local tasks
+    tasks=$(echo "${status_json}" | jq -c '[.tasks[]? | {id: .id, state: .state}]' 2>/dev/null || echo "[]")
+
+    if [ "${first}" = true ]; then
+      first=false
+    else
+      result="${result},"
+    fi
+    result="${result}{\"name\":\"${name}\",\"state\":\"${state}\",\"tasks\":${tasks}}"
+  done
+  result="${result}]"
+
+  echo "${result}"
+}
+
+# ---------------------------------------------------------------------------
 # Backend dispatch (D-03)
 # ---------------------------------------------------------------------------
 init_backend() {
@@ -532,11 +868,14 @@ init_backend() {
       backend_get_mirror_status(){ cl_get_mirror_status "$@"; }
       ;;
     mm2)
-      echo "ERROR: MirrorMaker 2 backend not yet implemented (Phase 8)"
-      return 1
+      backend_preflight()        { mm2_preflight "$@"; }
+      backend_failover_mirrors() { mm2_failover_mirrors "$@"; }
+      backend_failback_mirrors() { mm2_failback_mirrors "$@"; }
+      backend_get_mirror_lag()   { mm2_get_mirror_lag "$@"; }
+      backend_get_mirror_status(){ mm2_get_mirror_status "$@"; }
       ;;
     *)
-      echo "ERROR: Unknown backend: ${FSI_DR_BACKEND}. Supported: cluster-linking"
+      echo "ERROR: Unknown backend: ${FSI_DR_BACKEND}. Supported: cluster-linking, mm2"
       return 1
       ;;
   esac

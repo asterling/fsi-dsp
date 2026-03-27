@@ -251,9 +251,9 @@ echo ""
 assert_exit_code "FSI_DR_BACKEND=cluster-linking init_backend succeeds" \
   0 init_backend
 
-# mm2 backend should fail
-assert_exit_code "FSI_DR_BACKEND=mm2 init_backend exits with code 1" \
-  1 bash -c 'FSI_DR_BACKEND=mm2; source "'"${REPO_ROOT}/scripts/fsi-dr.sh"'"'
+# mm2 backend should succeed (Phase 8: MM2 backend implemented)
+assert_exit_code "FSI_DR_BACKEND=mm2 init_backend succeeds" \
+  0 bash -c 'FSI_DR_BACKEND=mm2; source "'"${REPO_ROOT}/scripts/fsi-dr.sh"'"'
 
 # unknown backend should fail
 assert_exit_code "FSI_DR_BACKEND=unknown init_backend exits with code 1" \
