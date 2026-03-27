@@ -155,7 +155,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md -- CFK scenario directory with Helm values, topic CRDs, ACLs, MM2 connectors, and CI validation extension
-- [ ] 08-02-PLAN.md -- MM2 backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
+- [x] 08-02-PLAN.md -- MM2 backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
 - [ ] 08-03-PLAN.md -- Flink Kubernetes Operator deployment, FlinkDeployment examples, JMX observability, and .env.example
 
 ### Phase 9: CP on RHEL and Private Cloud
