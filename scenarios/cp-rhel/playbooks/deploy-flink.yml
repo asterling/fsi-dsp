@@ -1,0 +1,12 @@
+---
+# Deploy standalone Apache Flink on RHEL
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/deploy-flink.yml
+#
+# Note: Confluent Platform Flink requires Kubernetes.
+# This playbook deploys open-source Apache Flink 1.20 in standalone mode
+# with the flink-sql-avro-confluent connector for SR integration.
+- name: Deploy Flink standalone
+  hosts: flink_jobmanager:flink_taskmanager
+  become: true
+  roles:
+    - flink_standalone

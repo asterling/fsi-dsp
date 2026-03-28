@@ -1,0 +1,37 @@
+# Managed by Ansible -- flink_standalone role
+# Apache Flink standalone configuration for CP on RHEL
+
+# JobManager
+jobmanager.rpc.address: {{ flink_jobmanager_host }}
+jobmanager.rpc.port: {{ flink_jobmanager_rpc_port }}
+jobmanager.memory.process.size: {{ flink_jobmanager_memory }}
+
+# TaskManager
+taskmanager.memory.process.size: {{ flink_taskmanager_memory }}
+taskmanager.numberOfTaskSlots: {{ flink_taskmanager_slots }}
+
+# Parallelism
+parallelism.default: {{ flink_parallelism_default }}
+
+# REST endpoint (Flink UI)
+rest.address: {{ flink_jobmanager_host }}
+rest.port: {{ flink_rest_port }}
+
+# Schema Registry integration (avro-confluent format)
+# The flink-sql-avro-confluent connector JAR is placed in $FLINK_HOME/lib/.
+# SR URL is NOT a native flink-conf.yaml config key. Instead, it is
+# consumed at job submission time in Flink SQL CREATE TABLE statements via:
+#   FORMAT = 'avro-confluent',
+#   'avro-confluent.url' = '{{ flink_sr_url }}'
+# The flink_sr_url variable is documented here for operator reference.
+
+{% if flink_jmx_enabled %}
+# JMX metrics for observability (matches CFK Flink JMX exporter pattern)
+metrics.reporter.jmx.factory.class: org.apache.flink.metrics.jmx.JMXReporterFactory
+metrics.reporter.jmx.port: {{ flink_jmx_port }}
+{% endif %}
+
+# High availability (optional -- configure for production)
+# high-availability.type: zookeeper
+# high-availability.storageDir: hdfs:///flink/ha/
+# high-availability.zookeeper.quorum: zk1:2181,zk2:2181

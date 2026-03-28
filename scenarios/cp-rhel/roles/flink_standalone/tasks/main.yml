@@ -1,0 +1,105 @@
+---
+# Standalone Flink deployment on RHEL via systemd
+# Uses open-source Apache Flink (not CP Flink, which requires Kubernetes)
+
+- name: Create flink group
+  group:
+    name: "{{ flink_group }}"
+    state: present
+
+- name: Create flink user
+  user:
+    name: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    home: "{{ flink_home }}"
+    shell: /bin/bash
+    system: true
+
+- name: Create Flink directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: "0755"
+  loop:
+    - "{{ flink_home }}"
+    - "{{ flink_home }}/lib"
+    - "{{ flink_home }}/log"
+    - "{{ flink_home }}/conf"
+
+- name: Download Apache Flink binary
+  get_url:
+    url: "{{ flink_download_url }}"
+    dest: "/tmp/flink-{{ flink_version }}.tgz"
+    mode: "0644"
+
+- name: Extract Flink binary
+  unarchive:
+    src: "/tmp/flink-{{ flink_version }}.tgz"
+    dest: "{{ flink_home }}"
+    remote_src: true
+    extra_opts: ["--strip-components=1"]
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+
+- name: Download flink-sql-avro-confluent connector JAR
+  get_url:
+    url: "https://repo1.maven.org/maven2/org/apache/flink/flink-sql-avro-confluent/{{ flink_avro_confluent_version }}/flink-sql-avro-confluent-{{ flink_avro_confluent_version }}.jar"
+    dest: "{{ flink_home }}/lib/flink-sql-avro-confluent-{{ flink_avro_confluent_version }}.jar"
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: "0644"
+
+- name: Download flink-avro JAR
+  get_url:
+    url: "https://repo1.maven.org/maven2/org/apache/flink/flink-avro/{{ flink_avro_version }}/flink-avro-{{ flink_avro_version }}.jar"
+    dest: "{{ flink_home }}/lib/flink-avro-{{ flink_avro_version }}.jar"
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: "0644"
+
+- name: Template Flink configuration
+  template:
+    src: flink-conf.yaml.j2
+    dest: "{{ flink_home }}/conf/flink-conf.yaml"
+    owner: "{{ flink_user }}"
+    group: "{{ flink_group }}"
+    mode: "0644"
+  notify:
+    - restart flink-jobmanager
+    - restart flink-taskmanager
+
+- name: Template JobManager systemd unit
+  template:
+    src: flink-jobmanager.service.j2
+    dest: /etc/systemd/system/flink-jobmanager.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart flink-jobmanager
+
+- name: Template TaskManager systemd unit
+  template:
+    src: flink-taskmanager.service.j2
+    dest: /etc/systemd/system/flink-taskmanager.service
+    mode: "0644"
+  notify:
+    - reload systemd
+    - restart flink-taskmanager
+
+- name: Enable and start Flink JobManager
+  systemd:
+    name: flink-jobmanager
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: "'flink_jobmanager' in group_names"
+
+- name: Enable and start Flink TaskManager
+  systemd:
+    name: flink-taskmanager
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: "'flink_taskmanager' in group_names"

@@ -106,7 +106,47 @@ Confluent RBAC via Metadata Service (MDS) is enabled (`rbac_enabled: true`). MDS
 
 FIPS mode is toggled via `fips_enabled` in `inventory/group_vars/all.yml` (default: `false`). When enabled, CP components use FIPS-approved cryptographic algorithms. FIPS validation is covered in a separate plan (see `validate-fips.yml`).
 
-> **Note:** Standalone Flink deployment and FIPS validation playbook are covered in separate plans within this phase.
+> **Note:** FIPS validation playbook is covered in a separate section below.
+
+## Standalone Flink
+
+Confluent Platform Flink requires Kubernetes and cannot be deployed on bare-metal RHEL. This scenario uses **open-source Apache Flink 1.20** in standalone mode, deployed via a custom Ansible role with systemd service management.
+
+### Key Features
+
+- **systemd management:** JobManager and TaskManager run as systemd services with automatic restart
+- **SR integration:** The `flink-sql-avro-confluent-3.2.0-1.20` connector JAR is installed in `$FLINK_HOME/lib/`, enabling Flink SQL jobs to use `FORMAT = 'avro-confluent'` with Schema Registry
+- **JMX observability:** JMX metrics reporter enabled on port 9999 (matches CFK Flink JMX exporter pattern)
+- **Flink UI:** REST endpoint on port 8085 (avoids conflict with Schema Registry on 8081)
+
+### Deploy Flink
+
+```bash
+ansible-playbook -i inventory/hosts.yml playbooks/deploy-flink.yml
+```
+
+### Architecture
+
+| Component | Nodes | Purpose |
+|-----------|-------|---------|
+| Flink JobManager | 1 | Coordinates job execution, serves REST UI |
+| Flink TaskManager | 2 | Executes task slots for parallel processing |
+
+### Flink SQL with Schema Registry
+
+SR integration is provided via the avro-confluent connector JAR, not via `flink-conf.yaml`. In Flink SQL DDL statements, use:
+
+```sql
+CREATE TABLE my_table (
+  ...
+) WITH (
+  'connector' = 'kafka',
+  'topic' = 'my-topic',
+  'properties.bootstrap.servers' = 'kafka-east-1:9092',
+  'format' = 'avro-confluent',
+  'avro-confluent.url' = 'https://sr-east-1:8081'
+);
+```
 
 ## Files
 
@@ -118,6 +158,12 @@ FIPS mode is toggled via `fips_enabled` in `inventory/group_vars/all.yml` (defau
 | inventory/group_vars/ | schema_registry.yml | Schema Registry config (compatibility level) |
 | inventory/group_vars/ | kafka_connect.yml | Connect config (replication factors, plugin path) |
 | playbooks/ | deploy-cp.yml | Main deployment playbook using cp-ansible roles |
+| playbooks/ | deploy-flink.yml | Standalone Flink deployment playbook |
+| playbooks/ | validate-fips.yml | FIPS 140-2 compliance validation playbook |
+| inventory/group_vars/ | flink.yml | Flink-specific configuration overrides |
+| roles/flink_standalone/ | tasks/main.yml | Flink install, config, systemd, SR connector JAR |
+| roles/flink_standalone/ | templates/*.j2 | systemd units and flink-conf.yaml templates |
+| roles/flink_standalone/ | defaults/main.yml | Default variables for Flink role |
 | topics/ | corebanking-account-txn.yml | CPTopic: critical tier, core banking transactions |
 | topics/ | fraud-alert-signal.yml | CPTopic: critical tier, fraud detection alerts |
 | topics/ | compliance-screening-result.yml | CPTopic: compliance tier, regulatory screening |

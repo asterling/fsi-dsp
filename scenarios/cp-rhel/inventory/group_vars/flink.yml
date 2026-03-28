@@ -1,0 +1,13 @@
+---
+# Flink standalone configuration for CP on RHEL
+# Override defaults from roles/flink_standalone/defaults/main.yml
+
+# SR integration endpoint (matches Schema Registry from CP deployment)
+flink_sr_url: "https://sr-east-1:8081"
+
+# Flink REST UI port (8085 to avoid conflict with SR on 8081)
+flink_rest_port: 8085
+
+# JMX for observability
+flink_jmx_enabled: true
+flink_jmx_port: 9999

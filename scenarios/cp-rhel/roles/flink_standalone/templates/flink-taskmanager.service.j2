@@ -1,0 +1,23 @@
+# Managed by Ansible -- flink_standalone role
+[Unit]
+Description=Apache Flink TaskManager
+After=network.target flink-jobmanager.service
+Documentation=https://nightlies.apache.org/flink/flink-docs-release-1.20/
+
+[Service]
+Type=forking
+User={{ flink_user }}
+Group={{ flink_group }}
+ExecStart={{ flink_home }}/bin/taskmanager.sh start
+ExecStop={{ flink_home }}/bin/taskmanager.sh stop
+Environment="JAVA_HOME={{ java_home }}"
+Environment="FLINK_HOME={{ flink_home }}"
+{% if flink_jmx_enabled %}
+Environment="FLINK_ENV_JAVA_OPTS=-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port={{ flink_jmx_port | int + 1 }} -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false"
+{% endif %}
+Restart=on-failure
+RestartSec={{ flink_service_restart_sec }}
+LimitNOFILE={{ flink_nofile_limit }}
+
+[Install]
+WantedBy=multi-user.target

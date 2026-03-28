@@ -1,0 +1,36 @@
+---
+# Apache Flink standalone deployment defaults
+# Confluent Platform Flink requires Kubernetes; RHEL uses open-source Apache Flink
+flink_version: "1.20.1"
+flink_home: "/opt/flink"
+flink_user: flink
+flink_group: flink
+java_home: "/usr/lib/jvm/java-17"
+
+# Download URL for Apache Flink binary
+flink_download_url: "https://archive.apache.org/dist/flink/flink-{{ flink_version }}/flink-{{ flink_version }}-bin-scala_2.12.tgz"
+
+# SR integration: Avro-Confluent format connector
+flink_avro_confluent_version: "3.2.0-1.20"
+flink_avro_version: "1.20.1"
+flink_sr_url: "http://sr-east-1:8081"
+flink_sr_basic_auth_enabled: false
+flink_sr_basic_auth_user: ""
+flink_sr_basic_auth_password: ""
+
+# Cluster configuration
+flink_jobmanager_host: "{{ ansible_hostname }}"
+flink_jobmanager_rpc_port: 6123
+flink_jobmanager_memory: "1024m"
+flink_taskmanager_memory: "2048m"
+flink_taskmanager_slots: 4
+flink_rest_port: 8085
+flink_parallelism_default: 2
+
+# JMX exporter for observability (matches CFK Flink pattern from Phase 8)
+flink_jmx_enabled: true
+flink_jmx_port: 9999
+
+# Systemd
+flink_service_restart_sec: 30
+flink_nofile_limit: 65536
