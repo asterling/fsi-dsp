@@ -1,0 +1,37 @@
+# =============================================================================
+# CPTopic -- Core Banking Account Transaction (Critical Tier)
+# =============================================================================
+# Critical tier defaults: 12 partitions, replicationFactor 5, 7-day retention.
+# See modules/topic/main.tf for CC tier mappings and ADR-008 for DR tier
+# classification.
+#
+# Governance labels provide the same metadata as CFK KafkaTopic CRDs and
+# CC schema subject properties:
+#   fsi.sla-tier           -> SLA tier (drives partition/retention/DR defaults)
+#   fsi.domain             -> Business domain
+#   fsi.owner              -> Team email responsible for this topic
+#   fsi.data-classification -> Data classification per FSI policy
+#   fsi.application        -> Application name within the domain
+#   fsi.version            -> Schema version identifier
+#   fsi.entity             -> Data entity name
+# =============================================================================
+
+kind: CPTopic
+metadata:
+  name: corebanking.core.v1.account-transaction
+  labels:
+    fsi.sla-tier: critical
+    fsi.owner: corebanking-team@fsi.org
+    fsi.data-classification: confidential
+    fsi.domain: corebanking
+    fsi.application: core
+    fsi.version: v1
+    fsi.entity: account-transaction
+spec:
+  partitionCount: 12
+  replicationFactor: 5
+  configs:
+    retention.ms: "604800000"
+    min.insync.replicas: "3"
+    cleanup.policy: "delete"
+  replicaPlacement: mrc-placement-critical.json

@@ -1,0 +1,72 @@
+---
+# =============================================================================
+# Deploy Confluent Platform on RHEL via cp-ansible roles
+# =============================================================================
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml
+#
+# With Ansible Vault:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml --ask-vault-pass
+#
+# Dry run (check mode):
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml --check
+#
+# Tags:
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml --tags kafka_broker
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml --tags schema_registry
+#   ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml --tags kafka_connect
+# =============================================================================
+
+- name: Deploy Confluent Platform
+  hosts: all
+  gather_facts: true
+  collections:
+    - confluent.platform
+  tasks:
+    # -------------------------------------------------------------------------
+    # Pre-flight checks
+    # -------------------------------------------------------------------------
+    - name: Verify RHEL version
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "RedHat" or ansible_distribution == "CentOS" or ansible_distribution == "Rocky" or ansible_distribution == "AlmaLinux"
+          - ansible_distribution_major_version | int >= 8
+        fail_msg: "This playbook requires RHEL 8.x or 9.x (or compatible: CentOS, Rocky, AlmaLinux)"
+      tags: [preflight]
+
+    - name: Verify Java 17
+      ansible.builtin.command: java -version
+      register: java_version
+      changed_when: false
+      failed_when: "'17' not in java_version.stderr"
+      tags: [preflight]
+
+  # ---------------------------------------------------------------------------
+  # Component deployment via cp-ansible roles
+  # ---------------------------------------------------------------------------
+- name: Deploy Kafka Brokers
+  hosts: kafka_broker
+  gather_facts: true
+  collections:
+    - confluent.platform
+  roles:
+    - role: kafka_broker
+  tags: [kafka_broker]
+
+- name: Deploy Schema Registry
+  hosts: schema_registry
+  gather_facts: true
+  collections:
+    - confluent.platform
+  roles:
+    - role: schema_registry
+  tags: [schema_registry]
+
+- name: Deploy Kafka Connect
+  hosts: kafka_connect
+  gather_facts: true
+  collections:
+    - confluent.platform
+  roles:
+    - role: kafka_connect
+  tags: [kafka_connect]

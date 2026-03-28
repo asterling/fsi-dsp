@@ -1,0 +1,47 @@
+# =============================================================================
+# Kafka Broker Group Variables
+# =============================================================================
+# Broker-specific configuration applied to all hosts in the kafka_broker group.
+# Per-host overrides (broker.id, broker.rack) are in hosts.yml.
+# =============================================================================
+
+kafka_broker_custom_properties:
+  # -------------------------------------------------------------------------
+  # Confluent Server license and internal topic replication
+  # -------------------------------------------------------------------------
+  confluent.license.topic.replication.factor: 3
+  confluent.balancer.topic.replication.factor: 3
+
+  # -------------------------------------------------------------------------
+  # Default replication for internal topics
+  # -------------------------------------------------------------------------
+  offsets.topic.replication.factor: 3
+  transaction.state.log.replication.factor: 3
+  transaction.state.log.min.isr: 2
+
+  # -------------------------------------------------------------------------
+  # Log retention defaults (overridden per-topic via CPTopic definitions)
+  # -------------------------------------------------------------------------
+  log.retention.hours: 168
+
+  # -------------------------------------------------------------------------
+  # Producer acks enforcement for RPO guarantees
+  # min.insync.replicas set per-topic via CPTopic definition
+  # -------------------------------------------------------------------------
+  # default.replication.factor: 3
+
+  # -------------------------------------------------------------------------
+  # MRC replica placement -- enable for multi-region deployments
+  # -------------------------------------------------------------------------
+  # confluent.tier.feature: "true"
+  # confluent.tier.backend: "S3"  # or "GCS" / "ABS"
+
+  # -------------------------------------------------------------------------
+  # Rack awareness (per-host values in hosts.yml override these)
+  # -------------------------------------------------------------------------
+  # broker.rack is set per-host in inventory
+
+  # -------------------------------------------------------------------------
+  # Log directories -- configure for multi-disk setups
+  # -------------------------------------------------------------------------
+  # log.dirs: "/var/kafka-logs/disk1,/var/kafka-logs/disk2"

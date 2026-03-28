@@ -1,0 +1,24 @@
+# =============================================================================
+# Schema Registry Group Variables
+# =============================================================================
+# Schema Registry-specific configuration applied to all hosts in the
+# schema_registry group.
+# =============================================================================
+
+schema_registry_custom_properties:
+  # -------------------------------------------------------------------------
+  # Default compatibility level for new subjects
+  # Override per-subject via Schema Registry API or governance automation
+  # -------------------------------------------------------------------------
+  schema.compatibility.level: BACKWARD
+
+  # -------------------------------------------------------------------------
+  # Internal topic replication (inherits from cp-ansible defaults = 3)
+  # Explicit here for documentation
+  # -------------------------------------------------------------------------
+  # kafkastore.topic.replication.factor: 3
+
+  # -------------------------------------------------------------------------
+  # Schema types -- enable additional formats if needed
+  # -------------------------------------------------------------------------
+  # schema.providers: "io.confluent.kafka.schemaregistry.avro.AvroSchemaProvider,io.confluent.kafka.schemaregistry.json.JsonSchemaProvider,io.confluent.kafka.schemaregistry.protobuf.ProtobufSchemaProvider"

@@ -1,0 +1,27 @@
+# =============================================================================
+# CPTopic -- Fraud Alert Signal (Critical Tier)
+# =============================================================================
+# Critical tier defaults: 12 partitions, replicationFactor 5, 7-day retention.
+# See modules/topic/main.tf for CC tier mappings and ADR-008 for DR tier
+# classification.
+# =============================================================================
+
+kind: CPTopic
+metadata:
+  name: fraud.detection.v1.alert-signal
+  labels:
+    fsi.sla-tier: critical
+    fsi.owner: fraud-team@fsi.org
+    fsi.data-classification: internal
+    fsi.domain: fraud
+    fsi.application: detection
+    fsi.version: v1
+    fsi.entity: alert-signal
+spec:
+  partitionCount: 12
+  replicationFactor: 5
+  configs:
+    retention.ms: "604800000"
+    min.insync.replicas: "3"
+    cleanup.policy: "delete"
+  replicaPlacement: mrc-placement-critical.json

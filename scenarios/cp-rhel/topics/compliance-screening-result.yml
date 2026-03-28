@@ -1,0 +1,29 @@
+# =============================================================================
+# CPTopic -- Compliance Screening Result (Compliance Tier)
+# =============================================================================
+# Compliance tier defaults: 6 partitions, replicationFactor 5, infinite
+# retention (-1). Infinite retention ensures regulatory audit trail is
+# preserved indefinitely (OFAC/AML requirements).
+# See modules/topic/main.tf for CC tier mappings and ADR-008 for DR tier
+# classification.
+# =============================================================================
+
+kind: CPTopic
+metadata:
+  name: compliance.screening.v1.result
+  labels:
+    fsi.sla-tier: compliance
+    fsi.owner: compliance-team@fsi.org
+    fsi.data-classification: confidential
+    fsi.domain: compliance
+    fsi.application: screening
+    fsi.version: v1
+    fsi.entity: result
+spec:
+  partitionCount: 6
+  replicationFactor: 5
+  configs:
+    retention.ms: "-1"
+    min.insync.replicas: "3"
+    cleanup.policy: "delete"
+  replicaPlacement: mrc-placement-compliance.json
