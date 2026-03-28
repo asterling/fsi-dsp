@@ -1,59 +1,166 @@
-# FSI Kafka Platform
+# FSI Data Streaming Platform
 
-Opinionated, C4E-managed Terraform for Confluent Cloud in regulated financial services.
+A universal, automation-first platform for standing up governed Kafka, Flink, and Schema Registry infrastructure across any deployment model. Packages FSI-specific C4E assets into scenario-based starter kits that any financial institution can adopt in hours, not months.
 
-## What This Is
+## Deployment Models
 
-A ready-to-deploy repository that creates fully governed Kafka topics with one module call: topic + Avro schema + RBAC + metadata tags + DR mirror. Designed for banks, credit unions, and insurance companies running Confluent Cloud.
+| Scenario | Path | Infrastructure |
+|----------|------|----------------|
+| **Confluent Cloud — AWS** | `scenarios/cc-aws/` | Terraform |
+| **Confluent Cloud — Azure** | `scenarios/cc-azure/` | Terraform |
+| **Confluent Cloud — GCP** | `scenarios/cc-gcp/` | Terraform |
+| **CFK on OpenShift** | `scenarios/cfk-openshift/` | Helm / CFK Operator |
+| **CP on RHEL** | `scenarios/cp-rhel/` | Ansible / systemd |
+| **Private Cloud** | `scenarios/private-cloud/` | Terraform |
+
+All six scenarios enforce identical governance: topic naming, schema compatibility, RBAC patterns, and SLA-tier defaults.
 
 ## Quick Start
 
-1. Copy `.env.example` → `.env` and fill in your CC environment details
-2. Copy `environments/prod/terraform.tfvars.example` → `terraform.tfvars`
-3. Update `environments/prod/main.tf` locals with your cluster IDs and endpoints
-4. Add your topic declarations (copy from `example-topics.tf`)
-5. Add your Avro schemas to `schemas/`
-6. Submit a PR → CI validates → merge triggers `terraform apply`
+```bash
+# 1. Pick your deployment model
+cd scenarios/cc-aws/          # or cc-azure, cc-gcp, cfk-openshift, cp-rhel, private-cloud
 
-## Structure
+# 2. Configure environment
+cp .env.example .env          # fill in cluster details
+# For Terraform scenarios: cp terraform.tfvars.example terraform.tfvars
+# For CFK: edit values/*.yaml
+# For CP-RHEL: edit inventory/hosts.yml.example → hosts.yml
+
+# 3. Deploy
+# CC scenarios:    terraform init && terraform apply
+# CFK on OCP:     helm install confluent-operator ... -f values/kafka.yaml
+# CP on RHEL:     ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml
+```
+
+## What's Included
+
+### Shared Governance (`modules/`)
+
+- **`modules/topic/`** — Single Terraform module: topic + Avro schema + RBAC + metadata tags + DR mirror
+- **`modules/flink/`** — CC Flink compute pool with SQL statement management
+- SLA-tier-based defaults (critical / standard / best-effort) drive partitions, retention, compatibility, and DR thresholds automatically
+
+### DR Automation (`scripts/`)
+
+Unified CLI with pluggable backends — same commands regardless of deployment model:
+
+```bash
+./scripts/fsi-dr.sh failover --backend cl    # Cluster Linking (CC)
+./scripts/fsi-dr.sh failover --backend mm2   # MirrorMaker 2 (CFK/CP)
+./scripts/fsi-dr.sh failover --backend mrc   # Multi-Region Cluster RPO=0 (CP)
+./scripts/fsi-dr.sh status   --backend cl    # Mirror lag + health
+```
+
+Features: dry-run mode, state validation, rollback, Consul-based atomic failover, 103 unit tests across 3 backends.
+
+### Observability (`observability/`)
+
+Pre-built dashboard templates for six providers — import and go:
+
+| Provider | Dashboards |
+|----------|-----------|
+| Dynatrace | Cluster health, app view, Connect, DR readiness |
+| Datadog | Cluster health, app view, Connect, DR readiness |
+| Splunk | Cluster health, app view, Connect, DR readiness |
+| Grafana/Prometheus | Cluster health, app view, Connect, DR readiness |
+| New Relic | Cluster health, app view, Connect, DR readiness |
+| IBM Instana | Cluster health, app view, Connect, DR readiness |
+
+Auto-discovery rules, SLA-tier alert thresholds, and JMX exporter configs included.
+
+### Flink Streaming (`modules/flink/`, `scenarios/*/flink/`)
+
+Reference SQL templates across all deployment models:
+
+- **CC Flink** — Terraform-managed compute pools with SQL statements
+- **CFK Flink** — Flink Kubernetes Operator with FlinkDeployment CRDs
+- **Standalone Flink** — Ansible role with systemd (JobManager + TaskManager)
+
+All include: tumbling window aggregation, stream-table join enrichment, filter-and-route fan-out, Avro/SR integration.
+
+### Reference Implementations (`reference/`)
+
+| Language | Producer | Consumer | DLQ |
+|----------|----------|----------|-----|
+| Java 17 | Idempotent, Avro, JMX | Manual commit, graceful shutdown | 3-retry backoff, error categorization |
+| .NET | Confluent.Kafka client | Schema Registry integration | 3-retry backoff, error categorization |
+| Python | confluent-kafka-python | Avro deserialization | 3-retry backoff, error categorization |
+
+Plus: Kafka Connect JDBC configs (East/West), Docker Compose local dev (Kafka + SR + Connect + Flink), integration test roundtrip.
+
+### Security & Compliance
+
+- **RBAC**: CC role bindings (Terraform), CFK ACLs + MDS (Helm), CP MDS (Ansible)
+- **Encryption**: mTLS across all deployment models, cert-manager for CFK
+- **Secrets**: Vault, Azure Key Vault, AWS Secrets Manager, Google Secret Manager
+- **FIPS 140-2**: Automated validation for CP on RHEL and CFK on FIPS-enabled OpenShift (`scripts/validate-fips.sh`)
+- **Compliance**: Configurable retention up to 7 years (OFAC/AML), schema evolution enforcement in CI
+
+### CI/CD (`ci/`, `.github/`)
+
+- **C4E Pre-check** — Validates topic naming, SLA tiers, schema compatibility, retention, and RBAC across Terraform, CFK YAML, and CPTopic formats
+- **Schema Validation** — Avro syntax + compatibility checks on every PR
+- **Terraform Plan/Apply** — Plan on PR, apply on merge to main
+- **Override Detection** — Flags governance overrides for C4E review
+
+## Project Structure
 
 ```
-.env.example                 ← Start here: all environment-specific variables
-modules/topic/               ← The single Terraform module (do not modify per-engagement)
-environments/prod/           ← Topic declarations and environment config
-schemas/examples/            ← Example Avro schemas for common FSI entities
-docs/
-  cloud-providers.md         ← Azure vs AWS vs GCP differences
-  schema-guide.md            ← Naming, compatibility, evolution rules
-  onboarding.md              ← Self-service flow for new teams
-  adr/                       ← Architecture decision records
-scripts/                     ← DR failover/failback, Connect pause/resume
+scenarios/
+  cc-aws/                    # Confluent Cloud on AWS (Terraform)
+  cc-azure/                  # Confluent Cloud on Azure (Terraform)
+  cc-gcp/                    # Confluent Cloud on GCP (Terraform)
+  cfk-openshift/             # CFK on OpenShift (Helm values, CRDs, Flink operator)
+  cp-rhel/                   # Confluent Platform on RHEL (Ansible, systemd)
+  private-cloud/             # Confluent Private Cloud (Terraform)
+modules/
+  topic/                     # Shared governance module (topic + schema + RBAC + DR)
+  flink/                     # CC Flink compute pool module
+scripts/
+  fsi-dr.sh                  # Unified DR CLI (CL, MM2, MRC backends)
+  validate-fips.sh           # FIPS 140-2 compliance validation
+  validate-apply.sh          # Post-apply Terraform validation
+observability/
+  dynatrace/                 # Dashboard JSON templates
+  datadog/                   # Dashboard JSON templates
+  splunk/                    # Dashboard JSON templates
+  grafana/                   # Dashboard JSON + Prometheus rules
+  newrelic/                  # Dashboard JSON templates
+  instana/                   # Dashboard JSON templates
 reference/
-  java-producer/             ← Reference producer (idempotent, Avro, Dynatrace JMX)
-  java-consumer/             ← Reference consumer (manual commit, graceful shutdown)
-  dotnet-producer/           ← .NET reference (for non-JVM teams)
-  dotnet-consumer/
-  connect-configs/           ← JDBC source/sink, distributed properties (East/West)
-  local-dev/                 ← Docker Compose for local Kafka + SR + Connect
-  integration-test/          ← Roundtrip produce-consume verification
-.github/                     ← CI/CD pipelines, PR template, issue template
+  java-producer/             # Java 17 reference producer
+  java-consumer/             # Java 17 reference consumer
+  python-producer/           # Python reference producer
+  python-consumer/           # Python reference consumer
+  dotnet-producer/           # .NET reference producer
+  dotnet-consumer/           # .NET reference consumer
+  flink-sql/                 # Flink SQL templates
+  connect-configs/           # JDBC source/sink configs
+  local-dev/                 # Docker Compose dev environment
+  integration-test/          # Roundtrip verification
+docs/
+  adr/                       # Architecture Decision Records
+  dr-runbook.md              # DR procedures (CL, MM2, MRC)
+  schema-guide.md            # Schema governance guide
+  onboarding.md              # Team onboarding flow
+  compliance-guide.md        # FSI compliance reference
+  rotation-runbook.md        # Credential rotation procedures
+ci/
+  scripts/                   # C4E pre-check, schema validation
+tests/
+  dr/                        # DR backend unit tests (103 tests)
 ```
 
-## Cloud Support
+## Documentation
 
-Tested on Confluent Cloud running on Azure, AWS, and GCP. See `docs/cloud-providers.md` for:
-- Private networking (Azure Private Link / AWS PrivateLink / GCP PSC)
-- Authentication (Azure AD OAuth / AWS IAM / GCP Workload Identity)
-- Secrets management (Vault / Azure Key Vault / AWS Secrets Manager)
-- Terraform backend (Azure Blob / S3 / GCS)
-
-## Engagement Customization
-
-1. Set `ORG_PREFIX` in `.env` if topics need an org prefix
-2. Choose cloud provider settings (default: Azure)
-3. Adjust SLA tier → compatibility/partition/retention mappings in `modules/topic/main.tf`
-4. Add client-specific schemas to `schemas/`
-5. Write topic declarations in `environments/prod/`
+- **[DR Runbook](docs/dr-runbook.md)** — Failover/failback procedures for all three backends
+- **[Schema Guide](docs/schema-guide.md)** — Naming, compatibility modes, evolution rules
+- **[Onboarding](docs/onboarding.md)** — Self-service intake form and team onboarding
+- **[Cloud Providers](docs/cloud-providers.md)** — AWS vs Azure vs GCP differences
+- **[Compliance Guide](docs/compliance-guide.md)** — FSI regulatory requirements
+- **[Credential Rotation](docs/rotation-runbook.md)** — Zero-downtime rotation procedures
+- **[ADRs](docs/adr/)** — Architecture Decision Records
 
 ## License
 
