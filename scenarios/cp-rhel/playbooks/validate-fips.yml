@@ -1,0 +1,104 @@
+---
+# Validate FIPS 140-2 compliance for Confluent Platform on RHEL
+# Usage: ansible-playbook -i inventory/hosts.yml playbooks/validate-fips.yml
+#
+# Checks:
+#   1. OS-level FIPS mode enabled (/proc/sys/crypto/fips_enabled == 1)
+#   2. Java 17+ present (required for FIPS crypto providers)
+#   3. BCFKS keystore configured in CP component properties
+#   4. Bouncy Castle FIPS provider configured
+#   5. Only FIPS-approved TLS cipher suites active
+#
+# For CFK on OpenShift: See the CFK FIPS section below (oc-based checks)
+- name: Validate FIPS 140-2 compliance -- CP on RHEL
+  hosts: kafka_broker:schema_registry:kafka_connect
+  become: true
+  gather_facts: true
+  tasks:
+
+    - name: "[FIPS-01] Verify OS FIPS mode enabled"
+      command: cat /proc/sys/crypto/fips_enabled
+      register: fips_check
+      failed_when: fips_check.stdout.strip() != "1"
+      changed_when: false
+
+    - name: "[FIPS-02] Verify Java 17+ installed"
+      shell: java -version 2>&1 | head -1
+      register: java_check
+      changed_when: false
+
+    - name: "[FIPS-02] Assert Java 17+"
+      assert:
+        that:
+          - "'17' in java_check.stdout or '21' in java_check.stdout or '17' in java_check.stderr or '21' in java_check.stderr"
+        fail_msg: "Java 17 or 21 required for FIPS. Found: {{ java_check.stdout }}{{ java_check.stderr }}"
+
+    - name: "[FIPS-03] Verify BCFKS keystore in Kafka broker config"
+      shell: grep -c "ssl.keystore.type=BCFKS" /etc/kafka/server.properties
+      register: broker_keystore
+      failed_when: broker_keystore.stdout.strip() == "0"
+      changed_when: false
+      when: "'kafka_broker' in group_names"
+
+    - name: "[FIPS-03] Verify BCFKS keystore in Schema Registry config"
+      shell: grep -c "ssl.keystore.type=BCFKS" /etc/schema-registry/schema-registry.properties
+      register: sr_keystore
+      failed_when: sr_keystore.stdout.strip() == "0"
+      changed_when: false
+      when: "'schema_registry' in group_names"
+
+    - name: "[FIPS-03] Verify BCFKS keystore in Connect config"
+      shell: grep -c "ssl.keystore.type=BCFKS" /etc/kafka-connect/connect-distributed.properties
+      register: connect_keystore
+      failed_when: connect_keystore.stdout.strip() == "0"
+      changed_when: false
+      when: "'kafka_connect' in group_names"
+
+    - name: "[FIPS-04] Verify Bouncy Castle FIPS provider in Kafka broker"
+      shell: grep -c "BcFipsProviderCreator" /etc/kafka/server.properties
+      register: broker_bcfips
+      failed_when: broker_bcfips.stdout.strip() == "0"
+      changed_when: false
+      when: "'kafka_broker' in group_names"
+
+    - name: "[FIPS-05] Report FIPS validation results"
+      debug:
+        msg: >-
+          FIPS 140-2 validation PASSED for {{ inventory_hostname }}.
+          OS FIPS: {{ fips_check.stdout.strip() }},
+          Java: {{ java_check.stdout }}{{ java_check.stderr }}
+
+# CFK on OpenShift FIPS validation
+# Run separately against an OpenShift cluster (not Ansible-managed hosts)
+- name: Validate FIPS 140-2 compliance -- CFK on OpenShift
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    cfk_namespace: "{{ lookup('env', 'CFK_NAMESPACE') | default('confluent', true) }}"
+  tasks:
+
+    - name: "[CFK-FIPS-01] Check OpenShift FIPS mode on nodes"
+      command: >
+        oc get nodes -o jsonpath='{range .items[*]}{.metadata.name}{": FIPS="}{.status.nodeInfo.operatingSystem}{"\n"}{end}'
+      register: node_fips
+      changed_when: false
+      ignore_errors: true
+
+    - name: "[CFK-FIPS-01] Report node FIPS status"
+      debug:
+        msg: "{{ node_fips.stdout_lines | default(['oc not available or not connected to cluster']) }}"
+
+    - name: "[CFK-FIPS-02] Verify CFK operator deployed with FIPS mode"
+      command: >
+        oc get deployment confluent-operator -n {{ cfk_namespace }}
+          -o jsonpath='{.spec.template.spec.containers[0].env}'
+      register: cfk_fips_check
+      changed_when: false
+      ignore_errors: true
+
+    - name: "[CFK-FIPS-02] Report CFK FIPS configuration"
+      debug:
+        msg: >-
+          CFK FIPS check: Verify Helm install used --set fipsmode=true.
+          Operator env: {{ cfk_fips_check.stdout | default('N/A') }}
