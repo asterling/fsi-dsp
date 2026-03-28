@@ -1,0 +1,8 @@
+# CP cluster REST endpoints (from your Confluent Platform deployment)
+cp_kafka_rest_endpoint = "https://kafka-east-1.example.com:8090"
+cp_kafka_api_key       = ""  # SENSITIVE -- Kafka REST API key
+cp_kafka_api_secret    = ""  # SENSITIVE -- Kafka REST API secret
+cp_sr_rest_endpoint    = "https://sr-east-1.example.com:8081"
+cp_sr_api_key          = ""  # SENSITIVE -- SR REST API key
+cp_sr_api_secret       = ""  # SENSITIVE -- SR REST API secret
+cp_kafka_cluster_id    = "kafka-east-cluster"
