@@ -171,7 +171,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- CP-RHEL Ansible scenario directory with inventory, playbook, and CPTopic definitions
+- [x] 09-01-PLAN.md -- CP-RHEL Ansible scenario directory with inventory, playbook, and CPTopic definitions
 - [ ] 09-02-PLAN.md -- Private Cloud Terraform scenario and C4E precheck extension for CPTopic format
 - [ ] 09-03-PLAN.md -- MRC backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
 - [ ] 09-04-PLAN.md -- Standalone Flink Ansible role, FIPS 140-2 validation, and .env.example extension
