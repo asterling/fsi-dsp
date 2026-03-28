@@ -42,8 +42,8 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Confluent Cloud on Azure scenario directory with Terraform modules — Validated in Phase 2
 - [x] Confluent Cloud on GCP scenario directory with Terraform modules — Validated in Phase 2
 - [x] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests — Validated in Phase 8
-- [ ] Confluent Platform on RHEL scenario with Ansible/systemd deployment
-- [ ] Confluent Private Cloud scenario directory
+- [x] Confluent Platform on RHEL scenario with Ansible/systemd deployment — Validated in Phase 9
+- [x] Confluent Private Cloud scenario directory — Validated in Phase 9
 - [x] Shared module library consumed by all scenarios (topic, schema, RBAC, observability) — Validated in Phase 1
 
 **Flink Runtime:**
@@ -56,7 +56,7 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - [x] Pluggable DR abstraction — unified failover CLI with backend adapters — Validated in Phase 4
 - [x] CC backend: Cluster Linking with automated failover/failback — Validated in Phase 4
 - [x] CFK/CP backend: MirrorMaker 2 with automated failover/failback — Validated in Phase 8
-- [ ] MRC with automatic observer promotion (2.5-cluster pattern) for RPO=0
+- [x] MRC with automatic observer promotion (2.5-cluster pattern) for RPO=0 — Validated in Phase 9
 - [x] Orchestrated failover script replacing 6 manual steps with single command — Validated in Phase 4
 - [x] Dry-run mode for all DR operations — Validated in Phase 4
 - [x] State validation between failover steps — Validated in Phase 4
@@ -138,7 +138,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 | Per-provider observability templates | Simpler to maintain, each FSI has one provider | ✓ Good — Phase 5 delivered 6 providers |
 | Flink runtime only (no business logic) | Teams own their jobs, we provide the platform | ✓ Good — Phase 6 delivered CC Flink module + 3 SQL templates |
 | DR framework with pluggable backends | Same CLI/UX regardless of deployment model | ✓ Good — Phase 4 CL + Phase 8 MM2 |
-| MRC 2.5-cluster for RPO=0 | FSI compliance may require zero data loss | — Pending |
+| MRC 2.5-cluster for RPO=0 | FSI compliance may require zero data loss | ✓ Good — Phase 9 MRC backend |
 | Avro over Protobuf (existing ADR-001) | FSI ecosystem alignment, SR compatibility | ✓ Good |
 | Consul for service discovery (existing ADR-003) | Atomic failover across Kafka/SR/DB | ✓ Good |
 | Cluster Linking over MRC for CC (existing ADR-005) | CC-native, meets ~2h RPO target | ✓ Good |
@@ -161,4 +161,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after Phase 8 completion — CFK on OpenShift: scenario directory with Helm values, KafkaTopic CRDs with governance parity, MM2 DR backend (5 functions), Flink Kubernetes Operator with FlinkDeployment CRDs, JMX observability*
+*Last updated: 2026-03-28 after Phase 9 completion — CP on RHEL (Ansible roles, MDS RBAC, CPTopic governance), Private Cloud (Terraform with shared modules), MRC RPO=0 DR backend (27 tests), standalone Flink (systemd, SR integration), FIPS 140-2 validation. All 9 phases complete.*
