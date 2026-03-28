@@ -20,7 +20,7 @@ created: 2026-03-27
 | **Framework** | bash (shellcheck + bats-like assertions) / python3 (schema validation) |
 | **Config file** | none — uses existing CI scripts |
 | **Quick run command** | `bash tests/dr/test-fsi-dr-mrc.sh` |
-| **Full suite command** | `python3 ci/scripts/c4e-precheck.py && bash tests/dr/test-fsi-dr-mrc.sh` |
+| **Full suite command** | `python3 ci/scripts/c4e-precheck.py --scenario-dir scenarios/cp-rhel/ && bash tests/dr/test-fsi-dr-mrc.sh` |
 | **Estimated runtime** | ~15 seconds |
 
 ---
@@ -28,7 +28,7 @@ created: 2026-03-27
 ## Sampling Rate
 
 - **After every task commit:** Run `bash tests/dr/test-fsi-dr-mrc.sh` (when MRC tests exist)
-- **After every plan wave:** Run `python3 ci/scripts/c4e-precheck.py && bash tests/dr/test-fsi-dr-mrc.sh`
+- **After every plan wave:** Run `python3 ci/scripts/c4e-precheck.py --scenario-dir scenarios/cp-rhel/ && bash tests/dr/test-fsi-dr-mrc.sh`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 15 seconds
 
@@ -38,21 +38,23 @@ created: 2026-03-27
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 09-01-01 | 01 | 1 | IAC-04 | file/lint | `ls scenarios/cp-rhel/ansible/roles/*/tasks/main.yml` | ❌ W0 | ⬜ pending |
-| 09-01-02 | 01 | 1 | IAC-04 | file/lint | `shellcheck scenarios/cp-rhel/scripts/*.sh` | ❌ W0 | ⬜ pending |
-| 09-02-01 | 02 | 1 | IAC-05, DR-06 | file/lint | `ls scenarios/private-cloud/main.tf` | ❌ W0 | ⬜ pending |
-| 09-02-02 | 02 | 1 | DR-06 | unit | `bash tests/dr/test-fsi-dr-mrc.sh` | ❌ W0 | ⬜ pending |
-| 09-03-01 | 03 | 2 | FLINK-03 | file/lint | `ls scenarios/cp-rhel/ansible/roles/flink_standalone/tasks/main.yml` | ❌ W0 | ⬜ pending |
-| 09-03-02 | 03 | 2 | COMP-03 | file/lint | `ls scenarios/cp-rhel/fips/fips-preflight.sh` | ❌ W0 | ⬜ pending |
+| 09-01-01 | 01 | 1 | IAC-04 | file/lint | `ls scenarios/cp-rhel/playbooks/deploy-cp.yml scenarios/cp-rhel/inventory/hosts.yml.example scenarios/cp-rhel/topics/corebanking-account-txn.yml` | N/A (scaffold) | pending |
+| 09-02-01 | 02 | 1 | IAC-05 | file/lint | `cd scenarios/private-cloud && terraform init -backend=false && terraform validate` | N/A (scaffold) | pending |
+| 09-02-02 | 02 | 1 | IAC-05 | unit | `python3 ci/scripts/c4e-precheck.py --scenario-dir scenarios/cp-rhel/ --verbose` | N/A (extends existing) | pending |
+| 09-03-01 | 03 | 1 | DR-06 | unit | `bash tests/dr/test-fsi-dr-helpers.sh` | exists | pending |
+| 09-03-02 | 03 | 1 | DR-06 | unit | `bash tests/dr/test-fsi-dr-mrc.sh` | W0 (created by 09-03 Task 2) | pending |
+| 09-04-01 | 04 | 2 | FLINK-03 | file/lint | `ls scenarios/cp-rhel/roles/flink_standalone/tasks/main.yml scenarios/cp-rhel/roles/flink_standalone/templates/flink-conf.yaml.j2 scenarios/cp-rhel/playbooks/deploy-flink.yml` | N/A (scaffold) | pending |
+| 09-04-02 | 04 | 2 | COMP-03 | file/lint | `bash scripts/validate-fips.sh --check` | W0 (created by 09-04 Task 2) | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `tests/dr/test-fsi-dr-mrc.sh` — MRC backend test suite (mirrors MM2 test pattern)
-- [ ] Ansible role directories created during task execution
+- [ ] `tests/dr/test-fsi-dr-mrc.sh` — MRC backend test suite (created by Plan 03, Task 2)
+- [ ] `scripts/validate-fips.sh` — FIPS validation script (created by Plan 04, Task 2)
+- [ ] Ansible role directories created during task execution (Plan 01 and Plan 04)
 
 *Existing CI infrastructure (c4e-precheck.py, validate-schemas.py) covers schema/topic validation.*
 
