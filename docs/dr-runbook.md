@@ -6,7 +6,7 @@
 
 ## Overview
 
-This runbook covers disaster recovery procedures for the FSI Kafka Platform. It supports two DR backends: **Cluster Linking** (Confluent Cloud) and **MirrorMaker 2** (CFK on OpenShift / CP on RHEL). It is the authoritative reference for on-call engineers during DR events.
+This runbook covers disaster recovery procedures for the FSI Kafka Platform. It supports three DR backends: **Cluster Linking** (Confluent Cloud), **MirrorMaker 2** (CFK on OpenShift / CP on RHEL), and **Multi-Region Cluster** (CP on RHEL for RPO=0). It is the authoritative reference for on-call engineers during DR events.
 
 **Architecture:** East (primary, active) <-> West (DR, passive). Backend-dependent replication.
 **Service Discovery:** Consul KV (`fsi/kafka/active-region`) flips Kafka, Schema Registry, and Oracle endpoints atomically.
@@ -20,6 +20,7 @@ This runbook covers disaster recovery procedures for the FSI Kafka Platform. It 
 **Supported backends:**
 - `cluster-linking` -- Confluent Cloud deployments (default)
 - `mm2` -- CFK on OpenShift and Confluent Platform on RHEL deployments
+- `mrc` -- Confluent Platform on RHEL with Multi-Region Cluster (RPO=0)
 
 ## Quick Reference
 
@@ -645,6 +646,91 @@ For production monitoring, use one of these approaches for per-topic granularity
   - Connect cluster not ready (pods not running)
 - **Action:** Verify Connect pods are running and Connector CRDs reference the correct `connectClusterRef`.
 
+## Multi-Region Cluster (MRC) DR Procedures
+
+### Architecture: 2.5-Cluster Pattern
+
+MRC uses Confluent Platform's replica placement v2 with synchronous replication across two full data centers and an observer in a third (light) DC:
+
+- **East DC (Primary):** 2 replicas per topic partition (full read/write)
+- **West DC (DR):** 2 replicas per topic partition (full read/write)
+- **Central DC (Observer):** 1 observer replica (async, auto-promotes on ISR loss)
+- **Replication Factor:** 5 (2 East + 2 West + 1 Observer)
+- **min.insync.replicas:** 3 (forces cross-DC sync for RPO=0)
+
+### Key Difference from CL and MM2
+
+| Property | Cluster Linking | MirrorMaker 2 | MRC |
+|----------|----------------|---------------|-----|
+| Mechanism | Mirror topics | Connector-based replication | Native replica placement |
+| RPO | > 0 (async lag) | > 0 (async lag) | = 0 (sync replication) |
+| Failover action | Promote mirrors | Pause connectors | Leader election (often automatic) |
+| Failback action | Reverse link + mirrors | Reverse connectors | Leader election |
+| Topic writable | After promotion only | Always (separate topics) | Always (same topic, all DCs) |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| FSI_DR_BACKEND | cluster-linking | Set to `mrc` for MRC backend |
+| FSI_MRC_BOOTSTRAP | localhost:9092 | MRC cluster bootstrap servers |
+| FSI_MRC_EAST_RACK | us-east | Rack ID for East (primary) DC |
+| FSI_MRC_WEST_RACK | us-west | Rack ID for West (DR) DC |
+| FSI_MRC_OBSERVER_RACK | us-central | Rack ID for observer (light) DC |
+| FSI_MRC_COMMAND_CONFIG | (empty) | Path to command config properties for auth |
+
+### MRC Failover Procedure
+
+**Trigger:** East DC failure detected. Observer auto-promotes if `observerPromotionPolicy: under-min-isr`.
+
+```bash
+export FSI_DR_BACKEND=mrc
+export FSI_MRC_BOOTSTRAP=kafka-west-1:9092  # Use surviving DC
+
+# 1. Dry run to preview
+fsi-dr.sh failover --dry-run
+
+# 2. Execute failover (triggers preferred leader election)
+fsi-dr.sh failover
+
+# 3. Verify status
+fsi-dr.sh status
+```
+
+**What happens:**
+1. Pre-flight checks verify surviving DC reachable and Consul available
+2. Observer replicas auto-promoted into ISR (if not already via policy)
+3. Preferred leader election moves partition leadership to surviving DC
+4. Consul KV updated to point clients at surviving DC
+5. Connect and consumer groups resume on new leaders
+
+### MRC Failback Procedure
+
+**Trigger:** East DC recovered, brokers rejoined ISR.
+
+```bash
+export FSI_DR_BACKEND=mrc
+export FSI_MRC_BOOTSTRAP=kafka-east-1:9092  # Primary DC recovered
+
+# 1. Verify primary DC is healthy
+fsi-dr.sh status
+
+# 2. Dry run failback
+fsi-dr.sh failback --dry-run
+
+# 3. Execute failback (rebalances leaders to primary)
+fsi-dr.sh failback
+```
+
+### MRC Troubleshooting
+
+| Symptom | Likely Cause | Resolution |
+|---------|-------------|------------|
+| Producers get NotEnoughReplicasException | ISR < min.insync.replicas during DC failure | Expected during failover window; observers auto-promote |
+| Leader election has no effect | All replicas already in preferred DC | Normal state; no action needed |
+| Observer not promoting | observerPromotionPolicy not set | Verify topic created with replica placement v2 JSON including observerPromotionPolicy |
+| Failback fails with "cluster unreachable" | Primary DC not fully recovered | Wait for all brokers to rejoin, verify with kafka-broker-api-versions.sh |
+
 ## Emergency Contacts
 
 | Role | Contact | Scope |
@@ -660,5 +746,6 @@ For production monitoring, use one of these approaches for per-topic granularity
 
 | Date | Change | Author |
 |------|--------|--------|
+| 2026-03-28 | Added MRC (Multi-Region Cluster) DR procedures, 2.5-cluster architecture, observer promotion, troubleshooting | FSI C4E |
 | 2026-03-27 | Added MirrorMaker 2 DR procedures, MM2 env vars, comparison table, troubleshooting | FSI C4E |
 | 2026-03-24 | Initial runbook creation with failover, failback, troubleshooting | FSI C4E |
