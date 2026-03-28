@@ -168,12 +168,12 @@ Plans:
   3. MRC with automatic observer promotion (2.5-cluster pattern) provides RPO=0 for critical CP workloads
   4. Standalone Flink is deployed via Ansible roles with systemd and integrates with SR for Avro serde
   5. FIPS 140-2 compliance is automated for CP on RHEL (FIPS-validated JVM, TLS libraries) and CFK on FIPS-enabled OpenShift
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
-- [ ] 09-03: TBD
+- [ ] 09-01-PLAN.md -- CP-RHEL Ansible scenario directory, Private Cloud Terraform scenario, and C4E precheck extension
+- [ ] 09-02-PLAN.md -- MRC backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
+- [ ] 09-03-PLAN.md -- Standalone Flink Ansible role, FIPS 140-2 validation, and .env.example extension
 
 ## Progress
 
