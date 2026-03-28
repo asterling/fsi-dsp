@@ -66,7 +66,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 - [x] **FLINK-01**: CC Flink compute pool provisioned via Terraform (`confluent_flink_compute_pool`, `confluent_flink_statement`)
 - [x] **FLINK-02**: CFK Flink deployed via Flink Kubernetes Operator Helm chart on OpenShift
-- [ ] **FLINK-03**: CP standalone Flink deployed via Ansible roles with systemd service management
+- [x] **FLINK-03**: CP standalone Flink deployed via Ansible roles with systemd service management
 - [x] **FLINK-04**: Flink SQL reference templates for tumbling window aggregation, stream-table join enrichment, and filter-and-route patterns
 - [x] **FLINK-05**: Flink integrates with Schema Registry for Avro serde (CC Flink auto-discovers SR subjects; CFK/CP uses Flink Avro format connector)
 - [x] **FLINK-06**: Flink job metrics (checkpoint duration, backpressure, throughput) exported to each provider's dashboard templates
@@ -85,7 +85,7 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 - [x] **COMP-01**: Compliance SLA tier added with configurable retention up to 7 years for OFAC/AML/CFT topics
 - [x] **COMP-02**: Data classification enforcement ensures `confidential` topics receive encryption rules, restricted consumer list, and enhanced logging
-- [ ] **COMP-03**: FIPS 140-2 compliance automated for CP on RHEL (FIPS-validated JVM, TLS libraries, CFK on FIPS-enabled OpenShift)
+- [x] **COMP-03**: FIPS 140-2 compliance automated for CP on RHEL (FIPS-validated JVM, TLS libraries, CFK on FIPS-enabled OpenShift)
 - [x] **COMP-04**: Audit trail documentation maps PR -> review -> merge -> apply -> verify for regulatory examiner consumption
 
 ### Governance Documentation
@@ -185,7 +185,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OBS-10 | Phase 5 | Complete |
 | FLINK-01 | Phase 6 | Complete |
 | FLINK-02 | Phase 8 | Complete |
-| FLINK-03 | Phase 9 | Pending |
+| FLINK-03 | Phase 9 | Complete |
 | FLINK-04 | Phase 6 | Complete |
 | FLINK-05 | Phase 6 | Complete |
 | FLINK-06 | Phase 6 | Complete |
@@ -198,7 +198,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ONBOARD-06 | Phase 7 | Complete |
 | COMP-01 | Phase 3 | Complete |
 | COMP-02 | Phase 3 | Complete |
-| COMP-03 | Phase 9 | Pending |
+| COMP-03 | Phase 9 | Complete |
 | COMP-04 | Phase 3 | Complete |
 | GOV-01 | Phase 1 | Complete |
 | GOV-02 | Phase 1 | Complete |

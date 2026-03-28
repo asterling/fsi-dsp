@@ -174,7 +174,7 @@ Plans:
 - [x] 09-01-PLAN.md -- CP-RHEL Ansible scenario directory with inventory, playbook, and CPTopic definitions
 - [x] 09-02-PLAN.md -- Private Cloud Terraform scenario and C4E precheck extension for CPTopic format
 - [x] 09-03-PLAN.md -- MRC backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
-- [ ] 09-04-PLAN.md -- Standalone Flink Ansible role, FIPS 140-2 validation, and .env.example extension
+- [x] 09-04-PLAN.md -- Standalone Flink Ansible role, FIPS 140-2 validation, and .env.example extension
 
 ## Progress
 
@@ -192,4 +192,4 @@ Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 
 | 6. Flink on Confluent Cloud | 2/3 | In Progress|  |
 | 7. Onboarding and Developer Experience | 0/3 | Not started | - |
 | 8. CFK on OpenShift | 0/3 | Not started | - |
-| 9. CP on RHEL and Private Cloud | 0/4 | Not started | - |
+| 9. CP on RHEL and Private Cloud | 4/4 | Complete | 2026-03-27 |
