@@ -11,6 +11,7 @@ Validates topic requests before human C4E review by running 5 automated checks:
 
 Parses .tf source files (not Terraform state) to extract module arguments.
 Also parses CFK KafkaTopic YAML files for governance validation (same 5 checks).
+Also parses CP-RHEL CPTopic YAML files for on-prem scenario governance validation.
 Uses only Python stdlib -- no pip dependencies (matches validate-schemas.py pattern).
 
 Usage:
@@ -300,6 +301,99 @@ def parse_cfk_topics(scenario_dir):
     return modules
 
 
+def parse_cp_topics(scenario_dir):
+    """Parse CPTopic YAML files for governance validation.
+
+    Looks in {scenario_dir}/topics/ for .yaml/.yml files with kind: CPTopic.
+    CP-RHEL topics use the same governance labels as CFK KafkaTopic CRDs:
+      fsi.sla-tier, fsi.domain, fsi.owner, fsi.data-classification,
+      fsi.application, fsi.version, fsi.entity
+    Returns a list of dicts with the same structure as parse_tf_modules and
+    parse_cfk_topics, allowing CP topics to pass through the same 5 checks.
+    """
+    modules = []
+    topics_dir = os.path.join(scenario_dir, 'topics')
+    if not os.path.isdir(topics_dir):
+        return modules
+
+    yaml_files = sorted(
+        f for f in os.listdir(topics_dir)
+        if f.endswith(('.yaml', '.yml')) and os.path.isfile(os.path.join(topics_dir, f))
+    )
+
+    for yaml_file in yaml_files:
+        filepath = os.path.join(topics_dir, yaml_file)
+        doc = parse_yaml_simple(filepath)
+
+        # Filter for CPTopic documents only
+        if doc.get('kind') != 'CPTopic':
+            continue
+
+        metadata = doc.get('metadata', {})
+        labels = metadata.get('labels', {})
+        spec = doc.get('spec', {})
+        configs = spec.get('configs', {})
+
+        topic_name = metadata.get('name', '')
+
+        # Extract governance fields from labels (preferred) or split topic name
+        domain = labels.get('fsi.domain', '')
+        application = labels.get('fsi.application', '')
+        schema_version = labels.get('fsi.version', '')
+        entity = labels.get('fsi.entity', '')
+
+        # Fallback: split topic name if labels missing
+        if not domain or not application:
+            name_parts = topic_name.split('.')
+            if len(name_parts) >= 4:
+                domain = domain or name_parts[0]
+                application = application or name_parts[1]
+                schema_version = schema_version or name_parts[2]
+                entity = entity or '.'.join(name_parts[3:])
+
+        sla_tier = labels.get('fsi.sla-tier', '')
+
+        args = {
+            'domain': domain,
+            'application': application,
+            'schema_version': schema_version,
+            'entity': entity,
+            'sla_tier': sla_tier,
+            'owner': labels.get('fsi.owner', ''),
+            'data_classification': labels.get('fsi.data-classification', 'internal'),
+            'schema_file': '',
+            'pii_fields': [],
+            '_cp_source': True,
+            # CP topics manage RBAC via MDS -- not part of CPTopic YAML
+            'producer_service_accounts': ['<cp-mds>'],
+            'consumer_service_accounts': ['<cp-mds>'],
+            'producer_sa_names': [],
+            'consumer_sa_names': [],
+        }
+
+        partition_count = spec.get('partitionCount', '')
+        if partition_count:
+            try:
+                args['partitions_override'] = int(partition_count)
+            except ValueError:
+                pass
+
+        retention_ms = configs.get('retention.ms', '')
+        if retention_ms:
+            try:
+                args['retention_ms_override'] = int(retention_ms)
+            except ValueError:
+                pass
+
+        modules.append({
+            'name': topic_name,
+            'file': yaml_file,
+            'args': args,
+        })
+
+    return modules
+
+
 def check_naming(modules, verbose=False):
     """Check 1: Validate naming convention for domain/application/version/entity."""
     print("[CHECK 1/5] Naming Convention")
@@ -522,10 +616,11 @@ def check_pii(modules, schemas_dir, verbose=False):
         data_class = args.get('data_classification', 'internal')
         pii_fields = args.get('pii_fields', [])
 
-        # CFK topics manage PII via schema registration (separate from CRD)
+        # CFK/CP topics manage PII via schema registration (separate from CRD/YAML)
         is_cfk = args.get('_cfk_source', False)
+        is_cp = args.get('_cp_source', False)
 
-        if data_class == 'confidential' and is_cfk:
+        if data_class == 'confidential' and (is_cfk or is_cp):
             # CFK topics: PII fields are in the schema, not the KafkaTopic CRD
             passed += 1
             print(f"  {mod['name']}: PASS (confidential, PII managed via schema registration)")
@@ -589,8 +684,9 @@ def main():
     parser.add_argument(
         '--scenario-dir',
         required=True,
-        help="Path to scenario directory to validate -- works with both Terraform "
-             "(e.g., scenarios/cc-aws/) and CFK YAML scenarios (e.g., scenarios/cfk-openshift/)"
+        help="Path to scenario directory to validate -- works with Terraform "
+             "(e.g., scenarios/cc-aws/), CFK YAML (e.g., scenarios/cfk-openshift/), "
+             "and CP-RHEL YAML (e.g., scenarios/cp-rhel/) scenarios"
     )
     parser.add_argument(
         '--schemas-dir',
@@ -618,13 +714,17 @@ def main():
     # Parse topic modules from CFK KafkaTopic YAML files
     cfk_modules = parse_cfk_topics(args.scenario_dir)
 
+    # Parse topic modules from CP-RHEL CPTopic YAML files
+    cp_modules = parse_cp_topics(args.scenario_dir)
+
     # Combine all modules for unified governance checks
-    modules = tf_modules + cfk_modules
+    modules = tf_modules + cfk_modules + cp_modules
 
     if not modules:
         print("No topic modules found in scenario directory.")
         print("(Looking for: Terraform module blocks with 'modules/topic', "
-              "or KafkaTopic YAML files in topics/ directory)")
+              "KafkaTopic YAML files in topics/ directory, "
+              "or CPTopic YAML files in topics/ directory)")
         print()
         print("RESULT: 0 checks passed, 0 failed (no modules to validate)")
         sys.exit(0)
@@ -636,6 +736,9 @@ def main():
         if cfk_modules:
             print(f"Found {len(cfk_modules)} CFK KafkaTopic CRD(s): "
                   f"{', '.join(m['name'] for m in cfk_modules)}")
+        if cp_modules:
+            print(f"Found {len(cp_modules)} CP-RHEL CPTopic definition(s): "
+                  f"{', '.join(m['name'] for m in cp_modules)}")
         print()
 
     # Run all 5 checks
