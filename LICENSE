@@ -1,0 +1,97 @@
+FSI Data Streaming Platform - Community License
+=================================================
+
+Copyright (c) 2024-2026 GoodLabs Studio. All Rights Reserved.
+
+License: Source Available Community License v1.0
+Licensor: GoodLabs Studio (jhogan@goodlabs.studio)
+Licensed Work: FSI Data Streaming Platform
+Change Date: April 2, 2030
+Change License: Apache License, Version 2.0
+
+
+1. GRANT OF RIGHTS
+
+Subject to the terms and conditions of this License, the Licensor hereby
+grants you a non-exclusive, worldwide, royalty-free, non-transferable,
+non-sublicensable license to use, copy, modify, and redistribute the
+Licensed Work, solely for Non-Production Use as defined below.
+
+2. NON-PRODUCTION USE
+
+"Non-Production Use" means any use that does NOT include any of the
+following:
+
+  (a) Use in a production environment serving end users, customers,
+      or live business operations;
+  (b) Use in a revenue-generating service, product, or offering
+      (including SaaS, PaaS, managed services, or consulting
+      deliverables);
+  (c) Use to provide a competing product or service that is
+      substantially similar to the Licensed Work.
+
+Permitted Non-Production Use includes, without limitation:
+
+  - Personal learning, experimentation, and evaluation
+  - Internal development, testing, staging, and QA environments
+  - Academic research and educational purposes
+  - Proof-of-concept and pre-production demonstrations
+  - Contributing improvements back to the Licensed Work
+
+3. PRODUCTION USE
+
+Production use of the Licensed Work requires a separate commercial
+license from the Licensor. Contact jhogan@goodlabs.studio for
+commercial licensing inquiries.
+
+4. CHANGE DATE AND LICENSE CONVERSION
+
+On the Change Date (April 2, 2030), or the fourth anniversary of each
+release if later, the Licensed Work (as of that release) will
+automatically become available under the Apache License, Version 2.0.
+You may use, copy, modify, and distribute the Licensed Work under the
+terms of Apache 2.0 from that date forward.
+
+The full text of the Apache License, Version 2.0 is available at:
+https://www.apache.org/licenses/LICENSE-2.0
+
+5. NOTICES
+
+You must retain all copyright notices, this License, and any attribution
+notices in all copies or substantial portions of the Licensed Work.
+
+You must prominently display the following notice in any modified version
+of the Licensed Work:
+
+  "This software is derived from the FSI Data Streaming Platform,
+   originally developed by GoodLabs Studio."
+
+6. CONTRIBUTIONS
+
+Any contributions submitted to the Licensed Work (via pull request,
+patch, or other mechanism) are submitted under the terms of this License
+and the Contributor grants the Licensor a perpetual, irrevocable,
+worldwide, royalty-free license to use, modify, and sublicense the
+contribution under any license terms.
+
+7. NO WARRANTY
+
+THE LICENSED WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR
+OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF, OR IN CONNECTION WITH THE LICENSED WORK.
+
+8. TERMINATION
+
+This License is effective until terminated. Your rights under this
+License will terminate automatically without notice if you fail to
+comply with any of its terms. Upon termination, you must cease all use
+and destroy all copies of the Licensed Work in your possession.
+
+9. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the
+laws of the State of Delaware, United States, without regard to
+conflict-of-law principles.
