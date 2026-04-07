@@ -134,19 +134,19 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Deployment Pipeline
 
-- [ ] **APIPE-01**: Orchestration playbook (`site.yml`) chains cp-ansible cluster deployment with topic → schema → RBAC → connectors → observability in a single run
+- [ ] **APIPE-01**: Orchestration playbook (`site.yml`) chains cp-ansible cluster deployment with topic -> schema -> RBAC -> connectors -> observability in a single run
 - [ ] **APIPE-02**: Ansible tags allow selective execution (e.g., `--tags topics`, `--tags rbac`, `--tags observability`) for Day-2 operations without full pipeline re-run
 - [ ] **APIPE-03**: Connector deployment role creates/updates connectors via Connect REST API with idempotent create-if-absent, update-if-different pattern
 - [ ] **APIPE-04**: Connector health validation after deployment verifies all connectors and tasks are in RUNNING state with retry and backoff
 
 ### Ansible DR Automation
 
-- [ ] **ADR-01**: MM2 failover playbook orchestrates: pause connectors → stop source MM2 → promote topics → update Consul → validate → resume on target
+- [ ] **ADR-01**: MM2 failover playbook orchestrates: pause connectors -> stop source MM2 -> promote topics -> update Consul -> validate -> resume on target
 - [ ] **ADR-02**: MM2 failback playbook reverses replication direction, re-establishes mirrors, validates data sync, and cuts back to primary
 - [ ] **ADR-03**: DR playbooks support `--check` mode (dry-run) generating audit-ready output showing every step without executing
 - [ ] **ADR-04**: DR state validation tasks check mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover
 - [ ] **ADR-05**: MRC failover playbook promotes observer replica to leader for RPO=0 scenarios using Confluent CLI
-- [ ] **ADR-06**: DR drill playbook runs full cycle (failover → validate → failback → validate → generate compliance report) for quarterly regulatory requirements
+- [ ] **ADR-06**: DR drill playbook runs full cycle (failover -> validate -> failback -> validate -> generate compliance report) for quarterly regulatory requirements
 
 ### Ansible Observability Deployment
 
@@ -286,59 +286,59 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GOV-02 | Phase 1 | Complete |
 | GOV-03 | Phase 1 | Complete |
 
-### v2 Traceability (Pending)
+### v2 Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AFOUND-01 | TBD | Pending |
-| AFOUND-02 | TBD | Pending |
-| AFOUND-03 | TBD | Pending |
-| AFOUND-04 | TBD | Pending |
-| AFOUND-05 | TBD | Pending |
-| ATOPIC-01 | TBD | Pending |
-| ATOPIC-02 | TBD | Pending |
-| ATOPIC-03 | TBD | Pending |
-| ATOPIC-04 | TBD | Pending |
-| ATOPIC-05 | TBD | Pending |
-| ATOPIC-06 | TBD | Pending |
-| ATOPIC-07 | TBD | Pending |
-| ASCHEMA-01 | TBD | Pending |
-| ASCHEMA-02 | TBD | Pending |
-| ASCHEMA-03 | TBD | Pending |
-| ASCHEMA-04 | TBD | Pending |
-| ASCHEMA-05 | TBD | Pending |
-| ARBAC-01 | TBD | Pending |
-| ARBAC-02 | TBD | Pending |
-| ARBAC-03 | TBD | Pending |
-| ARBAC-04 | TBD | Pending |
-| ARBAC-05 | TBD | Pending |
-| APIPE-01 | TBD | Pending |
-| APIPE-02 | TBD | Pending |
-| APIPE-03 | TBD | Pending |
-| APIPE-04 | TBD | Pending |
-| ADR-01 | TBD | Pending |
-| ADR-02 | TBD | Pending |
-| ADR-03 | TBD | Pending |
-| ADR-04 | TBD | Pending |
-| ADR-05 | TBD | Pending |
-| ADR-06 | TBD | Pending |
-| AOBS-01 | TBD | Pending |
-| AOBS-02 | TBD | Pending |
-| AOBS-03 | TBD | Pending |
-| AOBS-04 | TBD | Pending |
-| ACFK-01 | TBD | Pending |
-| ACFK-02 | TBD | Pending |
-| ACFK-03 | TBD | Pending |
-| ACI-01 | TBD | Pending |
-| ACI-02 | TBD | Pending |
-| ACI-03 | TBD | Pending |
+| AFOUND-01 | Phase 10 | Pending |
+| AFOUND-02 | Phase 10 | Pending |
+| AFOUND-03 | Phase 10 | Pending |
+| AFOUND-04 | Phase 10 | Pending |
+| AFOUND-05 | Phase 10 | Pending |
+| ATOPIC-01 | Phase 11 | Pending |
+| ATOPIC-02 | Phase 11 | Pending |
+| ATOPIC-03 | Phase 11 | Pending |
+| ATOPIC-04 | Phase 11 | Pending |
+| ATOPIC-05 | Phase 11 | Pending |
+| ATOPIC-06 | Phase 11 | Pending |
+| ATOPIC-07 | Phase 11 | Pending |
+| ASCHEMA-01 | Phase 11 | Pending |
+| ASCHEMA-02 | Phase 11 | Pending |
+| ASCHEMA-03 | Phase 11 | Pending |
+| ASCHEMA-04 | Phase 11 | Pending |
+| ASCHEMA-05 | Phase 11 | Pending |
+| ARBAC-01 | Phase 11 | Pending |
+| ARBAC-02 | Phase 11 | Pending |
+| ARBAC-03 | Phase 11 | Pending |
+| ARBAC-04 | Phase 11 | Pending |
+| ARBAC-05 | Phase 11 | Pending |
+| APIPE-01 | Phase 12 | Pending |
+| APIPE-02 | Phase 12 | Pending |
+| APIPE-03 | Phase 12 | Pending |
+| APIPE-04 | Phase 12 | Pending |
+| ADR-01 | Phase 13 | Pending |
+| ADR-02 | Phase 13 | Pending |
+| ADR-03 | Phase 13 | Pending |
+| ADR-04 | Phase 13 | Pending |
+| ADR-05 | Phase 15 | Pending |
+| ADR-06 | Phase 15 | Pending |
+| AOBS-01 | Phase 12 | Pending |
+| AOBS-02 | Phase 12 | Pending |
+| AOBS-03 | Phase 12 | Pending |
+| AOBS-04 | Phase 12 | Pending |
+| ACFK-01 | Phase 14 | Pending |
+| ACFK-02 | Phase 14 | Pending |
+| ACFK-03 | Phase 14 | Pending |
+| ACI-01 | Phase 12 | Pending |
+| ACI-02 | Phase 12 | Pending |
+| ACI-03 | Phase 12 | Pending |
 
 **Coverage:**
 - v1 requirements: 60 total (all complete)
 - v2 requirements: 42 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 42
+- Mapped to phases: 42/42
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-04-07 after milestone v2.0 requirements definition*
+*Last updated: 2026-04-07 after v2.0 roadmap creation -- all 42 requirements mapped to Phases 10-15*

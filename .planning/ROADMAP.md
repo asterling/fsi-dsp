@@ -1,8 +1,13 @@
 # Roadmap: FSI Kafka Platform
 
+## Milestones
+
+- **v1.0 Terraform + Shell Foundation** - Phases 1-9 (complete)
+- **v2.0 Ansible Based Automation** - Phases 10-15 (in progress)
+
 ## Overview
 
-This roadmap transforms a proven single-cloud Confluent Cloud C4E engagement into a universal, multi-deployment FSI Kafka/Flink/SR platform. The journey starts with governance primitives and shared modules (the architectural linchpin that prevents governance drift), extends to CC multi-cloud scenarios, layers on access control, compliance, DR automation, observability, and Flink, then adds on-prem deployment models (CFK on OpenShift, CP on RHEL). Nine phases, each delivering a coherent, verifiable capability.
+This roadmap transforms a proven single-cloud Confluent Cloud C4E engagement into a universal, multi-deployment FSI Kafka/Flink/SR platform. The journey starts with governance primitives and shared modules (the architectural linchpin that prevents governance drift), extends to CC multi-cloud scenarios, layers on access control, compliance, DR automation, observability, and Flink, then adds on-prem deployment models (CFK on OpenShift, CP on RHEL). v2.0 adds Ansible-native automation for Confluent Platform deployments -- topic governance, schema management, RBAC, observability, and DR -- in an `ansible/` directory alongside existing Terraform content.
 
 ## Phases
 
@@ -12,17 +17,34 @@ This roadmap transforms a proven single-cloud Confluent Cloud C4E engagement int
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Shared Governance Foundation** - Shared module library, schema CI validation, externalized config, and architectural decision records
-- [ ] **Phase 2: CC Multi-Cloud Scenarios** - Self-contained CC scenario directories for AWS and GCP with parameterized backends and post-apply validation
-- [ ] **Phase 3: Access Control and Compliance** - Cross-deployment RBAC parity, OAuth authentication, credential rotation, compliance retention tiers, and audit trails
-- [ ] **Phase 4: DR Automation Framework** - Pluggable DR CLI with Cluster Linking adapter, orchestrated failover/failback, dry-run, rollback, and mirror lag monitoring
-- [ ] **Phase 5: Observability Templates** - Per-provider dashboard templates (6 providers), SLA-tier alerting, auto-discovery, and metrics export per deployment model
-- [ ] **Phase 6: Flink on Confluent Cloud** - CC Flink compute pool deployment, SQL reference templates, SR integration, observability, and dead letter handling
-- [ ] **Phase 7: Onboarding and Developer Experience** - Intake form, C4E review automation, Python reference client, error-path tests, local dev with Flink, and DLQ patterns
-- [ ] **Phase 8: CFK on OpenShift** - Confluent for Kubernetes operator manifests, MM2 DR adapter, and Flink Kubernetes Operator deployment
-- [ ] **Phase 9: CP on RHEL and Private Cloud** - Ansible/systemd deployment, Private Cloud scenario, MRC RPO=0, standalone Flink, and FIPS 140-2 compliance
+<details>
+<summary>v1.0 Terraform + Shell Foundation (Phases 1-9) - COMPLETE</summary>
+
+- [x] **Phase 1: Shared Governance Foundation** - Shared module library, schema CI validation, externalized config, and architectural decision records
+- [x] **Phase 2: CC Multi-Cloud Scenarios** - Self-contained CC scenario directories for AWS and GCP with parameterized backends and post-apply validation
+- [x] **Phase 3: Access Control and Compliance** - Cross-deployment RBAC parity, OAuth authentication, credential rotation, compliance retention tiers, and audit trails
+- [x] **Phase 4: DR Automation Framework** - Pluggable DR CLI with Cluster Linking adapter, orchestrated failover/failback, dry-run, rollback, and mirror lag monitoring
+- [x] **Phase 5: Observability Templates** - Per-provider dashboard templates (6 providers), SLA-tier alerting, auto-discovery, and metrics export per deployment model
+- [x] **Phase 6: Flink on Confluent Cloud** - CC Flink compute pool deployment, SQL reference templates, SR integration, observability, and dead letter handling
+- [x] **Phase 7: Onboarding and Developer Experience** - Intake form, C4E review automation, Python reference client, error-path tests, local dev with Flink, and DLQ patterns
+- [x] **Phase 8: CFK on OpenShift** - Confluent for Kubernetes operator manifests, MM2 DR adapter, and Flink Kubernetes Operator deployment
+- [x] **Phase 9: CP on RHEL and Private Cloud** - Ansible/systemd deployment, Private Cloud scenario, MRC RPO=0, standalone Flink, and FIPS 140-2 compliance
+
+</details>
+
+### v2.0 Ansible Based Automation (Phases 10-15)
+
+- [ ] **Phase 10: Ansible Foundation and Governance Scaffolding** - Directory structure, version pinning, shared governance constants, filter plugins, and ansible-lint config
+- [ ] **Phase 11: Core Governance Roles** - Topic lifecycle, schema registration, and RBAC provisioning roles with molecule tests
+- [ ] **Phase 12: Orchestration Pipeline, Observability, and CI/CD** - End-to-end deployment playbook, connector and observability roles, and GitHub Actions for Ansible content
+- [ ] **Phase 13: DR Automation Playbooks (MM2)** - MM2 failover/failback playbooks with dry-run, state validation, and audit-ready output
+- [ ] **Phase 14: CFK on OpenShift Governance** - CFK operator and CR deployment via kubernetes.core with governance parity to CP roles
+- [ ] **Phase 15: MRC Failover and DR Drill** - MRC observer promotion playbook and quarterly DR drill automation with compliance reporting
 
 ## Phase Details
+
+<details>
+<summary>v1.0 Phase Details (Phases 1-9) - COMPLETE</summary>
 
 ### Phase 1: Shared Governance Foundation
 **Goal**: Governance primitives (topic naming, schema compatibility, RBAC patterns, SLA-tier defaults) are codified in a shared module library and enforced by CI -- before any new scenario directory is created
@@ -176,20 +198,120 @@ Plans:
 - [x] 09-03-PLAN.md -- MRC backend for fsi-dr.sh (5 functions), unit tests, and DR runbook extension
 - [x] 09-04-PLAN.md -- Standalone Flink Ansible role, FIPS 140-2 validation, and .env.example extension
 
+</details>
+
+### Phase 10: Ansible Foundation and Governance Scaffolding
+**Goal**: The `ansible/` directory is fully scaffolded with pinned dependencies, shared governance constants that mirror Terraform, filter plugins, multi-environment inventories, and lint rules -- establishing the foundation every subsequent role depends on
+**Depends on**: Phase 9 (v1.0 complete -- existing CP-RHEL scenario and governance artifacts exist)
+**Requirements**: AFOUND-01, AFOUND-02, AFOUND-03, AFOUND-04, AFOUND-05
+**Success Criteria** (what must be TRUE):
+  1. Running `ansible-galaxy collection install -r ansible/requirements.yml` installs cp-ansible 7.7.x and all required collections with pinned versions
+  2. SLA-tier lookups in `ansible/vars/sla_tiers.yml` produce identical partition counts, retention values, and compatibility modes as Terraform module locals
+  3. Topic name assembly using the `fsi_governance` filter plugin produces names matching the Terraform `{domain}.{application}.{version}.{entity}` regex
+  4. `ansible-lint` with the project config passes on the scaffolded directory with zero violations
+  5. Inventory skeletons exist for dev, staging, prod, and dr environments with documented host group patterns
+**Plans**: TBD
+
+Plans:
+- [ ] 10-01: Directory scaffolding, requirements.yml, ansible.cfg, and multi-environment inventories
+- [ ] 10-02: Shared governance constants (sla_tiers.yml, naming_rules.yml), filter plugins, and ansible-lint config
+
+### Phase 11: Core Governance Roles
+**Goal**: Operators can create topics, register schemas, and provision RBAC bindings on a Confluent Platform cluster using Ansible roles -- with identical governance rules to Terraform and full idempotency
+**Depends on**: Phase 10
+**Requirements**: ATOPIC-01, ATOPIC-02, ATOPIC-03, ATOPIC-04, ATOPIC-05, ATOPIC-06, ATOPIC-07, ASCHEMA-01, ASCHEMA-02, ASCHEMA-03, ASCHEMA-04, ASCHEMA-05, ARBAC-01, ARBAC-02, ARBAC-03, ARBAC-04, ARBAC-05
+**Success Criteria** (what must be TRUE):
+  1. Operator runs the topic role against a CP cluster and topics are created with SLA-tier-derived config (partitions, retention, min.insync.replicas) -- re-running the same playbook produces no changes
+  2. Operator runs the schema role and Avro schemas are registered with compatibility pre-checked before any registration -- incompatible schemas fail with a clear message before any mutation
+  3. Operator runs the RBAC role and MDS bindings (DeveloperWrite, DeveloperRead, consumer group, SR subject) are created for each principal -- stale bindings from removed principals are cleaned up
+  4. All three roles support `--check` mode, showing what would change without making mutations
+  5. Molecule tests for each role pass with idempotency verification (second run reports zero changes)
+**Plans**: TBD
+
+Plans:
+- [ ] 11-01: cp_topic role -- Admin REST v3, SLA-tier defaults, CPTopic YAML consumption, check mode, molecule tests
+- [ ] 11-02: cp_schema role -- SR REST API, two-pass validate-then-register, compatibility modes, PII metadata, molecule tests
+- [ ] 11-03: cp_rbac role -- MDS REST API, token refresh, LIST/DIFF/ADD/REMOVE reconciliation, molecule tests
+
+### Phase 12: Orchestration Pipeline, Observability, and CI/CD
+**Goal**: Governance roles are composed into an end-to-end deployment pipeline with connector management, observability deployment, tag-based selective execution, and CI quality gates for all Ansible content
+**Depends on**: Phase 11
+**Requirements**: APIPE-01, APIPE-02, APIPE-03, APIPE-04, AOBS-01, AOBS-02, AOBS-03, AOBS-04, ACI-01, ACI-02, ACI-03
+**Success Criteria** (what must be TRUE):
+  1. Operator runs `ansible-playbook site.yml` and it chains cp-ansible cluster deployment with topic creation, schema registration, RBAC provisioning, connector deployment, and observability setup in a single run
+  2. Operator runs `ansible-playbook site.yml --tags topics` and only topic-related tasks execute -- same for `--tags rbac`, `--tags observability`, and other tags
+  3. After connector deployment, all connectors and tasks are verified in RUNNING state -- failures trigger retry with backoff and report which connectors failed
+  4. Prometheus scrape config is auto-generated from inventory host groups and updates when nodes are added without manual config editing
+  5. GitHub Actions CI runs ansible-lint, yamllint, and molecule tests on every PR touching `ansible/` -- failing lint or tests blocks merge
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: Orchestration playbooks (site.yml, deploy-governance.yml) with tag-based execution and cp_connect role
+- [ ] 12-02: cp_observability role -- JMX exporter configs, Prometheus scrape generation, Grafana dashboard import, SLA-tier alerts
+- [ ] 12-03: GitHub Actions workflows (ansible-lint, molecule, governance parity validation)
+
+### Phase 13: DR Automation Playbooks (MM2)
+**Goal**: Operators can execute MM2 failover and failback operations via Ansible playbooks with dry-run mode, state validation, and audit-ready output -- replacing manual shell script execution
+**Depends on**: Phase 11
+**Requirements**: ADR-01, ADR-02, ADR-03, ADR-04
+**Success Criteria** (what must be TRUE):
+  1. Operator runs the failover playbook and connectors are paused, source MM2 stopped, topics promoted, Consul updated, state validated, and connectors resumed on the target cluster -- all in sequence with validation between steps
+  2. Operator runs the failback playbook and replication direction is reversed, mirrors re-established, data sync validated, and traffic cut back to primary
+  3. Running either playbook with `--check` generates audit-ready output showing every step without executing any mutations
+  4. DR state validation checks mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover -- failing validation halts the playbook with clear diagnostics
+**Plans**: TBD
+
+Plans:
+- [ ] 13-01: cp_dr_mm2 role -- failover tasks, state validation, Consul integration, dry-run mode
+- [ ] 13-02: cp_dr_mm2 failback tasks, reverse replication, and audit report generation
+
+### Phase 14: CFK on OpenShift Governance
+**Goal**: Operators can deploy the CFK operator and apply governed Kafka custom resources on OpenShift using Ansible -- with the same SLA-tier defaults and governance rules as CP REST API roles
+**Depends on**: Phase 10
+**Requirements**: ACFK-01, ACFK-02, ACFK-03
+**Success Criteria** (what must be TRUE):
+  1. Operator runs the CFK playbook and the CFK operator is deployed on OpenShift via Helm with configurable chart version and namespace
+  2. KafkaCluster, SchemaRegistry, and Connect custom resources are applied with readiness gates -- governance tasks do not begin until CRDs report ready
+  3. KafkaTopic CRDs generated from CPTopic YAML definitions produce identical SLA-tier defaults (partitions, retention, compatibility) as the CP topic role
+**Plans**: TBD
+
+Plans:
+- [ ] 14-01: CFK deployment playbook -- kubernetes.core.helm operator install, CR application, readiness gates
+- [ ] 14-02: KafkaTopic CRD generation from CPTopic YAML with governance parity validation
+
+### Phase 15: MRC Failover and DR Drill
+**Goal**: Operators can execute MRC observer promotion for RPO=0 scenarios and run quarterly DR drills that produce compliance evidence reports -- building on proven MM2 playbooks from Phase 13
+**Depends on**: Phase 13
+**Requirements**: ADR-05, ADR-06
+**Success Criteria** (what must be TRUE):
+  1. Operator runs the MRC failover playbook and the observer replica is promoted to leader via Confluent CLI for RPO=0 scenarios
+  2. Operator runs the DR drill playbook and it executes the full cycle (failover, validate, failback, validate) and generates a timestamped compliance report suitable for regulatory submission
+**Plans**: TBD
+
+Plans:
+- [ ] 15-01: cp_dr_mrc role -- observer promotion via Confluent CLI, state validation
+- [ ] 15-02: DR drill playbook -- full cycle orchestration and compliance report generation
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9
-Note: Phases 4 and 5 can begin after Phase 2. Phase 8 and 9 depend on Phases 1, 4, and 6.
+Phases execute in numeric order: 10 -> 11 -> 12 -> 13 -> 14 -> 15
+Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on Phase 10, not Phase 11. Phase 15 depends on Phase 13.
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Shared Governance Foundation | 3/3 | Complete | 2026-03-22 |
-| 2. CC Multi-Cloud Scenarios | 0/2 | Planned | - |
-| 3. Access Control and Compliance | 0/4 | Planned | - |
-| 4. DR Automation Framework | 2/3 | In Progress|  |
-| 5. Observability Templates | 0/3 | Not started | - |
-| 6. Flink on Confluent Cloud | 2/3 | In Progress|  |
-| 7. Onboarding and Developer Experience | 0/3 | Not started | - |
-| 8. CFK on OpenShift | 0/3 | Not started | - |
-| 9. CP on RHEL and Private Cloud | 4/4 | Complete | 2026-03-27 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Shared Governance Foundation | v1.0 | 3/3 | Complete | 2026-03-22 |
+| 2. CC Multi-Cloud Scenarios | v1.0 | 2/2 | Complete | - |
+| 3. Access Control and Compliance | v1.0 | 4/4 | Complete | - |
+| 4. DR Automation Framework | v1.0 | 3/3 | Complete | - |
+| 5. Observability Templates | v1.0 | 3/3 | Complete | - |
+| 6. Flink on Confluent Cloud | v1.0 | 3/3 | Complete | - |
+| 7. Onboarding and Developer Experience | v1.0 | 3/3 | Complete | - |
+| 8. CFK on OpenShift | v1.0 | 3/3 | Complete | - |
+| 9. CP on RHEL and Private Cloud | v1.0 | 4/4 | Complete | 2026-03-27 |
+| 10. Ansible Foundation and Governance Scaffolding | v2.0 | 0/2 | Not started | - |
+| 11. Core Governance Roles | v2.0 | 0/3 | Not started | - |
+| 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 0/3 | Not started | - |
+| 13. DR Automation Playbooks (MM2) | v2.0 | 0/2 | Not started | - |
+| 14. CFK on OpenShift Governance | v2.0 | 0/2 | Not started | - |
+| 15. MRC Failover and DR Drill | v2.0 | 0/2 | Not started | - |
