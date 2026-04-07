@@ -1,247 +1,231 @@
 # Feature Landscape
 
-**Domain:** FSI Multi-Deployment Kafka/Flink C4E Platform
-**Researched:** 2026-03-21
-**Confidence:** MEDIUM (based on codebase analysis, Confluent ecosystem training data, FSI domain knowledge; no live web verification available)
+**Domain:** Ansible-based Confluent Platform governance automation (v2.0 milestone)
+**Researched:** 2026-04-07
+**Confidence:** MEDIUM (verified via Confluent docs, cp-ansible GitHub, cp-ansible-admin community project, Ansible best practices docs; REST API patterns validated against official Confluent API docs)
+
+## Scope
+
+This feature landscape covers ONLY the new Ansible automation features for v2.0. It does not repeat v1.0 features (Terraform modules, shell-based DR CLI, schema validation, observability templates) which are documented in the v1.0 research. The focus is: what Ansible roles, playbooks, and CI/CD content must be built to achieve governance parity with the existing Terraform topic module for Confluent Platform (CP) and CFK deployments.
 
 ## Table Stakes
 
-Features FSI teams expect from a C4E platform. Missing any of these and teams either build their own (shadow platform) or leave for a vendor-managed alternative.
+Features that any Ansible-based CP governance solution must have. Without these, teams continue using manual `confluent` CLI commands or ad-hoc scripts -- which defeats the purpose of the automation milestone.
 
-### Infrastructure as Code (Multi-Deployment)
+### Topic Lifecycle Management Role
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Confluent Cloud Terraform modules (AWS, Azure, GCP) | Teams on CC expect IaC for topic/schema/RBAC provisioning. Azure already exists; AWS and GCP are the same Confluent provider with different networking/backend configs. | Medium | Existing CC-Azure module is the template. AWS/GCP need provider-specific networking (PrivateLink, PSC), backend (S3, GCS), and auth (IAM, Workload Identity). Core topic module is cloud-agnostic. |
-| CFK on OpenShift operator manifests + Helm | FSI shops running on-prem OCP expect Kubernetes-native deployment. CFK operator is the standard path. | High | CFK has its own CRD model (KafkaCluster, SchemaRegistry, Connect, KafkaTopic). Not a simple port of Terraform -- different IaC paradigm entirely. Requires OLM (Operator Lifecycle Manager) integration. |
-| Confluent Platform on RHEL via Ansible | Legacy FSI deployments on bare metal/VM expect systemd-based automation. Still common at banks with air-gapped environments. | High | Confluent provides cp-ansible but it needs customization for FSI security (mTLS, LDAP/Kerberos, FIPS 140-2 compliance). Least cloud-native path but still required. |
-| Scenario directory structure | Teams browse, pick their deployment model, copy-paste. Lower barrier than a CLI generator. | Low | Already decided (PROJECT.md). Each scenario is self-contained with README, IaC, and variable examples. |
-| Shared module library across scenarios | Core governance (topic naming, schema compat, RBAC patterns) must be identical regardless of deployment model. Drift between scenarios is a governance failure. | Medium | The abstraction challenge: Terraform for CC, CRDs for CFK, Ansible roles for CP. Need a common "topic specification" format that renders to each target. |
-| Terraform state backend per cloud provider | Each cloud has its own state backend (azurerm, s3, gcs). Teams expect this to work out of the box. | Low | Parameterize backend selection. Document that backend migration requires `terraform init -migrate-state`. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Create topics via Kafka REST API v3 | Teams expect `ansible-playbook -i inventory topics.yml` to create all declared topics. Manual `kafka-topics.sh` is the status quo being replaced. | Medium | CP cluster deployed (via cp-ansible), REST Proxy or Confluent Server REST API enabled on broker (port 8090) | Use `ansible.builtin.uri` module against `/kafka/v3/clusters/{cluster_id}/topics` endpoint. Must be idempotent: GET first, POST only if absent. cp-ansible-admin community project validates this pattern works. |
+| SLA-tier-derived defaults | Identical to Terraform module: `critical` = 12 partitions / FULL_TRANSITIVE / 7-day retention, `standard` = 6 / BACKWARD_TRANSITIVE / 3-day, `best-effort` = 3 / BACKWARD / 1-day, `compliance` = 12 / FULL_TRANSITIVE / N-year. | Low | None (pure Ansible variable logic) | Implement as `defaults/main.yml` lookup maps mirroring `modules/topic/main.tf` locals. Override variables available for documented exceptions. |
+| Topic naming validation | Enforce `{domain}.{application}.{version}.{entity}` regex at Ansible runtime, identical to Terraform `variables.tf` regex. Rejects invalid names before API calls. | Low | None | Use `ansible.builtin.assert` with regex test. Fail fast with clear error message. Must match `^[a-z][a-z0-9-]{1,30}\.[a-z][a-z0-9-]{1,30}\.v[0-9]+\.[a-z][a-z0-9-]{1,60}$` pattern. |
+| Topic config updates (retention, cleanup, min.insync.replicas) | Topics drift. Teams expect to declare desired state and have Ansible converge. Config-only changes must not recreate topics. | Medium | Existing topics on cluster | Use PUT against `/kafka/v3/clusters/{cluster_id}/topics/{topic_name}/configs/{config_name}`. Idempotent by nature (PUT is declarative). Report `changed` only when value differs. |
+| CPTopic YAML format consumption | Existing `scenarios/cp-rhel/topics/*.yml` use CPTopic YAML format. The role must read these files directly, not require a new format. | Low | Existing CPTopic YAML files | Parse `metadata.labels` for governance fields (fsi.domain, fsi.sla-tier, fsi.owner, fsi.data-classification). Parse `spec.partitionCount` and `spec.configs`. The format already exists with 3 example files. |
+| Dry-run / check mode support | `--check` must show what would change without changing anything. Required for FSI change management processes (CAB approval requires preview). | Medium | None | Ansible check mode requires the role to separate "gather current state" from "apply changes." GET-then-compare pattern. All `ansible.builtin.uri` calls gated on `when: not ansible_check_mode` for mutating operations. |
+| Idempotent execution | Running the playbook twice produces the same result. No duplicate topics, no error on re-run. | Medium | None | GET before POST/PUT. Use `changed_when` to accurately report whether state changed. This is fundamental Ansible role quality. |
+| Topic deletion with safety gate | Governed deletion: require explicit `state: absent` + confirmation variable. Accidental deletion of a production topic is catastrophic. | Low | None | Default `state: present`. When `state: absent`, require `confirm_deletion: true` variable. Log warning before deletion. Refuse to delete topics matching `critical` or `compliance` SLA tier without override. |
 
-### Schema Governance
+### Schema Registration Role
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Schema registration with compatibility enforcement | Already exists. SLA-tier-based compatibility modes (FULL_TRANSITIVE, BACKWARD_TRANSITIVE, BACKWARD) are table stakes for FSI data contracts. | Low | Validated in existing codebase. Works across all deployment models since SR is the same API regardless of deployment. |
-| Schema evolution CI validation | Teams expect the CI pipeline to catch breaking schema changes before merge, not after apply. Schema Registry compatibility checks at registration time are too late -- feedback must be in the PR. | Medium | Use `confluent schema-registry compatibility validate` or SR REST API `/compatibility/subjects/{subject}/versions/{version}` in CI. Needs SR credentials in CI context. |
-| Schema namespace collision prevention | When 50+ teams share one SR, accidental subject name collisions corrupt data contracts. Namespace enforcement is not optional at FSI scale. | Medium | CI check: validate that `.avsc` namespace matches `{org}.{domain}.{app}.{version}` and that subject does not already exist (unless version bump). Identified in CONCERNS.md. |
-| PII field tagging and metadata | Regulators (OCC, CFPB, GDPR/CCPA) require knowing where PII flows. Schema metadata must declare PII fields. | Low | Already exists via `pii_fields` variable and schema metadata tags. Extend to support Confluent Stream Governance data contracts for field-level encryption rules. |
-| Compatibility override governance | Override of C4E-mandated compatibility must require documented justification. Convention-only enforcement is insufficient. | Low | CI lint that blocks `compatibility_override != null` unless paired with ADR or exception ticket reference. Identified in CONCERNS.md. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Register Avro schemas via SR REST API | Push `.avsc` files to Schema Registry subjects. CP Schema Registry uses identical REST API to CC -- same endpoints, different auth. | Medium | CP Schema Registry deployed, network reachable from Ansible controller | POST to `/subjects/{subject}/versions` with schema JSON payload. Subject naming follows TopicNameStrategy: `{topic_name}-value`. Authentication via basic auth (SR credentials) or mTLS. |
+| Compatibility mode configuration per subject | Set compatibility level (FULL_TRANSITIVE, BACKWARD_TRANSITIVE, BACKWARD) derived from SLA tier, matching Terraform module behavior. | Low | Schema registered first | PUT to `/config/{subject}` with `{"compatibility": "FULL_TRANSITIVE"}`. Must happen after initial schema registration. |
+| Schema compatibility pre-check | Before registering, verify schema is compatible with existing versions. Fail with clear message if incompatible (prevents broken data contracts). | Medium | Existing schema versions in SR | POST to `/compatibility/subjects/{subject}/versions/latest` with proposed schema. If response `is_compatible: false`, fail the task with details. This catches breaking changes before they land. |
+| Schema file discovery from CPTopic | Given a CPTopic YAML, locate the corresponding `.avsc` file by convention (`schemas/{domain}-{entity}.avsc`) or explicit `schema_file` field. | Low | Schema files in expected location | Convention-based discovery with override. If CPTopic declares `spec.schema_file`, use that. Otherwise, construct path from metadata labels. |
+| PII metadata tagging | Schema metadata properties (owner, sla-tier, data-classification, pii, pii-fields) applied to SR subject, identical to Terraform module metadata. | Low | Schema registered | Use `/subjects/{subject}/versions` with `metadata.properties` in payload. Maps directly from CPTopic labels and `pii_fields` list. |
+| Compatibility override governance | When `compatibility_override` is used, log a warning and require an `override_justification` field in CPTopic. Mirrors Terraform module's override pattern. | Low | None | Ansible `assert` task validates that override includes justification. Emit warning via `ansible.builtin.debug` with `msg` at verbosity 0. |
 
-### RBAC and Access Control
+### RBAC Provisioning Role (via MDS REST API)
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Per-topic RBAC via IaC | Already exists. Producer/consumer service account bindings are provisioned alongside the topic. This is non-negotiable for FSI. | Low | Validated. Works for CC via Confluent RBAC. CFK uses Confluent RBAC or Kubernetes RBAC. CP uses MDS (Metadata Service) RBAC. Need adapter per deployment model. |
-| Service account provisioning | Teams expect to request a service account and get credentials as part of onboarding. Manual provisioning is a bottleneck. | Medium | Current model assumes SA already exists. Extending to provision SAs via Terraform (`confluent_service_account`) eliminates a manual step. For CFK/CP, this maps to LDAP/AD group bindings. |
-| OAuth/OAUTHBEARER authentication | API key rotation is operationally expensive. FSI teams on Azure expect Azure AD (Entra ID) OAUTHBEARER. AWS teams expect IAM auth. | Medium | Already noted in cloud-providers.md. OAuth eliminates credential rotation for DR failover (tokens work against both clusters). Critical path for operational maturity. |
-| Credential rotation automation | If sticking with API keys, zero-downtime rotation must be automated. Manual rotation at 90-day cadence across 100+ topics is untenable. | High | Requires dual-credential support during rotation window. Vault integration (already in FSI stack per ADR-003) is the path. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| MDS token acquisition | Authenticate to MDS to get bearer token for subsequent RBAC API calls. MDS is the CP authorization service (no equivalent in vanilla Kafka). | Medium | MDS enabled on brokers (`rbac_enabled: true` in cp-ansible inventory), LDAP backend configured | POST to `/security/1.0/authenticate` with mTLS cert or LDAP credentials. Token used for all subsequent MDS API calls. Token has TTL; role must handle refresh. |
+| Per-topic producer/consumer role bindings | Grant `DeveloperWrite` to producers and `DeveloperRead` to consumers on specific topic resources. Direct parity with Terraform `confluent_role_binding` resources. | Medium | MDS token, topic exists, principals exist in LDAP/AD | POST to `/security/1.0/principals/User:{principal}/roles/{role}/bindings` with resource pattern `{topic: {name: "topic_name", patternType: "LITERAL"}}`. Cluster scope from inventory. |
+| Consumer group bindings | Consumers need `DeveloperRead` on their consumer group pattern (`{principal}-*`). Without this, consumers connect but get authorization errors. | Low | MDS token | Same MDS endpoint, resource type `Group` with `PREFIXED` pattern. Mirror Terraform module's `consumer_group` binding pattern. |
+| Schema Registry subject bindings | Producers need `DeveloperWrite` on SR subjects; all need `DeveloperRead`. Without this, serialization fails with auth errors. | Low | MDS token, SR subject exists | Resource type `Subject` in MDS bindings. Same endpoint, different resource scope. |
+| Binding state comparison (idempotent) | List existing bindings before creating. Do not duplicate bindings. Report accurate `changed` status. | Medium | None | GET `/security/1.0/principals/User:{principal}/roles/{role}/bindings` first. Compare with desired state. Only POST missing bindings. This is where most community implementations fall short. |
+| Binding removal for deprovisioning | When a service account is removed from CPTopic, corresponding RBAC bindings should be removed. | Medium | None | DELETE via MDS API. Requires tracking "desired state" from CPTopic vs "current state" from MDS. Only remove bindings that were managed by this role (use tag/label convention). |
 
-### Disaster Recovery
+### DR Automation Playbooks
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Automated DR failover (single command) | 6 manual steps during a crisis is unacceptable for production FSI. OCC expects documented, tested, repeatable DR procedures. | High | Orchestration script wrapping: pause connectors, promote mirrors, flip Consul, validate state, resume connectors, verify. Dry-run mode mandatory. Identified as top concern. |
-| DR failback automation | Getting back to primary after incident must be equally automated. Many platforms automate failover but forget failback. | High | Failback is harder than failover: must re-establish mirror links, reverse replication direction, verify data consistency, then cut over. |
-| Pluggable DR backend abstraction | Same CLI/UX regardless of deployment model. CC uses Cluster Linking, CFK/CP uses MirrorMaker 2. Teams should not care which. | High | Unified interface: `fsi-dr failover --cluster prod-east --target prod-west --dry-run`. Backend adapters for Cluster Linking (CC), MM2 (CFK/CP), MRC (CP RPO=0). |
-| Mirror lag monitoring with alerting | FSI regulators ask "what is your data loss window?" Must have real-time answer per topic. | Medium | CC: Confluent Cloud Metrics API (mirror lag metric). CFK/CP: JMX metrics from MM2. Alert thresholds by SLA tier. |
-| DR state validation between steps | Each failover step must verify preconditions before proceeding. Partial failover is worse than no failover. | Medium | State machine pattern: each step checks exit conditions of previous step. Rollback if any validation fails. |
-| Dry-run mode for all DR operations | Preview what will happen before committing. Regulators love this for audit evidence. | Low | Print what each step would do without executing. Log output identical to real run for review. |
-| Unified DR runbook with decision trees | Operators need a single document, not scattered script comments. | Low | Markdown document with decision trees: "Is mirror lag < threshold? YES -> proceed. NO -> abort and investigate." |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| MM2 failover playbook | Orchestrated failover: pause connectors, stop source MM2, promote topics on DR, update service discovery, validate. Replaces manual shell script steps. | High | MM2 deployed and replicating, Connect REST API accessible, Consul (optional) for service discovery | Translate existing `fsi-dr.sh mm2` backend logic into Ansible tasks. Advantage over shell: better error handling, check mode, retry logic, parallel task execution. Use `ansible.builtin.uri` for Connect and Kafka REST APIs. |
+| MM2 failback playbook | Reverse replication direction, re-establish mirrors, verify data sync, cut back to primary. | High | Successful failover state, primary cluster recovered | Failback is operationally the inverse of failover but with additional data consistency validation. Must verify no data loss during failback window. |
+| MRC failover playbook (observer promotion) | For RPO=0 scenarios: promote observer replica to leader. CP-specific feature using `kafka-replica-elections` or Confluent CLI. | High | MRC topology deployed (2 sync + 1 observer), `confluent` CLI available | Observer promotion via `confluent kafka partition reassign` or direct Admin API. Validate ISR state post-promotion. This is the most complex DR pattern. |
+| DR state validation tasks | Pre-flight checks before failover: mirror lag within SLA threshold, all topics mirroring, target cluster healthy. Post-flight: topics writable, schema registry accessible, consumers can connect. | Medium | Monitoring endpoints accessible | Reusable task file imported by both failover and failback playbooks. SLA-tier thresholds from existing `fsi-dr.sh` constants (critical=30s warn/60s alert, standard=5m/15m, best-effort=1h/4h). |
+| Dry-run mode | `--check` or `--extra-vars "dry_run=true"` shows every step that would execute without executing. Generates audit-ready output. | Medium | None | All mutating tasks wrapped in `when: not dry_run`. Print "WOULD DO: ..." messages. Output formatted as DR drill report for compliance evidence. |
+| DR drill playbook | Full cycle: failover -> validate -> run integration tests -> failback -> validate -> generate report. Quarterly regulatory requirement. | Medium | All DR playbooks working, integration test suite | Orchestration playbook that calls failover, waits, runs validation, calls failback. Produces timestamped report. |
 
-### Observability
+### Observability Deployment Role
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Per-provider dashboard templates | FSI shops are locked into their APM vendor. Providing Datadog templates to a Dynatrace shop is useless. Must cover the FSI observability landscape. | High (breadth) | Dynatrace, Datadog, Splunk, New Relic, Grafana/Prometheus, IBM Instana. Each needs: cluster health, consumer lag, Connect status, DR mirror lag, Flink job health. Templates, not integrations -- teams import and customize. |
-| Consumer lag monitoring and alerting | The single most important Kafka operational metric. Teams expect it visible day one. | Medium | CC: Confluent Cloud Metrics API or Confluent Health+ (exports to monitoring). CFK/CP: JMX exporter -> Prometheus -> provider. Alert thresholds by SLA tier. |
-| Cluster health dashboards | Broker status, partition leadership, ISR count, rebalance events. Ops teams expect to see this without building it. | Medium | Per deployment model: CC uses Cloud Metrics API, CFK/CP use JMX. Dashboard template per observability provider. |
-| Connect connector status monitoring | Connector failures are silent unless monitored. Failed tasks do not auto-restart (depends on config). | Medium | Connect REST API polling or JMX metrics. Alert on FAILED task state. Include in DR readiness dashboard. |
-| Alert threshold configuration per SLA tier | Critical topics need tighter alert thresholds than best-effort. One-size-fits-all alerts create noise. | Low | Configuration layer: `critical` -> lag > 1000 records alert, `standard` -> lag > 10000, `best-effort` -> lag > 100000. |
-| Auto-discovery for new topics | When a new topic is onboarded, observability should pick it up automatically (by domain prefix pattern). | Medium | Metrics API wildcard queries or label-based Prometheus scraping. New topics appear in dashboards without manual config. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| JMX exporter agent deployment | Install/configure Prometheus JMX Exporter as Java agent on Kafka brokers, Schema Registry, Connect workers. | Medium | CP components deployed via cp-ansible, `jmxexporter_enabled: true` | cp-ansible already supports `jmxexporter_enabled` variable. This role extends with FSI-specific JMX exporter configs from `observability/grafana/jmx-exporter-stub.yaml` -- custom metric rules for cluster health, consumer lag, ISR. |
+| Prometheus scrape config generation | Generate `prometheus.yml` scrape targets from inventory. When new brokers are added, scrape config updates automatically. | Low | Prometheus deployed (out of scope for this role to install) | Template `prometheus.yml` with `scrape_configs` entries for each host in `kafka_broker`, `schema_registry`, `kafka_connect` groups. Use inventory-driven Jinja2 template. |
+| Grafana dashboard import | Deploy FSI dashboard JSON files from `observability/grafana/` to Grafana via API or file provisioning. | Medium | Grafana deployed (out of scope to install) | Two modes: API import via `community.grafana.grafana_dashboard` module, or file provisioning (copy JSON to `/var/lib/grafana/dashboards/`). API mode preferred for idempotency. |
+| Per-provider template deployment | Support Dynatrace, Datadog, Splunk, New Relic, Instana alongside Grafana/Prometheus. Each provider has different import mechanism. | Medium | Provider agent/collector deployed | Variable-driven: `observability_provider: grafana` selects which templates to deploy. Each provider gets a task file. Start with Grafana/Prometheus (most common on-prem), add others incrementally. |
+| Alert rule deployment | Import alert definitions (lag thresholds, broker down, ISR shrink) into monitoring provider. SLA-tier-aware thresholds. | Medium | Monitoring provider accessible | Grafana: import `alerts.yaml`. Datadog: POST monitors via API. Dynatrace: import `alerts.json`. Each provider has different alert API. |
 
-### Onboarding and Self-Service
+### Connector Deployment Role
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Intake form template (generic FSI) | Current form works but references client-specific details. Must be genericized for any FSI adopter. | Low | Already exists as GitHub issue template. Remove client-specific names, add deployment model selection field. |
-| C4E review automation in CI | Human review is the bottleneck. CI should lint and validate (naming, schema compat, RBAC completeness) before human review. | Medium | Terraform validate + custom lint rules (topic name format, required metadata, SLA tier matches schema compat). Human review remains as gate for architecture decisions. |
-| Reference implementations (Java, .NET, Python) | Teams expect copy-paste-ready producer/consumer code in their language. Java and .NET exist. Python is expected by data engineering teams. | Medium | Python reference using confluent-kafka-python. Flink SQL examples also serve as "reference implementations" for stream processing. |
-| Local development environment | Teams need to develop and test locally before deploying to CC/CFK/CP. Docker Compose exists. | Low | Already validated. Extend to include Flink for stream processing local dev. |
-| Integration test suite | Teams expect to validate their topic/schema/RBAC config in CI before production apply. | Medium | Extend existing roundtrip test with error path tests (serialization failure, RBAC denial, schema incompatibility). |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Deploy/update connectors via Connect REST API | Push connector configs to Connect cluster. Idempotent: create if absent, update if config differs. | Medium | Kafka Connect deployed and healthy | cp-ansible already has `kafka_connectors` module. Evaluate whether to use it or build custom `ansible.builtin.uri` tasks. The cp-ansible module requires `connect_url` and `active_connectors` list. |
+| Connector health validation | After deployment, verify all connectors and tasks are in `RUNNING` state. Alert/fail on `FAILED` or `PAUSED` (unless intentional). | Low | Connectors deployed | GET `/connectors/{name}/status` and check `connector.state` and `tasks[*].state`. Retry with backoff for connectors still initializing. |
+| Connector pause/resume for DR | During failover, pause all connectors (prevent dual-write). Resume on target cluster after promotion. | Low | Connect REST API accessible | PUT `/connectors/{name}/pause` and `/connectors/{name}/resume`. Critical for DR playbooks. Already exists as steps in `fsi-dr.sh`. |
 
-### Compliance
+### End-to-End Deployment Pipeline
 
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Compliance-tier retention (up to 7 years) | OFAC/AML/CFT regulations mandate long retention for transaction records. Current 7-day max for critical topics is insufficient. | Low | Add `compliance` SLA tier or `retention_ms_override` guidance. Document that long-term retention should use tiered storage (CC) or archival to object storage, not infinite Kafka retention. |
-| Audit trail for infrastructure changes | OCC examiners want to see who changed what, when, and why. Git history + Terraform state + CI logs provide this. | Low | Already exists via GitOps workflow (PR -> review -> merge -> apply). Document the audit trail path for examiners. |
-| Data classification enforcement | Topics with `confidential` classification need additional controls (encryption at rest, restricted access, audit logging). | Medium | Enforce that `data_classification = "confidential"` triggers: encryption rules in schema, restricted consumer list, enhanced logging. |
-| FIPS 140-2 compliance for on-prem | Federal FSI (credit unions, banks with federal charters) may require FIPS-validated cryptography. | High | Affects CP on RHEL scenario: must use FIPS-validated JVM, TLS libraries. CFK on FIPS-enabled OpenShift. CC handles this server-side. |
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| Orchestration playbook (full pipeline) | Single command: deploy CP -> create topics -> register schemas -> configure RBAC -> deploy connectors -> deploy observability. New cluster to production-ready in one run. | Low (orchestration only) | All individual roles working | `site.yml` that imports role playbooks in dependency order. Tags allow running subsets. This is the "single automation run" promise from PROJECT.md Core Value. |
+| Selective execution via tags | Run only topics (`--tags topics`), only RBAC (`--tags rbac`), only DR (`--tags dr`). Day-2 operations do not require full pipeline re-run. | Low | None | Ansible tags on each role include block. Standard Ansible pattern. |
+| Environment separation | Same roles, different inventories: `inventory/dev/`, `inventory/staging/`, `inventory/prod/`. Environment-specific variables (endpoints, credentials, topic lists). | Low | None | Standard Ansible inventory pattern. Credentials via Ansible Vault. |
+
+### CI/CD for Ansible Content
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| ansible-lint on all roles | Static analysis catches YAML syntax errors, deprecated module usage, missing metadata, security anti-patterns. | Low | None | GitHub Actions workflow: `ansible-lint ansible/roles/`. Use `.ansible-lint` config to set rules. Runs on every PR touching `ansible/`. |
+| yamllint on YAML files | Catches indentation errors, duplicate keys, trailing whitespace. Complements ansible-lint. | Low | None | Standard CI step. Config in `.yamllint`. |
+| Molecule test framework for roles | Integration tests: run role in Docker container, verify outcomes. Catches real failures that lint misses. | High | Docker or Podman for Molecule driver | Each role gets `molecule/default/` scenario. Challenge: Kafka/SR/MDS are complex to mock in containers. Use `molecule-docker` driver with pre-built CP containers for integration, or mock REST API responses for unit-level tests. |
+| GitHub Actions workflows | PR validation (lint + molecule) and deployment (run playbooks against target environment). | Medium | GitHub Actions runners, Ansible installed | Two workflows: `ansible-lint.yml` (on PR), `ansible-deploy.yml` (on merge to main, targets staging/prod). Environment protection rules for prod. |
 
 ## Differentiators
 
-Features that set this platform apart from "just another Kafka deployment." Not expected, but valued. These justify C4E investment.
+Features that go beyond what cp-ansible-admin and community Ansible Kafka tools provide. These justify building custom roles rather than adopting off-the-shelf community tools.
 
-### Cross-Deployment Parity
+### Governance Parity with Terraform Module
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Unified topic specification format | Define a topic once in a declarative format (YAML/HCL), render to Terraform (CC), CRD (CFK), or Ansible (CP). Teams switching deployment models keep the same governance. | High | This is the core differentiator. Most C4E platforms are single-deployment. A cross-deployment spec that guarantees naming, schema compat, RBAC, and SLA-tier behavior is identical is rare. |
-| Deployment model migration path | Document and automate migrating from CC to CFK or CP to CC. FSI acquisitions and strategy changes cause deployment model shifts. | High | Migration tooling: export topic configs from source, generate IaC for target, migrate schemas, re-establish DR. This is aspirational but extremely valuable. |
-| Cross-scenario integration testing | CI validates that the same topic spec produces equivalent results across CC, CFK, and CP. | High | Requires test environments for each deployment model. Start with CC + local-dev (Docker Compose simulating CFK/CP). |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| SLA-tier abstraction (single input, derived config) | Teams declare `sla_tier: critical` and get correct partitions, compatibility, retention, alert thresholds automatically. No other Ansible Kafka tool does this. cp-ansible-admin requires explicit config per topic. | Low | None | Direct port of Terraform module's `locals` block. The existing 3 CPTopic YAMLs already use `fsi.sla-tier` label. The role reads this and derives everything else. |
+| Unified CPTopic YAML format across Ansible and Terraform | Same topic definition format works for both Ansible roles (CP/CFK) and informs Terraform module (CC). Teams define once, deploy anywhere. | Medium | CPTopic format spec finalized | The CPTopic YAML already exists. Ansible roles consume it natively. Add a thin converter for Terraform module calls if teams want to maintain one source of truth. This is the cross-deployment parity differentiator. |
+| Compliance-tier with year-based retention | `sla_tier: compliance` + `retention_years: 7` auto-calculates retention in ms. No other tool handles regulatory retention periods as a first-class concept. | Low | None | Direct port from Terraform module: `retention_years * 31557600000 ms/year`. Validation: must be >= 7 years per FSI regulatory requirement. |
+| Full-stack atomic provisioning | One playbook creates topic + registers schema + sets compatibility + binds RBAC + configures DR mirror + deploys alerts. No other tool combines all six. | High | All roles working | The Terraform module does this in one `module` call. The Ansible equivalent is a `governance.yml` playbook that chains all roles. The atomic unit of governance is the topic, not the individual resource. |
+| Confidential topic enforcement | When `data_classification: confidential`, automatically require PII fields, restrict consumer list, and add encryption metadata. Mirrors Terraform module's CSFLE preconditions. | Medium | Schema registration role | Port of Terraform module's `precondition` blocks. For CP (no CSFLE), enforce via RBAC restrictions and PII metadata tagging. Document that CSFLE field-level encryption requires Confluent Enterprise license. |
 
-### Flink Integration
+### DR Orchestration Superiority Over Shell
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Flink SQL reference job templates | Provide windowing, enrichment, and filtering templates that teams customize. Accelerates stream processing adoption. | Medium | Templates: tumbling window aggregation, stream-table join (enrichment), filter-and-route. All use SR Avro serde. CC Flink, CFK Flink (KafkaFlink CRD), standalone Flink. |
-| Flink cluster deployment per scenario | Each deployment model has its own Flink runtime. CC uses managed Flink. CFK can run Flink on K8s (Flink Kubernetes Operator). CP runs standalone Flink. | High | CC Flink: Terraform resources (`confluent_flink_compute_pool`, `confluent_flink_statement`). CFK: Flink Kubernetes Operator Helm chart. CP: Ansible role for standalone Flink. Three different IaC paths. |
-| Flink observability integration | Flink job metrics (checkpoint duration, backpressure, throughput) exported to the team's observability provider. | Medium | CC Flink: Confluent Cloud Metrics API includes Flink metrics. CFK/standalone: Flink metrics reporter -> Prometheus -> provider. Dashboard template per provider. |
-| Flink-Schema Registry integration | Flink SQL reads/writes Avro via SR. Schema evolution in SR is automatically picked up by Flink jobs. | Low | Flink's Confluent Avro format connector handles this natively. Document the catalog/database/table mapping for CC Flink (which auto-discovers SR subjects). |
-| Flink dead letter handling | Flink jobs that encounter deserialization errors or processing failures route bad records to DLQ topics. | Medium | Flink's side output pattern for error records. Template includes DLQ topic creation and routing logic. |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| Parallel task execution during DR | Ansible can pause all connectors simultaneously (parallel loop), verify all topics simultaneously, etc. Shell script does them sequentially. | Low | None | Use `async` + `poll` or `loop` with `async` for parallel REST API calls. Reduces DR execution time significantly for clusters with many topics/connectors. |
+| Structured DR audit report | Generate YAML/JSON report with timestamps, before/after states, lag measurements, validation results. Shell script output is unstructured text. | Medium | None | Ansible `set_fact` to accumulate results, `template` module to render report. Machine-parseable for compliance systems. |
+| Retry and error recovery | Ansible's retry mechanism (`retries`, `delay`, `until`) handles transient failures gracefully. Shell `set -e` exits on first failure. | Low | None | Critical for DR where API calls may fail due to cluster state transitions. Configurable retry counts per step. |
 
-### Advanced DR
+### Observability-as-Code
 
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| MRC with observer promotion (2.5-cluster) for RPO=0 | For the most critical FSI workloads (wire transfers, OFAC screening), zero data loss is a regulatory requirement. MRC provides synchronous replication with automatic observer promotion. | Very High | Requires Confluent Platform (not CC). The "2.5-cluster" pattern: 2 sync replicas (East/West) + 1 async observer (for reads during normal operation). Observer auto-promotes to leader on region failure. This is the gold standard for FSI DR. |
-| DR drill automation | Quarterly DR drills are required by regulators. Automating the drill (failover, validate, failback, report) saves days of manual effort. | Medium | Script: execute failover in non-prod, run validation suite, execute failback, generate compliance report (timestamps, lag, data validation). |
-| Partial failover (per-domain) | Fail over only the affected domain's topics, not the entire cluster. Reduces blast radius. | High | Requires topic-level mirror promotion rather than cluster-level. More complex orchestration but significantly reduces DR risk. |
-
-### Advanced Governance
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Data contract enforcement (Confluent Stream Governance) | Field-level rules (encryption, validation, migration) enforced at the broker/SR level. Goes beyond schema compatibility to enforce business rules on data shape. | High | Requires Confluent Advanced Stream Governance license. CEL-based rules for field encryption (PII masking), field validation (e.g., `amount > 0`), and migration rules. Already referenced in existing schema-guide.md. |
-| Topic lifecycle management | Topics have a lifecycle: created, active, deprecated, decommissioned. Most platforms only handle creation. Managing the full lifecycle (including safe decommission with consumer migration) is differentiating. | Medium | Terraform lifecycle + metadata tags for status. Decommission workflow: mark deprecated, notify consumers, wait for migration, reduce retention, delete. |
-| Schema catalog integration | Schemas feed into a data catalog (Alation, Collibra, DataHub) for discoverability. Teams find existing topics/schemas before creating new ones. | Medium | Already hinted in schema-guide.md (`doc` fields "feed into Alation"). Formalize: export SR subjects + metadata to catalog via API. Out of scope for initial milestone per PROJECT.md but valuable for roadmap. |
-| Cost optimization reporting | CC cluster costs by domain/team. Helps C4E justify platform investment and charge back to lines of business. | Low | Confluent Cloud billing API or cost reports grouped by topic prefix (domain). Dashboard template for finance teams. |
-
-### Developer Experience
-
-| Feature | Value Proposition | Complexity | Notes |
-|---------|-------------------|------------|-------|
-| Golden path CLI (optional) | Beyond scenario directories, a CLI that scaffolds a new topic from intake form answers. `fsi-kafka create-topic --domain cncb --entity account-tx --tier critical` generates the Terraform module call, schema stub, and PR. | Medium | Nice-to-have on top of scenario directories. Reduces onboarding from "read docs and copy-paste" to "run one command." Not critical for launch. |
-| Schema authoring assistant | Generate an Avro schema from a JSON sample or a table DDL. Reduces the Avro learning curve. | Low | Script: input JSON -> output .avsc with inferred types. Logical type hints (timestamp fields -> timestamp-millis, decimal fields -> decimal). |
-| Topic topology visualization | Visual map of topics, producers, consumers, and data flow per domain. Helps architecture review and onboarding. | Medium | Generate Mermaid diagrams from Terraform state or SR metadata. Shows: Topic A -> Consumer Group B -> Topic C (enriched). |
+| Feature | Value Proposition | Complexity | Dependencies | Notes |
+|---------|-------------------|------------|--------------|-------|
+| Inventory-driven monitoring | Add a broker to inventory, re-run observability role, monitoring auto-updates. No manual Prometheus/Grafana config changes. | Low | Inventory reflects actual infrastructure | Jinja2 templates for `prometheus.yml` and Grafana datasources driven by inventory groups. This is standard Ansible pattern but uniquely valuable for Kafka where broker counts change during scaling. |
+| SLA-tier-aware alert thresholds | Alert thresholds derived from `sla_tier` label on each topic. `critical` topics get tighter lag alerts than `best-effort`. Deployed automatically per topic. | Medium | Topics created with SLA-tier labels | Generate per-topic alert rules based on SLA tier constants (matching `fsi-dr.sh` thresholds). Deploy to monitoring provider. No other tool auto-generates topic-level alerts from governance metadata. |
 
 ## Anti-Features
 
-Features to explicitly NOT build. Including them would increase scope, maintenance burden, or conflict with C4E philosophy.
+Features to explicitly NOT build in the Ansible automation milestone.
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Flink business logic (fraud scoring, compliance windowing) | Teams own their business logic. C4E provides the runtime and templates, not the jobs. Building business logic creates coupling and maintenance burden. | Provide Flink SQL templates (windowing, enrichment, filtering) and let teams compose their own jobs. Reference implementations show the pattern; teams own the logic. |
-| Web UI / portal for topic management | UI adds massive maintenance surface (frontend framework, auth, RBAC, state management). GitOps via PR is the governance model. A UI bypasses the audit trail. | Keep GitOps as the primary interface. If visualization is needed, point teams to Confluent Cloud Console, Control Center (CP/CFK), or the topology visualization differentiator above. |
-| Multi-tenancy within a single cluster | Sharing a Kafka cluster across domains with RBAC-only isolation is fragile. Noisy neighbor, quota management, and blast radius problems. | Recommend dedicated clusters per environment/domain for critical workloads. Use RBAC for access control within a cluster, not for isolation. |
-| Custom Kafka distribution or fork | Maintaining a custom Kafka build is unsustainable. Confluent provides the distribution; C4E provides the governance wrapper. | Use Confluent's distribution (CC, CFK operator, CP packages) as-is. Customize via configuration, not code. |
-| Confluent Cloud account/org provisioning | Account-level automation is a different concern (cloud platform team, not C4E). Mixing account provisioning with topic provisioning conflates responsibilities. | Assume org, environment, and cluster exist. Document prerequisites. Provide a separate "cluster bootstrap" guide for platform teams. |
-| Real-time alerting engine | Building a custom alerting system duplicates what Dynatrace/Datadog/etc. already do. C4E provides alert definitions (thresholds), not alert infrastructure. | Provide alert rule templates per observability provider. Teams import into their existing alerting stack. |
-| Data mesh / catalog platform | Data mesh is an organizational pattern, not a C4E feature. Catalog integration (export metadata) is in scope; building a catalog is not. | Export schema metadata to existing catalogs (Alation, Collibra, DataHub). Do not build a catalog. |
-| ChatOps / Slack bot for topic management | Adds integration surface, auth complexity, and audit trail gaps. PR-based workflow is more auditable and governed. | Document commands for Teams/Slack channels as informational. All changes go through Git PRs. |
-| Automated capacity planning / auto-scaling | Partition count and cluster sizing are architecture decisions, not automation candidates. Auto-scaling partitions is irreversible and can cause rebalance storms. | Provide sizing guidance per SLA tier. Partition count is set at creation and reviewed at architecture review. CC auto-scales brokers (managed), CFK/CP require manual scaling decisions. |
+| Custom Ansible modules (Python) for Kafka admin | Writing Python modules adds maintenance burden, testing complexity, and Python dependency management. The `ansible.builtin.uri` module against REST APIs is simpler, more transparent, and easier to debug. | Use `ansible.builtin.uri` for all REST API calls (Kafka REST v3, Schema Registry, MDS, Connect). This is the pattern validated by cp-ansible-admin and community tools. |
+| Replacing cp-ansible for cluster deployment | cp-ansible is Confluent-certified, well-tested, and maintained. Rewriting cluster deployment roles is scope creep and maintenance folly. | Depend on `confluent.platform` collection for Day 1 (deploy). Build governance roles for Day 2 (configure). Clear boundary: cp-ansible owns systemd services, our roles own logical resources (topics, schemas, RBAC). |
+| Ansible for Confluent Cloud | No native Ansible provider for CC API. The Terraform Confluent provider is mature and purpose-built. Wrapping CC REST APIs in Ansible adds complexity with no benefit. | CC stays Terraform-only (per PROJECT.md Out of Scope). Ansible roles target CP and CFK only. |
+| Interactive UI or wizard for playbook configuration | Ansible is CLI-first. Building a web UI to generate inventory/playbooks adds massive scope. | Provide well-documented `inventory/*.yml.example` files and `group_vars/` templates. Teams copy and fill in values. Same pattern as existing cp-rhel scenario. |
+| Full CP lifecycle management (upgrades, scaling, patching) | cp-ansible handles rolling upgrades and scaling. Duplicating this adds maintenance burden with no governance value. | Document how to use cp-ansible for upgrades alongside governance roles. Governance roles are re-entrant: re-run after upgrade to verify/restore governance state. |
+| Apache Kafka (non-Confluent) support | MDS RBAC, Confluent REST API v3, and cp-ansible are Confluent-specific. Supporting vanilla Apache Kafka doubles the API surface. | Per PROJECT.md constraint: roles target CP with MDS/Confluent CLI only. Teams on vanilla Kafka use other tools (Strimzi, ansible-kafka-admin). |
+| Event-Driven Ansible (EDA) integration | EDA with Kafka as event source is interesting but orthogonal to governance automation. It solves "react to Kafka events" not "govern Kafka resources." | Document as future enhancement. EDA could trigger governance playbooks on topic creation events, but this is optimization, not MVP. |
 
 ## Feature Dependencies
 
 ```
-Scenario Directory Structure
-  |-> CC-AWS Terraform Modules
-  |-> CC-Azure Terraform Modules (exists)
-  |-> CC-GCP Terraform Modules
-  |-> CFK OpenShift Manifests
-  |-> CP RHEL Ansible Roles
-  |-> Shared Module Library (consumed by all above)
-       |-> Topic Naming Validation
-       |-> Schema Compatibility Enforcement
-       |-> RBAC Binding Patterns
-       |-> SLA Tier Defaults
+cp-ansible cluster deployment (EXISTING -- prerequisite, not built by us)
+  |
+  v
+Topic Lifecycle Role
+  |-> Reads CPTopic YAML files
+  |-> Calls Kafka REST API v3
+  |-> Enforces SLA-tier defaults
+  |-> Validates naming convention
+  |
+  +-> Schema Registration Role (depends on topics existing)
+  |     |-> Calls Schema Registry REST API
+  |     |-> Sets compatibility per SLA tier
+  |     |-> Pre-checks compatibility before register
+  |     |-> Applies PII metadata
+  |
+  +-> RBAC Provisioning Role (depends on topics + schemas existing)
+  |     |-> Acquires MDS token
+  |     |-> Creates per-topic producer/consumer bindings
+  |     |-> Creates consumer group bindings
+  |     |-> Creates SR subject bindings
+  |
+  +-> Connector Deployment Role (depends on topics + schemas + RBAC)
+        |-> Deploys connector configs via Connect REST API
+        |-> Validates connector health
 
-Schema Governance (CI Validation)
-  |-> Schema Evolution CI Check (requires SR credentials in CI)
-  |-> Namespace Collision Prevention (requires subject registry query)
-  |-> Compatibility Override Governance (requires CI lint rules)
+DR Automation Playbooks (independent of above, but uses topic inventory)
+  |-> MM2 Failover Playbook
+  |     |-> Pauses connectors (uses Connector role tasks)
+  |     |-> Promotes mirror topics
+  |     |-> Updates service discovery
+  |     |-> Validates state
+  |-> MM2 Failback Playbook (depends on failover)
+  |-> MRC Failover Playbook (independent MM2 alternative)
+  |-> DR Drill Playbook (orchestrates failover + validate + failback)
 
-DR Framework
-  |-> Pluggable Backend Abstraction
-       |-> Cluster Linking Adapter (CC)
-       |-> MirrorMaker 2 Adapter (CFK/CP)
-       |-> MRC Adapter (CP RPO=0) -- depends on CP scenario being built first
-  |-> Orchestrated Failover CLI
-       |-> State Validation Between Steps
-       |-> Dry-Run Mode
-       |-> Rollback Capability
-  |-> Mirror Lag Monitoring
-       |-> Per-Provider Alert Templates
+Observability Deployment Role (independent, can run anytime after CP deploy)
+  |-> JMX exporter config deployment
+  |-> Prometheus scrape config generation
+  |-> Dashboard import (per provider)
+  |-> Alert rule deployment (SLA-tier-aware)
 
-Observability Templates
-  |-> Metrics Export per Deployment Model
-       |-> CC Metrics API Integration
-       |-> JMX Exporter Config (CFK/CP)
-  |-> Dashboard Templates per Provider (6 providers)
-       |-> Cluster Health
-       |-> Consumer Lag
-       |-> Connect Status
-       |-> DR Mirror Lag
-       |-> Flink Job Health (depends on Flink integration)
-  |-> Auto-Discovery Rules
-
-Flink Integration
-  |-> Flink Cluster Deployment per Scenario
-       |-> CC Flink Compute Pool (Terraform)
-       |-> CFK Flink on K8s (Flink K8s Operator)
-       |-> CP Standalone Flink (Ansible)
-  |-> Flink SQL Reference Templates (depends on SR integration)
-  |-> Flink Observability (depends on observability templates)
-
-Onboarding
-  |-> Generic Intake Form (no dependencies)
-  |-> C4E Review Automation (depends on schema CI validation + TF validate)
-  |-> Reference Implementations (Java exists, .NET exists, add Python)
-  |-> Integration Test Suite (depends on local dev environment)
-
-Compliance
-  |-> Compliance-Tier Retention (depends on topic module update)
-  |-> FIPS 140-2 (depends on CP RHEL scenario)
-  |-> Data Classification Enforcement (depends on schema metadata)
-  |-> Audit Trail Documentation (depends on GitOps workflow -- already exists)
+CI/CD (independent, runs in GitHub Actions)
+  |-> ansible-lint + yamllint (no dependencies)
+  |-> Molecule tests (requires Docker/Podman)
+  |-> Integration tests (requires CP test cluster)
+  |-> GitHub Actions workflows
 ```
 
 ## MVP Recommendation
 
-Prioritize for the multi-deployment milestone:
+### Must Ship (Table Stakes -- required for governance parity)
 
-### Must Ship (Table Stakes)
+1. **Topic Lifecycle Role** -- The foundation. Without topics-as-code via Ansible, there is no v2.0 milestone value. Consume existing CPTopic YAML format, enforce SLA-tier defaults, idempotent REST API calls, check mode support.
 
-1. **Scenario directory structure with CC-AWS and CC-GCP modules** -- Unlocks multi-cloud. CC-Azure already exists. Reuse existing topic module with cloud-specific networking/backend.
-2. **Shared module library abstraction** -- Without this, governance drifts between scenarios from day one.
-3. **Schema evolution CI validation** -- The #1 governance gap identified in CONCERNS.md. Teams will override compatibility without guardrails.
-4. **Automated DR failover (single command)** -- The #1 operational risk. 6 manual steps during a crisis is unacceptable for production FSI.
-5. **Consumer lag monitoring with per-provider templates** -- Start with Dynatrace + Grafana/Prometheus (highest FSI adoption). Expand to other providers.
-6. **Generic FSI intake form + C4E review automation** -- Enables self-service onboarding at scale.
+2. **Schema Registration Role** -- Schemas are part of the governed topic contract. Register Avro schemas, set compatibility per SLA tier, pre-check compatibility, apply metadata. Depends on topic role.
 
-### Should Ship (Table Stakes, Lower Risk)
+3. **RBAC Provisioning Role** -- Without RBAC, topics exist but nobody can use them (or everybody can, which is worse for FSI). MDS token management, per-topic bindings for producers/consumers/consumer-groups/SR-subjects. Depends on topic + schema roles.
 
-7. **CFK on OpenShift scenario** -- High complexity but required for on-prem FSI. Can ship slightly after CC scenarios.
-8. **Flink SQL reference templates + CC Flink deployment** -- Flink is a strategic differentiator. CC Flink is simplest to deploy.
-9. **DR dry-run mode and state validation** -- Foundational for DR drills and compliance evidence.
-10. **Compliance-tier retention** -- Low complexity, high regulatory value.
+4. **End-to-End Orchestration Playbook** -- The "single automation run" promise. `site.yml` chains: topics -> schemas -> RBAC -> connectors -> observability. Tags for selective execution.
 
-### Defer
+5. **CI/CD for Ansible Content** -- ansible-lint + yamllint in GitHub Actions. Without this, Ansible content quality degrades from PR #1. Molecule tests are higher complexity but should ship in initial milestone.
 
-- **CP on RHEL via Ansible** -- Highest complexity scenario. Ship after CC and CFK are proven. Many FSI shops are migrating away from bare metal anyway.
-- **MRC with observer promotion** -- Requires CP, which is deferred. Document as future-state for RPO=0 requirements.
-- **Data contract enforcement (Stream Governance)** -- Requires license upgrade. Table stakes governance covers 90% of needs.
-- **Schema catalog integration** -- Explicitly out of scope per PROJECT.md. Valuable but separate milestone.
-- **Deployment model migration tooling** -- Aspirational. Ship the scenarios first, migration second.
-- **All 6 observability providers** -- Start with Dynatrace + Grafana. Add Datadog and Splunk next. New Relic and Instana are lower priority.
+### Should Ship (high value, parallelizable)
+
+6. **DR Automation Playbooks (MM2)** -- Translate existing `fsi-dr.sh mm2` backend to Ansible. Higher value than shell because of check mode, parallel execution, structured reporting. Can be built in parallel with governance roles.
+
+7. **Observability Deployment Role** -- JMX exporter config + Prometheus scrape config + Grafana dashboard import. Leverages existing `observability/` templates. Can be built in parallel with governance roles.
+
+8. **Connector Deployment Role** -- Deploy and validate connectors via Connect REST API. Lower priority than topics/schemas/RBAC but needed for full pipeline. cp-ansible's `kafka_connectors` module may cover this.
+
+### Defer to Later Phase
+
+- **MRC Failover Playbook** -- Highest complexity DR pattern. Ship MM2 first, MRC after validation.
+- **DR Drill Playbook** -- Orchestration on top of failover/failback. Ship after individual DR playbooks are proven.
+- **Per-provider observability (non-Grafana)** -- Start with Grafana/Prometheus. Add Dynatrace, Datadog, Splunk as incremental additions.
+- **CFK governance via Ansible** -- CFK uses Kubernetes CRDs, not REST APIs. The `kubernetes.core.k8s` module is the path, but it is a different pattern than CP REST API governance. Separate from CP roles.
 
 ## Sources
 
-- Existing codebase analysis: `modules/topic/main.tf`, `modules/topic/variables.tf`, all 5 ADRs, `docs/schema-guide.md`, `docs/onboarding.md`, `docs/cloud-providers.md`
-- Project context: `.planning/PROJECT.md` (active requirements, constraints, key decisions)
-- Known gaps: `.planning/codebase/CONCERNS.md` (14 documented technical concerns)
-- Confluent ecosystem knowledge: training data (MEDIUM confidence -- Confluent Terraform provider v2.x, CFK operator, Flink on CC, Stream Governance features are well-documented in training data but version-specific details may have shifted)
-- FSI regulatory domain: training data (MEDIUM confidence -- OCC examination procedures, FFIEC guidance on IT risk, AML/CFT retention requirements are stable regulatory frameworks unlikely to have changed materially)
-- Observability vendor landscape: training data (LOW confidence for specific feature availability -- vendor capabilities evolve rapidly; dashboard template formats should be verified against current provider APIs)
+- [Confluent cp-ansible GitHub](https://github.com/confluentinc/cp-ansible) -- Certified collection for CP deployment (Day 1), does NOT handle topics, schemas, or per-topic RBAC (Day 2)
+- [cp-ansible-admin community tool](https://github.com/thecrazymonkey/cp-ansible-admin) -- Community Day 2 admin using REST APIs for topics, schemas, RBAC, quotas, ACLs. Validates the REST API approach. Does not have SLA-tier abstraction or governance parity features.
+- [Confluent Ansible RBAC docs](https://docs.confluent.io/ansible/current/ansible-authorize.html) -- Component-level RBAC configuration; does not manage per-topic bindings
+- [Confluent Schema Registry API Reference](https://docs.confluent.io/platform/current/schema-registry/develop/api.html) -- REST API endpoints for schema registration, compatibility checking, config management
+- [Confluent MDS RBAC REST API](https://docs.confluent.io/platform/current/security/authorization/rbac/rbac-config-using-rest-api.html) -- Endpoints for role binding CRUD via MDS
+- [Confluent Kafka REST API v3](https://docs.confluent.io/platform/current/kafka-rest/api.html) -- Topic CRUD, config management via REST
+- [Confluent Ansible overview](https://docs.confluent.io/ansible/current/overview.html) -- cp-ansible scope: install, configure, upgrade. Not topic/schema/RBAC lifecycle.
+- [Ansible Molecule testing](https://www.endpointdev.com/blog/2025/03/testing-ansible-with-molecule/) -- Best practices for role testing with Docker driver
+- [Ansible best practices for idempotency](https://redhat-cop.github.io/automation-good-practices/) -- Role design patterns: check mode, changed_when, assert
+- [community.grafana.grafana_dashboard module](https://docs.ansible.com/projects/ansible/latest/collections/community/grafana/grafana_dashboard_module.html) -- Dashboard import/export via Grafana API
+- Existing codebase: `modules/topic/main.tf` (governance logic to port), `modules/topic/variables.tf` (validation rules to port), `scenarios/cp-rhel/` (CPTopic YAML format, cp-ansible integration), `scripts/fsi-dr.sh` (DR logic to port), `observability/` (templates to deploy)

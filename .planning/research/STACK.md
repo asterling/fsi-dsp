@@ -1,357 +1,417 @@
-# Technology Stack
+# Stack Research: Ansible-Native Automation for Confluent Platform
 
-**Project:** FSI Multi-Deployment Kafka/Flink Platform
-**Researched:** 2026-03-21
-**Overall Confidence:** MEDIUM (web verification tools unavailable; versions based on training data through early 2025 plus release cadence extrapolation. All version numbers should be verified against official sources before adoption.)
+**Domain:** Ansible-based governance roles, deployment pipelines, and DR automation for Confluent Platform on RHEL and CFK on OpenShift
+**Researched:** 2026-04-07
+**Confidence:** HIGH (versions verified against official Confluent docs, Ansible docs, PyPI, and GitHub releases)
 
-## Version Verification Caveat
+---
 
-WebSearch, WebFetch, and Bash tools were unavailable during this research session. All version numbers below are based on:
-- **Codebase facts** (what is currently pinned in the repo) -- HIGH confidence
-- **Training data** (knowledge cutoff ~May 2025) -- MEDIUM confidence
-- **Release cadence extrapolation** (projected from known release patterns) -- LOW confidence
+## Scope
 
-**Before starting implementation, verify every version number against its official source.** I flag each recommendation with its confidence level.
+This document covers ONLY the stack additions needed for the v2.0 Ansible automation milestone. It does not re-document the existing Terraform, Java, Python, or .NET stack from the v1.0 research. Cross-references to the existing stack are noted where integration points exist.
 
 ---
 
 ## Recommended Stack
 
-### Infrastructure as Code -- Core
+### Core Ansible Runtime
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Terraform | >= 1.7.0 | IaC engine for all deployment models | Already in codebase. 1.7+ gives `terraform test` blocks for post-apply validation (addresses CONCERNS.md). Use 1.7+ not 1.9+ to avoid OpenTofu licensing confusion and stay on stable ground. | HIGH (codebase-verified) |
-| Confluent Terraform Provider | ~> 2.11 | CC resource management (topics, schemas, RBAC, Flink, cluster linking) | Already using `~> 2.0`. Pin to 2.11+ because Flink compute pool and Flink statement resources were added in the 2.x line (2.4+). The provider follows semver; `~> 2.11` ensures Flink support while avoiding breaking 3.x changes. Verify exact latest at registry.terraform.io. | MEDIUM (version extrapolated from 2.x release cadence) |
-| Terraform Kubernetes Provider | ~> 2.35 | CFK and Flink operator deployment on OpenShift | Required for CFK scenario. Manages namespaces, secrets, ConfigMaps that CFK operator consumes. Pin `~> 2.35` to get recent OCP compatibility fixes. | MEDIUM |
-| Terraform Helm Provider | ~> 2.17 | Helm chart deployment for CFK operator and Flink operator | CFK and Flink operators are distributed as Helm charts. This is the standard Terraform mechanism to deploy them. | MEDIUM |
-| Terraform AWS Provider | ~> 5.80 | AWS networking (PrivateLink, VPC endpoints) for CC on AWS scenario | Only used in the AWS scenario directory. Manages VPC endpoints for Confluent Cloud PrivateLink. | MEDIUM |
-| Terraform Azure Provider (azurerm) | ~> 4.14 | Azure networking (Private Endpoint) for CC on Azure scenario | Already implicit in the codebase (backend uses azurerm). Pin to 4.x for current Azure API compatibility. | MEDIUM |
-| Terraform GCP Provider | ~> 6.14 | GCP networking (Private Service Connect) for CC on GCP scenario | Only used in the GCP scenario directory. | MEDIUM |
+| Technology | Version | Purpose | Why Recommended | Confidence |
+|------------|---------|---------|-----------------|------------|
+| ansible-core | 2.18.x | Automation engine | Latest ansible-core supported by cp-ansible 8.2.0. Supports RHEL 9 (primary target) and all required modules (uri, template, assert, command). Use 2.16 only if RHEL 8 hosts are required. | HIGH |
+| Ansible (package) | 11.x | Collection bundle including ansible-core 2.18 | Confluent explicitly recommends the `ansible` package over bare `ansible-core` because cp-ansible depends on modules from community.general and other collections that are not bundled with ansible-core alone. Ansible 11.x bundles ansible-core 2.18. | HIGH |
+| Python | >= 3.11 | Control node runtime | Python 3.11 is the sweet spot: fully supported by ansible-core 2.18 and cp-ansible 8.2.0, available on RHEL 9 natively. Python 3.12 also works but 3.11 avoids deprecation noise from older pip packages. | HIGH |
 
-### Infrastructure as Code -- Configuration Management
+**RHEL 8 fallback:** If RHEL 8 targets are required, pin to Ansible 9.x (ansible-core 2.16) and Python 3.10. RHEL 8 does not support Ansible 10+ or ansible-core 2.17+. This is a Confluent-documented constraint.
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Ansible | >= 2.17 (ansible-core) | Confluent Platform on RHEL deployment | CP on RHEL requires systemd service management, config file templating, rolling upgrades. Ansible is the industry standard for this and Confluent publishes an official Ansible collection. Terraform is wrong for config management on bare metal. | HIGH (pattern confidence) |
-| Confluent Ansible Collection (cp-ansible) | >= 7.7.x | Automated CP installation on RHEL | `confluent.platform` Ansible Galaxy collection. Handles broker, SR, Connect, REST Proxy, ksqlDB, Control Center installation with TLS, RBAC, mTLS. This is Confluent's officially supported deployment method for CP on RHEL/bare-metal. | MEDIUM (version extrapolated) |
+### Confluent Platform and cp-ansible
 
-### Confluent Platform and Kafka
+| Technology | Version | Purpose | Why Recommended | Confidence |
+|------------|---------|---------|-----------------|------------|
+| confluent.platform (cp-ansible) | 7.7.8 | CP cluster deployment roles | **Use 7.7.8, not 8.2.0.** The codebase is on CP 7.6.0. cp-ansible 7.7.8 is the conservative next step: same Kafka 3.7 protocol family, ZooKeeper still supported (migration to KRaft can happen later), Ansible 9.x support for RHEL 8 compatibility, OAuth 2.0 support added. Jumping to cp-ansible 8.x means Kafka 4.x which removes ZooKeeper and requires KRaft migration -- a separate project. | HIGH |
+| Confluent Platform | 7.7.x | Target platform version | CP 7.7 is based on Apache Kafka 3.7, maintains ZooKeeper compatibility, adds OAuth 2.0/OIDC, and is the last major release before the 7.8-7.9-8.0 KRaft migration path. Stable for FSI compliance windows. | HIGH |
+| confluent.platform (cp-ansible) | 8.2.0 | Future upgrade target (NOT for initial v2.0) | CP 8.2 is based on Kafka 4.2, ZooKeeper removed, Java 21 recommended. Use this as the upgrade target AFTER v2.0 ships and KRaft migration is planned as a separate effort. Supports Ansible 9-11, RHEL 8-10, FIPS 140-3. | MEDIUM |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Confluent Platform | 7.7.x | Base platform version for CP-on-RHEL and CFK scenarios | 7.6.0 is in the current codebase. 7.7.x is the next LTS-style release (CP releases track ~2x/year). Use 7.7 for MRC observer promotion support and Flink SQL improvements. Verify at docs.confluent.io/platform/current. | LOW (extrapolated) |
-| Confluent Cloud | Current (managed) | Fully managed Kafka for CC scenarios (AWS/Azure/GCP) | Already in use. CC is always-current; no version pinning needed. Flink on CC is GA. | HIGH |
-| Apache Kafka (bundled with CP) | 3.7.x or 3.8.x | Broker engine | Bundled with CP. Do not independently version Kafka when using CP or CC. | HIGH (pattern) |
-| Confluent Schema Registry | Matches CP version | Schema management | Bundled. Always matches CP version. | HIGH |
-| Apache Kafka Clients | Match CP version | Producer/consumer SDK | Must match CP version for full compatibility. Currently 3.7.0 in pom.xml; upgrade when CP upgrades. | HIGH |
+**Version mapping (verified):**
 
-### Confluent for Kubernetes (CFK) on OpenShift
+| cp-ansible | Confluent Platform | Apache Kafka | ZooKeeper | Ansible Support |
+|------------|-------------------|--------------|-----------|-----------------|
+| 7.6.10 | 7.6.x | 3.6.x | Yes | 4.x - 7.x |
+| 7.7.8 | 7.7.x | 3.7.x | Yes (KRaft optional) | 7.x - 9.x |
+| 7.8.7 | 7.8.x | 3.8.x | Yes (KRaft recommended) | 8.x - 10.x |
+| 7.9.6 | 7.9.x | 3.9.x | Yes (last release) | 9.x - 10.x |
+| 8.0.4 | 8.0.x | 4.0.x | No (KRaft only) | 9.x - 11.x |
+| 8.2.0 | 8.2.x | 4.2.x | No (KRaft only) | 9.x - 11.x |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| CFK Operator | >= 2.9.x | Operator-based Kafka deployment on OpenShift | CFK is the only supported method for running Confluent on Kubernetes. 2.8.x was current as of early 2025; 2.9.x likely current. CFK uses CRDs (`KafkaCluster`, `SchemaRegistry`, `Connect`, `KsqlDB`). Verify at docs.confluent.io/operator/current. | LOW (version extrapolated) |
-| Red Hat OpenShift | 4.14+ | Kubernetes platform | CFK supports OCP 4.12+. Target 4.14+ for Extended Update Support (EUS) lifecycle. OCP 4.16 is likely current but 4.14 gives longer support runway for FSI change management cadence. | MEDIUM |
-| OLM (Operator Lifecycle Manager) | Bundled with OCP | CFK operator installation and lifecycle | OLM manages CFK operator upgrades on OpenShift. CFK is available via OperatorHub. Use OLM over raw Helm for OpenShift to get audit trail and approval workflows that FSI compliance requires. | HIGH (pattern) |
+### Ansible Collection Dependencies
 
-### Flink Runtime
+| Collection | Version | Purpose | Why Needed | Confidence |
+|------------|---------|---------|------------|------------|
+| ansible.builtin | (bundled with ansible-core) | Core modules: uri, template, assert, command, file, copy, service, systemd, set_fact, debug, fail, stat, lineinfile | Every role uses builtin modules. The `uri` module is the workhorse for all REST API calls to MDS, Schema Registry, and Kafka Admin REST. No external HTTP library needed. | HIGH |
+| community.general | >= 10.x (bundled with Ansible 11.x) | json_query filter, ini_file, java_keystore, ldap_entry, consul_kv modules | `json_query` is essential for parsing MDS and SR API responses. `consul_kv` enables DR failover state management. `java_keystore` handles TLS keystore operations for mTLS. Bundled with the Ansible package so no separate install needed. | HIGH |
+| kubernetes.core | 6.3.0 | helm, k8s, k8s_info modules | Required for CFK on OpenShift deployment. `kubernetes.core.helm` deploys CFK operator chart. `kubernetes.core.k8s` manages KafkaTopic, SchemaRegistrySubject, and other CFK CRDs. `kubernetes.core.k8s_info` validates resource state. | HIGH |
+| ansible.posix | >= 1.6.0 (bundled with Ansible 11.x) | firewalld, sysctl, selinux modules | RHEL firewall and SELinux configuration for CP nodes. Required for production RHEL deployments where firewalld and SELinux are enforced. | MEDIUM |
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Confluent Cloud Flink | Managed (no version pin) | Stream processing for CC scenarios | GA on Confluent Cloud. Flink SQL workspaces, compute pools managed via Terraform provider (`confluent_flink_compute_pool`, `confluent_flink_statement`). This is the path of least resistance for CC deployments. | HIGH |
-| Apache Flink | 1.20.x | Stream processing for CFK and CP scenarios | For self-managed Flink. 1.19 was current in late 2024; 1.20 expected by mid-2025. Use Confluent's Flink distribution if available (bundles Confluent connectors and Avro serde). | LOW (version extrapolated) |
-| Flink Kubernetes Operator | 1.10.x | Flink on OpenShift for CFK scenario | Apache project. Manages Flink `FlinkDeployment` CRDs on Kubernetes. 1.8.0 was released mid-2024; ~1.10.x likely current. Verify at flink.apache.org/downloads. Alternative: Confluent bundles Flink operator in CFK 2.9+ -- verify this before deploying a separate operator. | LOW (version extrapolated) |
-| Flink SQL | Matches Flink version | Declarative stream processing | Use Flink SQL (not DataStream API) for reference job templates. SQL is the right abstraction for FSI teams who are not Java/Scala developers. Flink SQL supports Avro format natively with Schema Registry integration. | HIGH (pattern) |
+**Do NOT add:** `ansible.netcommon`, `amazon.aws`, `azure.azcollection`, `google.cloud` -- the governance roles are platform-agnostic. Cloud-specific provisioning stays in Terraform.
 
-### Observability -- Per-Provider Templates
+### REST API Endpoints (for Custom Governance Roles)
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Confluent Cloud Metrics API | v2 | Metrics export from CC clusters | Primary data source for all CC observability. Exposes cluster, topic, partition, consumer group, and cluster link metrics. All provider dashboards consume from this API (or its OpenMetrics/Prometheus endpoint). | HIGH |
-| Prometheus + Grafana | Prometheus 2.54+, Grafana 11.x | Open-source observability for CP/CFK scenarios | JMX Exporter on CP brokers -> Prometheus -> Grafana. Standard pattern for self-managed Kafka. Also serves as the reference dashboard that other provider templates are adapted from. | MEDIUM |
-| JMX Exporter | 1.0.1+ | Expose Kafka/Connect/Flink JMX metrics as Prometheus format | Required for CP-on-RHEL and CFK scenarios. Runs as a Java agent on broker/connect/SR JVMs. Confluent publishes a reference JMX exporter config. | MEDIUM |
-| Dynatrace OneAgent | Current | APM and infrastructure monitoring | FSI's existing provider (referenced in codebase). Dynatrace ingests JMX via OneAgent, CC metrics via Dynatrace API integration. Dashboard templates use Dynatrace DQL. | HIGH (codebase-verified) |
-| Datadog Agent | 7.x | Alternative APM provider | Datadog has a native Confluent Cloud integration and Kafka check for self-managed. Dashboard templates use Datadog JSON dashboard format. | MEDIUM |
-| Splunk | HEC (HTTP Event Collector) | Log and metrics aggregation | Common in FSI. Kafka metrics via Splunk Connect for Kafka or JMX-to-HEC bridge. Dashboard templates use Splunk SPL. | MEDIUM |
-| New Relic | Current | Alternative APM provider | New Relic has Confluent Cloud and Kafka on-host integrations. Dashboard templates use NRQL. | MEDIUM |
-| IBM Instana | Current | APM provider common in IBM-heavy FSI shops | Instana auto-discovers Kafka via agent sensors. Less common but listed in PROJECT.md requirements. | LOW |
+The custom governance roles (topic lifecycle, schema registration, RBAC) call Confluent REST APIs via `ansible.builtin.uri`. These are NOT cp-ansible roles -- they are new roles we build.
 
-### DR Framework
+#### Kafka Admin REST API v3 (Topic Lifecycle)
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| Confluent Cluster Linking | CC-native | Async DR for Confluent Cloud scenarios | Already in codebase. Bidirectional link, mirror topics, scripted failover. Extend with automated orchestration CLI. | HIGH (codebase-verified) |
-| MirrorMaker 2 (MM2) | Matches CP version | Async DR for CP-on-RHEL and CFK scenarios | MM2 is the standard cross-cluster replication for self-managed Kafka. Runs as a Connect connector. Supports topic, consumer group, and ACL mirroring. | HIGH (pattern) |
-| MRC (Multi-Region Clusters) | CP 7.7+ | RPO=0 DR for CP scenarios with observer promotion | The 2.5-cluster pattern (2 sync replicas + observer) provides automatic failover with zero data loss. Only available on Confluent Platform, not CC. Requires careful network design (low-latency links between sync replicas). | MEDIUM |
-| HashiCorp Consul | 1.19+ | Service discovery for DR endpoint failover | Already in codebase (ADR-003). KV-based region flip for atomic endpoint resolution. | HIGH (codebase-verified) |
+| Endpoint | Method | Purpose | Notes |
+|----------|--------|---------|-------|
+| `/kafka/v3/clusters/{cluster_id}/topics` | POST | Create topic | Request body: `topic_name`, `partitions_count`, `replication_factor`, `configs`. Available on Confluent Server (port 8090) or REST Proxy. |
+| `/kafka/v3/clusters/{cluster_id}/topics` | GET | List topics | Returns topic names with partition/replica metadata. |
+| `/kafka/v3/clusters/{cluster_id}/topics/{topic_name}` | GET | Get topic details | Includes partition count, replication factor, and configs. |
+| `/kafka/v3/clusters/{cluster_id}/topics/{topic_name}/configs` | GET | Get topic configs | Full config dump including dynamic overrides. |
+| `/kafka/v3/clusters/{cluster_id}/topics/{topic_name}/configs:alter` | POST | Update topic configs | Batch update topic configurations. |
+| `/kafka/v3/clusters/{cluster_id}/topics/{topic_name}` | DELETE | Delete topic | Destructive. Governance role should require explicit confirmation variable. |
 
-### Secrets and Authentication
+**Base URL:** `https://<broker>:8090/kafka` (Confluent Server embedded REST) or `https://<rest-proxy>:8082` (standalone REST Proxy, omit `/kafka` prefix).
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| HashiCorp Vault | 1.17+ | Credential management, rotation, dynamic secrets | Already referenced in codebase. Use Vault's Kafka secrets engine for dynamic credential generation. Supports zero-downtime rotation via dual-credential windows. | MEDIUM |
-| OAUTHBEARER authentication | Kafka 3.x+ | Token-based auth replacing static API keys | Use for Azure (Entra ID), AWS (IAM), GCP (Workload Identity). Eliminates credential rotation burden. Already noted in cloud-providers.md for Azure. | HIGH (pattern) |
+#### Schema Registry REST API (Schema Registration)
 
-### Reference Implementation Libraries
+| Endpoint | Method | Purpose | Notes |
+|----------|--------|---------|-------|
+| `/subjects` | GET | List all subjects | Returns array of subject name strings. |
+| `/subjects/{subject}/versions` | POST | Register schema | Body: `{"schema": "<escaped-json>", "schemaType": "AVRO"}`. Returns `{"id": <global-id>}`. |
+| `/subjects/{subject}/versions/{version}` | GET | Get schema by version | Version is integer or "latest". |
+| `/compatibility/subjects/{subject}/versions/{version}` | POST | Check compatibility | Body contains schema to test. Returns `{"is_compatible": true/false}`. |
+| `/config/{subject}` | PUT | Set subject compatibility | Body: `{"compatibility": "FULL_TRANSITIVE"}`. |
+| `/config/{subject}` | GET | Get subject compatibility | Returns current compatibility level. |
 
-| Library | Version | Purpose | When to Use | Confidence |
-|---------|---------|---------|-------------|------------|
-| `org.apache.kafka:kafka-clients` | Match CP (currently 3.7.0) | Java Kafka producer/consumer | All Java reference implementations | HIGH |
-| `io.confluent:kafka-avro-serializer` | Match CP (currently 7.6.0) | Avro serde with Schema Registry | All Avro-producing Java apps | HIGH |
-| `org.apache.avro:avro` | 1.11.3 (current in codebase) | Avro schema support | All reference apps. Upgrade to 1.12.x when CP bundles it. | HIGH |
-| `Confluent.Kafka` (.NET) | 2.6.x | .NET Kafka client | .NET reference implementations | MEDIUM |
-| `Confluent.SchemaRegistry` (.NET) | 2.6.x | .NET Schema Registry client | .NET reference implementations | MEDIUM |
-| `io.confluent:kafka-connect-jdbc` | 10.7.x (current in codebase) | JDBC source/sink connector | Connect-based database integration | HIGH |
-| SLF4J | 2.0.12 (current in codebase) | Java logging facade | All Java reference apps | HIGH |
-| `org.apache.flink:flink-connector-kafka` | Match Flink version | Flink Kafka connector | Flink SQL jobs consuming/producing Kafka | MEDIUM |
-| `org.apache.flink:flink-avro-confluent-registry` | Match Flink version | Flink Avro serde with Schema Registry | Flink SQL jobs using Avro format with SR | MEDIUM |
+**Base URL:** `https://<schema-registry>:8081`
+**Content-Type:** `application/vnd.schemaregistry.v1+json`
+**Auth:** Basic auth (LDAP user) or mTLS client cert when RBAC is enabled.
 
-### CI/CD and Tooling
+#### MDS REST API (RBAC Management)
 
-| Technology | Version | Purpose | Why | Confidence |
-|------------|---------|---------|-----|------------|
-| GitHub Actions | N/A (managed) | CI/CD pipeline | Already in codebase. Extend existing plan/apply workflows with scenario-specific matrices. | HIGH |
-| Confluent CLI | 4.x | Operational commands (topic list, mirror promote, cluster link status) | Used in DR scripts. Pin major version 4.x. The CLI is essential for DR orchestration script and post-apply validation. | MEDIUM |
-| `tflint` | >= 0.53 | Terraform linting | Add to CI for HCL quality. Catches deprecated resources, naming violations. | MEDIUM |
-| `terraform-docs` | >= 0.19 | Auto-generate module documentation | Generates input/output docs from variables.tf/outputs.tf. Reduces doc drift. | MEDIUM |
-| `checkov` or `tfsec` | Current | Terraform security scanning | FSI compliance requires security scanning of IaC. Checkov preferred (broader coverage, Confluent resource support). | MEDIUM |
-| Python | 3.11+ | Schema validation scripts, DR CLI tooling | Already used for schema validation in CI. Extend for the pluggable DR framework CLI. Python over Bash for anything beyond trivial scripting -- structured error handling, JSON parsing, testability. | HIGH (pattern) |
-| Click (Python) | 8.x | CLI framework for DR orchestration tool | Build the "single command failover" CLI with Click. It handles subcommands, --dry-run flags, confirmation prompts, colored output. Better than argparse for multi-command CLIs. | MEDIUM |
+| Endpoint | Method | Purpose | Notes |
+|----------|--------|---------|-------|
+| `/security/1.0/roles` | GET | List available roles | Returns role definitions with resource types and allowed operations. |
+| `/security/1.0/roleNames` | GET | List role names only | Lightweight alternative to /roles. |
+| `/security/1.0/principals/{principal}/roles/{roleName}` | POST | Create cluster-scoped role binding | Body: cluster scope JSON. Returns 204 No Content. |
+| `/security/1.0/principals/{principal}/roles/{roleName}/bindings` | POST | Create resource-scoped role binding | Body includes resourcePatterns array with resourceType (Topic, Subject, Group, etc.), name, patternType (LITERAL, PREFIXED). |
+| `/security/1.0/principals/{principal}/roles/{roleName}/resources` | POST | List role binding resources | Returns resource grants for the principal/role combination. |
+| `/security/1.0/principals/{principal}/roles/{roleName}` | DELETE | Delete role binding | Body: same cluster scope as create. Returns 204. |
+| `/security/1.0/lookup/principals/{principal}/roleNames` | POST | Lookup effective roles | Returns all roles for a principal at a given scope. |
 
----
+**Base URL:** `https://<mds-host>:8090` (MDS runs co-located on Kafka brokers)
+**Auth:** Bearer token obtained from `/security/1.0/authenticate` (LDAP credentials -> JWT token)
 
-## Alternatives Considered
+**Predefined roles for governance automation:**
+- `DeveloperRead` -- consumer access to topics and consumer groups
+- `DeveloperWrite` -- producer access to topics
+- `DeveloperManage` -- topic create/delete/alter (for C4E service accounts)
+- `ResourceOwner` -- full control over specific resources
+- `SecurityAdmin` -- manage role bindings (for the automation service account itself)
 
-| Category | Recommended | Alternative | Why Not |
-|----------|-------------|-------------|---------|
-| IaC Engine | Terraform | OpenTofu | Licensing uncertainty resolved (BSL is fine for internal FSI use). OpenTofu ecosystem is smaller. Confluent officially supports their TF provider on HashiCorp Terraform. |
-| IaC Engine | Terraform + Ansible | Pulumi | Existing team competency is HCL. Pulumi requires code-first approach that doesn't match the "scenario directory" model. |
-| Config Management (RHEL) | Ansible | Chef/Puppet | Confluent publishes `cp-ansible` officially. No Chef or Puppet equivalent. Ansible is agentless (less footprint in FSI data centers). |
-| K8s Kafka Operator | CFK Operator | Strimzi | CFK is Confluent's official operator with commercial support. Strimzi is community-driven Apache Kafka only (no Schema Registry, Connect, Flink, RBAC). FSI needs vendor support contracts. |
-| Stream Processing | Flink SQL | ksqlDB | Flink is Confluent's strategic direction (ksqlDB end-of-life announced). Confluent Cloud Flink is GA. ksqlDB will not receive new features. This is not optional -- ksqlDB must be avoided for new work. |
-| Stream Processing | Flink SQL | Flink DataStream API | SQL is the right abstraction for FSI teams. DataStream API is for custom operators that SQL cannot express. Reference templates should be SQL-first with DataStream escape hatch documented. |
-| Schema Format | Avro | Protobuf | ADR-001 decision. Avro has better Flink SQL integration, SR compatibility enforcement, and FSI ecosystem alignment. |
-| DR Replication (CC) | Cluster Linking | MirrorMaker 2 on CC | Cluster Linking is CC-native, zero operational burden, sub-second lag. MM2 on CC requires self-managed Connect cluster. |
-| DR Replication (CP) | MirrorMaker 2 | Cluster Linking | Cluster Linking on self-managed CP requires Enterprise license and is less mature than MM2. MM2 is the proven pattern for CP. |
-| Observability Abstraction | Per-provider templates | OpenTelemetry Collector | PROJECT.md explicitly chose per-provider templates over abstraction. Each FSI has one provider; maintaining one template per provider is simpler than maintaining an OTel pipeline that feeds all. Reconsider if a single FSI needs 3+ providers simultaneously. |
-| Service Discovery | Consul | Kubernetes-native (CoreDNS) | Consul works across all deployment models (CC, CP, CFK, bare metal). K8s-native service discovery only works for CFK. Consul is already chosen (ADR-003) and provides atomic multi-endpoint failover. |
-| DR CLI | Python + Click | Go CLI | Python is already in the codebase for validation scripts. The DR CLI doesn't need Go-level performance. Click provides excellent UX with minimal code. |
-| DR CLI | Python + Click | Bash scripts (current) | Current bash scripts have no error handling, state tracking, or rollback (CONCERNS.md). Python provides structured error handling, JSON state files, testability. |
+### CI/CD and Testing
 
----
+| Technology | Version | Purpose | Why Recommended | Confidence |
+|------------|---------|---------|-----------------|------------|
+| ansible-lint | 26.3.0 | Static analysis of roles and playbooks | De facto standard for Ansible quality. Version 26.x supports ansible-core 2.18, includes profile-based severity (use `shared` profile for roles meant to be reusable). Catches FQCN violations, deprecated modules, unsafe practices, YAML formatting. | HIGH |
+| molecule | 26.3.0 | Role testing framework | De facto standard for Ansible role testing. Provides converge-verify-destroy lifecycle. Use `delegated` driver for governance roles (they call REST APIs, not manage containers). Use `podman` driver for deployment roles that need a systemd-capable container. | HIGH |
+| molecule-plugins | 25.8.12 | Driver plugins for molecule (docker, podman, delegated) | Provides the podman and docker drivers. Install with `pip install "molecule-plugins[podman]"`. Podman is preferred over Docker for FSI environments where rootless containers are required. | HIGH |
+| yamllint | >= 1.35 | YAML syntax validation | ansible-lint delegates to yamllint for YAML formatting. Pin a version to avoid CI flakiness from upstream changes. | HIGH |
+| GitHub Actions | N/A (managed) | CI/CD pipeline | Extend existing workflows with Ansible-specific jobs. Reuse existing `ubuntu-latest` runners. Install ansible + molecule via pip in the workflow. | HIGH |
+| Confluent CLI | >= 4.x | Operational commands in DR playbooks | Used by DR roles for `confluent kafka mirror promote`, `confluent kafka mirror status`, `confluent kafka topic list`. Already in the codebase for shell-based DR. Ansible roles invoke via `ansible.builtin.command` with registered output parsing. | MEDIUM |
 
-## Stack by Deployment Scenario
+### Development Tools
 
-Each scenario directory uses a subset of the full stack:
-
-### Scenario: Confluent Cloud on AWS
-
-```
-Terraform providers: confluent (~> 2.11), aws (~> 5.80)
-Modules: topic (shared), networking-aws, flink-cc
-Observability: CC Metrics API -> provider template
-DR: Cluster Linking (built into topic module)
-Auth: OAUTHBEARER via AWS IAM (preferred) or API keys
-State backend: S3
-```
-
-### Scenario: Confluent Cloud on Azure
-
-```
-Terraform providers: confluent (~> 2.11), azurerm (~> 4.14)
-Modules: topic (shared), networking-azure, flink-cc
-Observability: CC Metrics API -> provider template
-DR: Cluster Linking (built into topic module)
-Auth: OAUTHBEARER via Entra ID (preferred) or API keys
-State backend: Azure Blob Storage
-```
-
-### Scenario: Confluent Cloud on GCP
-
-```
-Terraform providers: confluent (~> 2.11), google (~> 6.14)
-Modules: topic (shared), networking-gcp, flink-cc
-Observability: CC Metrics API -> provider template
-DR: Cluster Linking (built into topic module)
-Auth: OAUTHBEARER via Workload Identity Federation or API keys
-State backend: GCS
-```
-
-### Scenario: CFK on OpenShift
-
-```
-Terraform providers: kubernetes (~> 2.35), helm (~> 2.17)
-CFK Operator: ~> 2.9.x (via OLM or Helm)
-Flink Operator: Apache Flink K8s Operator ~> 1.10.x
-CRDs: KafkaCluster, SchemaRegistry, Connect, KsqlDB, FlinkDeployment
-Observability: JMX Exporter -> Prometheus -> Grafana + provider template
-DR: MirrorMaker 2 (as Connect connector in CFK)
-Auth: mTLS + RBAC (CFK manages certificates)
-```
-
-### Scenario: CP on RHEL
-
-```
-Ansible: confluent.platform collection >= 7.7.x
-Terraform: Optional (for provisioning VMs on cloud, not for CP config)
-Flink: Standalone Flink cluster (systemd managed via Ansible)
-Observability: JMX Exporter -> Prometheus -> Grafana + provider template
-DR: MirrorMaker 2 or MRC (2.5-cluster pattern for RPO=0)
-Auth: Kerberos/LDAP + RBAC (CP Enterprise)
-```
-
-### Scenario: Confluent Private Cloud
-
-```
-Terraform providers: confluent (~> 2.11) -- Private Cloud uses same TF provider
-Modules: Same as CC scenarios but with private networking pre-provisioned
-Observability: CC Metrics API (Private Cloud exposes same API)
-DR: Cluster Linking (same as CC)
-Auth: Same as CC (OAUTHBEARER or API keys)
-Note: Private Cloud is CC-in-your-VPC. Treat identically to CC for IaC purposes.
-```
-
----
-
-## Shared Module Library
-
-These Terraform modules are consumed by ALL scenarios:
-
-| Module | Purpose | Scenario Compatibility |
-|--------|---------|----------------------|
-| `modules/topic` | Topic + Schema + RBAC + metadata (existing) | CC (all clouds), Private Cloud |
-| `modules/topic-cp` | Topic + Schema + RBAC for self-managed CP | CFK, CP-on-RHEL |
-| `modules/schema` | Schema-only registration (for cross-cluster schemas) | All |
-| `modules/flink-pool` | Flink compute pool provisioning | CC (all clouds) |
-| `modules/flink-statement` | Flink SQL statement deployment | CC (all clouds) |
-| `modules/observability` | Metrics export and alert rule configuration | All (provider-specific submodules) |
-| `modules/dr-cluster-link` | Cluster Linking setup and monitoring | CC (all clouds), Private Cloud |
-| `modules/dr-mm2` | MirrorMaker 2 connector configuration | CFK, CP-on-RHEL |
-| `modules/networking-aws` | AWS PrivateLink for CC | CC on AWS |
-| `modules/networking-azure` | Azure Private Endpoint for CC | CC on Azure |
-| `modules/networking-gcp` | GCP Private Service Connect for CC | CC on GCP |
+| Tool | Purpose | Notes |
+|------|---------|-------|
+| ansible-navigator | Interactive role development and testing | Optional but helpful for local development. Provides container-based execution that mirrors CI. |
+| ansible-vault | Secret management for role variables | Already used in cp-rhel scenario. Encrypt MDS passwords, LDAP creds, TLS keys. Use `vault_password_file` in CI. |
+| jq | JSON parsing in shell-based verification scripts | Used in molecule verify steps that call REST APIs and check responses. |
+| pre-commit | Git hook framework | Add ansible-lint and yamllint as pre-commit hooks. Catches issues before CI. |
 
 ---
 
 ## Installation
 
-### Terraform Providers (root module)
-
-```hcl
-terraform {
-  required_version = ">= 1.7.0"
-  required_providers {
-    confluent = {
-      source  = "confluentinc/confluent"
-      version = "~> 2.11"
-    }
-    # Include per-scenario:
-    # aws      = { source = "hashicorp/aws";        version = "~> 5.80" }
-    # azurerm  = { source = "hashicorp/azurerm";     version = "~> 4.14" }
-    # google   = { source = "hashicorp/google";      version = "~> 6.14" }
-    # kubernetes = { source = "hashicorp/kubernetes"; version = "~> 2.35" }
-    # helm     = { source = "hashicorp/helm";        version = "~> 2.17" }
-  }
-}
-```
-
-### Ansible (CP on RHEL)
+### Control Node Setup
 
 ```bash
-# Install Confluent Ansible collection
-ansible-galaxy collection install confluent.platform:>=7.7.0
+# Create virtual environment (recommended)
+python3.11 -m venv .venv
+source .venv/bin/activate
 
-# Verify
-ansible-galaxy collection list | grep confluent
+# Core runtime
+pip install ansible==11.6.0  # Bundles ansible-core 2.18 + community collections
+
+# Confluent collection (specific version for CP 7.7)
+ansible-galaxy collection install confluent.platform:==7.7.8
+
+# Kubernetes collection (for CFK on OpenShift)
+ansible-galaxy collection install kubernetes.core:==6.3.0
+
+# Testing and linting
+pip install ansible-lint==26.3.0
+pip install molecule==26.3.0
+pip install "molecule-plugins[podman]==25.8.12"
+pip install yamllint>=1.35
+
+# Optional: pre-commit hooks
+pip install pre-commit
 ```
 
-### Java Reference Libraries (pom.xml)
-
-```xml
-<properties>
-    <java.version>17</java.version>
-    <confluent.version>7.7.0</confluent.version>
-    <kafka.version>3.7.0</kafka.version>
-    <avro.version>1.11.3</avro.version>
-    <flink.version>1.20.0</flink.version>
-    <slf4j.version>2.0.12</slf4j.version>
-</properties>
-```
-
-### Python DR CLI
-
-```bash
-pip install click>=8.0 requests>=2.32 pyyaml>=6.0 rich>=13.0
-```
-
-### Docker Compose (local dev -- upgrade from 7.6.0)
+### requirements.yml (for ansible-galaxy)
 
 ```yaml
-# Update all images to match target CP version
-image: confluentinc/cp-kafka:7.7.0
-image: confluentinc/cp-schema-registry:7.7.0
-image: confluentinc/cp-kafka-connect:7.7.0
+---
+collections:
+  - name: confluent.platform
+    version: ">=7.7.0,<7.8.0"
+  - name: kubernetes.core
+    version: ">=6.0.0,<7.0.0"
+  - name: community.general
+    version: ">=10.0.0"
+  - name: ansible.posix
+    version: ">=1.6.0"
+```
+
+### pip requirements (requirements-ansible.txt)
+
+```
+ansible>=11.0.0,<12.0.0
+ansible-lint>=26.0.0,<27.0.0
+molecule>=26.0.0,<27.0.0
+molecule-plugins[podman]>=25.0.0
+yamllint>=1.35.0
+jmespath>=1.0.1
+```
+
+### ansible-lint configuration (.ansible-lint)
+
+```yaml
+---
+profile: shared  # Roles are reusable content; shared profile enforces Galaxy metadata, FQCN, docs
+
+# Exclude cp-ansible's own roles (we lint only our custom roles)
+exclude_paths:
+  - .cache/
+  - .venv/
+  - scenarios/cp-rhel/  # Existing v1.0 content, lint separately
+
+# Rules that conflict with cp-ansible patterns
+skip_list:
+  - role-name[path]  # cp-ansible role names don't follow galaxy convention
+
+# Warn but don't fail on these (review and fix iteratively)
+warn_list:
+  - no-changed-when  # uri module calls often lack changed_when
+  - command-instead-of-module  # Confluent CLI calls via command are intentional
+
+# YAML formatting
+yaml:
+  max-line-length: 160  # Match cp-ansible's own line length
+```
+
+### molecule configuration (molecule/default/molecule.yml template for governance roles)
+
+```yaml
+---
+driver:
+  name: delegated  # Governance roles call REST APIs, not manage hosts
+  options:
+    managed: false
+
+platforms:
+  - name: cp-governance-test
+    groups:
+      - cp_governance
+
+provisioner:
+  name: ansible
+  inventory:
+    host_vars:
+      cp-governance-test:
+        kafka_rest_url: "${KAFKA_REST_URL:-https://localhost:8090}"
+        schema_registry_url: "${SR_URL:-https://localhost:8081}"
+        mds_url: "${MDS_URL:-https://localhost:8090}"
+        mds_user: "mds"
+        mds_password: "${MDS_PASSWORD:-mds-secret}"
+
+verifier:
+  name: ansible  # Use Ansible playbooks for verification, not testinfra
+
+scenario:
+  test_sequence:
+    - dependency
+    - lint
+    - syntax
+    - create
+    - prepare
+    - converge
+    - idempotence
+    - verify
+    - cleanup
+    - destroy
 ```
 
 ---
 
-## Version Upgrade Path from Current Codebase
+## Alternatives Considered
 
-The codebase currently pins CP 7.6.0 and Confluent provider `~> 2.0`. Here is the upgrade sequence:
-
-| Component | Current | Target | Breaking Changes | Priority |
-|-----------|---------|--------|------------------|----------|
-| Confluent TF Provider | ~> 2.0 | ~> 2.11 | None (semver minor) | Phase 1 -- needed for Flink resources |
-| Confluent Platform images | 7.6.0 | 7.7.x | Check release notes. CP follows semver within major. | Phase 1 -- needed for Flink + MRC |
-| Kafka Clients (Java) | 3.7.0 | Match new CP | Binary compatible within 3.x | Phase 1 -- follow CP upgrade |
-| Avro | 1.11.3 | 1.11.3 (keep) | No change needed. Upgrade to 1.12.x only with CP. | N/A |
-| Terraform | >= 1.5 | >= 1.7.0 | None. Already compatible. | Phase 1 |
-| Docker Compose images | 7.6.0 | 7.7.x | Match CP version | Phase 1 |
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| cp-ansible 7.7.8 | cp-ansible 8.2.0 | CP 8.x requires KRaft (ZooKeeper removed). Existing codebase is on CP 7.6 with ZooKeeper. Jumping two major versions (7.6 -> 8.2) in the same milestone as adding Ansible governance is too much change at once. Upgrade to 8.x should be a separate milestone after v2.0 ships. |
+| Ansible 11.x (ansible-core 2.18) | Ansible 9.x (ansible-core 2.16) | Ansible 9.x is only needed for RHEL 8 compatibility. RHEL 9 is the recommended target for new CP deployments. If RHEL 8 is required, fall back to Ansible 9.x. |
+| ansible.builtin.uri for REST APIs | Custom Ansible module (Python) | uri module is sufficient for all MDS, SR, and Admin REST endpoints. Writing custom Python modules adds maintenance burden and requires understanding the Ansible module SDK. Only consider custom modules if uri becomes unwieldy (>15 lines of response parsing per call). |
+| ansible.builtin.uri for REST APIs | Confluent CLI via command module | CLI is less idempotent -- harder to check state before acting. URI calls with GET-then-POST pattern are naturally idempotent. CLI is better for DR operations (mirror promote, mirror status) where the CLI provides cleaner output. Use both: URI for governance CRUD, CLI for DR orchestration. |
+| molecule with delegated driver | molecule with docker/podman driver | Governance roles (topic, schema, RBAC) manage remote services via REST APIs, not local hosts. There is nothing to run in a container. Delegated driver lets molecule run the role against a mock or real CP cluster. Use podman driver only for roles that manage systemd services (e.g., JMX exporter config). |
+| ansible-lint shared profile | ansible-lint production profile | Production profile is for Ansible Automation Platform (AAP) certified content. Our roles are not going through AAP certification. Shared profile is the right level: enforces FQCN, Galaxy metadata, documentation requirements without AAP-specific constraints. |
+| yamllint (via ansible-lint) | standalone yamllint only | ansible-lint bundles yamllint integration. Running yamllint separately adds CI complexity with no benefit. Configure yamllint rules inside .ansible-lint. |
+| Ansible Vault for secrets | HashiCorp Vault lookup plugin | Vault lookup plugin (`hashi_vault`) adds complexity and requires Vault infrastructure in the test environment. Ansible Vault is simpler and already in use in the cp-rhel scenario. For production, teams can swap to `hashi_vault` lookup -- our roles should accept credentials as variables regardless of source. |
+| kubernetes.core for CFK | Raw kubectl via command module | kubernetes.core.k8s provides declarative state management with built-in wait/retry logic. Command module with kubectl is imperative and fragile. kubernetes.core also supports kubeconfig auth, service account tokens, and OpenShift OAuth. |
 
 ---
 
 ## What NOT to Use
 
-| Technology | Why Not |
-|------------|---------|
-| ksqlDB | End-of-life. Confluent is migrating to Flink. Do not create new ksqlDB deployments. Existing ksqlDB should be migrated to Flink SQL. |
-| Strimzi Operator | No commercial support, no Schema Registry/Connect/Flink lifecycle management. CFK is the right choice for Confluent on K8s. |
-| Kafka Streams (for new platform jobs) | Flink SQL is the strategic direction. Kafka Streams is fine for existing apps but new reference templates should use Flink SQL. |
-| Terraform for CP configuration | Terraform is wrong for systemd service management on bare metal. Use Ansible. Terraform can provision the VMs but Ansible configures CP. |
-| Custom Helm charts for Kafka | CFK operator is the supported deployment method. Custom charts become unmaintainable and miss CFK's rolling upgrade, certificate, and RBAC automation. |
-| AWS MSK | This is a Confluent Platform project. MSK is a different product with different APIs, no Schema Registry, no Cluster Linking, no RBAC model. |
-| OpenTelemetry Collector (as primary) | Per PROJECT.md decision: per-provider templates, not abstraction layer. OTel adds complexity without value when each FSI has a single provider. |
-| Terraform Cloud/Enterprise | Not required. GitHub Actions with remote state backends (S3/Blob/GCS) provides equivalent CI/CD. TFC/TFE adds cost without material benefit for this use case. |
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| cp-ansible 8.x (for initial v2.0) | Requires KRaft migration from ZooKeeper. Mixing Ansible governance work with a metadata migration is high-risk. CP 8.0 also removes Java 8/11 support and requires Java 17/21. | cp-ansible 7.7.8 for v2.0; plan 8.x upgrade as separate milestone. |
+| ansible-core (bare, without ansible package) | Missing community.general, ansible.posix, and other collections that cp-ansible depends on. Confluent docs explicitly warn against this. | `ansible` package (11.x) which bundles all required collections. |
+| Terraform for topic/schema/RBAC on CP | The existing Terraform topic module targets Confluent Cloud via the Confluent TF provider. There is no Terraform provider for on-prem MDS RBAC or Confluent Server Admin REST. Attempting to use Terraform for CP governance creates a tool mismatch. | Ansible roles calling MDS/SR/Admin REST APIs via ansible.builtin.uri. |
+| confluent-kafka Python library (for Ansible modules) | Would require writing custom Ansible modules wrapping the Python Kafka client. Adds a runtime dependency (librdkafka) to the control node. Admin operations don't need a full Kafka client -- REST APIs are sufficient. | ansible.builtin.uri module calling REST API endpoints. |
+| Custom Ansible modules (Python) for MDS/SR | High maintenance cost, requires testing the module SDK, versioning, and documentation separately from the roles. The REST APIs are simple CRUD -- uri handles them cleanly. | ansible.builtin.uri with registered variables and assert for validation. |
+| testinfra/inspec for molecule verification | These are host-level testing tools (check packages installed, services running, file permissions). Governance roles don't modify hosts -- they manage remote API state. | Ansible verifier (verify.yml playbook that calls REST APIs to confirm state). |
+| ansible.netcommon collection | Not needed. No network device management in this project. | N/A |
+| AWX/Tower for execution | Adds infrastructure overhead. GitHub Actions is already the CI/CD platform. AWX is useful for FSI teams that adopt the roles but not needed for the roles themselves. | GitHub Actions workflows for CI/CD. Document AWX compatibility in README. |
+
+---
+
+## Stack Patterns by Variant
+
+### Governance Roles (topic, schema, RBAC)
+
+```
+ansible.builtin.uri -> REST API (MDS/SR/Admin REST)
+                    -> Validate with assert
+                    -> Idempotency via GET-before-POST pattern
+Test with: molecule (delegated driver) against live or mocked CP
+Lint with: ansible-lint (shared profile)
+```
+
+**Pattern:** Each role follows GET-check-POST-verify:
+1. GET current state (topic exists? schema registered? binding present?)
+2. Compare desired state from variables
+3. POST/PUT only if change needed (idempotent)
+4. Verify with follow-up GET
+5. Register results for reporting
+
+### Deployment Pipeline Playbooks
+
+```
+confluent.platform roles -> CP cluster deployment
+Custom governance roles  -> Topic/schema/RBAC configuration
+Custom observability role -> JMX exporter + Prometheus config
+```
+
+**Pattern:** Pipeline playbook imports cp-ansible roles for infrastructure, then applies custom governance roles for day-2 configuration. Two separate plays, not one monolithic playbook.
+
+### DR Automation Playbooks
+
+```
+ansible.builtin.command -> Confluent CLI (mirror promote, mirror status)
+ansible.builtin.uri     -> MDS API (verify RBAC state post-failover)
+community.general.consul_kv -> Consul endpoint flip
+```
+
+**Pattern:** DR playbooks use Confluent CLI for mirror operations (CLI provides better error messages and progress output than raw Admin REST for long-running operations). Use `--dry-run` pattern via `--check` mode with `ansible.builtin.debug` showing planned actions.
+
+### CFK on OpenShift
+
+```
+kubernetes.core.helm    -> Deploy CFK operator chart
+kubernetes.core.k8s     -> Apply KafkaTopic, SchemaRegistrySubject CRDs
+kubernetes.core.k8s_info -> Validate resource status
+```
+
+**Pattern:** CFK CRDs handle topic/schema/RBAC at the Kubernetes level. The same governance logic (naming validation, SLA-tier defaults) runs in Ansible before creating the CRD, but the CRD is the execution mechanism -- not REST API calls.
+
+---
+
+## Version Compatibility Matrix
+
+| Component | Compatible With | Notes |
+|-----------|-----------------|-------|
+| cp-ansible 7.7.8 | Ansible 7.x-9.x, Python 3.9+ | Use Ansible 9.x for RHEL 8; Ansible 11.x for RHEL 9 |
+| cp-ansible 7.7.8 | CP 7.7.x (Kafka 3.7.x) | 1:1 version mapping. Collection version = CP version. |
+| ansible-lint 26.3.0 | ansible-core 2.17-2.21 | Supports all ansible-core versions we might use. |
+| molecule 26.3.0 | ansible-core 2.17-2.21, Python 3.10+ | Same compatibility range as ansible-lint. |
+| kubernetes.core 6.3.0 | ansible-core 2.17-2.20, Helm v3.x | Helm v4 NOT supported yet. CFK uses Helm v3 charts. |
+| community.general 10.x | ansible-core 2.17-2.21 | Bundled with Ansible 11.x package. |
+| Confluent CLI 4.x | CP 7.6+ and CC | CLI version is independent of CP version but 4.x supports all current CP features. |
+
+### Critical: cp-ansible / Ansible / RHEL Compatibility
+
+| Target OS | Ansible Package | ansible-core | cp-ansible | Python |
+|-----------|-----------------|--------------|------------|--------|
+| RHEL 9 (recommended) | 11.x | 2.18 | 7.7.8 | 3.11 |
+| RHEL 8 (legacy) | 9.x | 2.16 | 7.7.8 | 3.10 |
+| RHEL 10 (future) | 11.x | 2.18 | 8.2.0 (requires CP 8.2) | 3.12 |
+
+---
+
+## Integration Points with Existing Codebase
+
+| Existing Component | Integration Point | How |
+|--------------------|--------------------|-----|
+| `scenarios/cp-rhel/` (v1.0) | Ansible governance roles called after cp-ansible deployment | Pipeline playbook imports existing deploy-cp.yml, then runs governance roles. Existing inventory/group_vars reused. |
+| `schemas/examples/*.avsc` | Schema registration role reads .avsc files | Role variable `schema_file` points to .avsc file. Role reads content, validates JSON, POSTs to SR REST API. Same schema files used by Terraform CI and Ansible. |
+| `topics/*.yml` (CPTopic YAML) | Topic lifecycle role reads CPTopic definitions | Role parses CPTopic YAML (already exists in cp-rhel scenario), extracts spec and labels, creates topic via Admin REST, applies metadata. |
+| `scripts/fsi-dr.sh` | DR playbooks replace shell scripts | Ansible DR playbooks provide the same operations (failover, failback, validate, drill) with structured error handling, dry-run mode, and reporting. Shell scripts remain as legacy/fallback. |
+| `ci/scripts/validate-schemas.py` | Schema validation runs in molecule verify step | Molecule verify playbook calls the existing Python validation script, then verifies schemas are registered in SR. |
+| `observability/` templates | Observability role deploys JMX exporter configs | Role templates JMX exporter YAML from existing observability directory patterns. No duplication -- role references shared config. |
+| `.github/workflows/` | New Ansible CI workflows added alongside existing TF workflows | Separate workflow files: `ansible-lint.yml`, `ansible-molecule.yml`. Do not modify existing `terraform-plan.yml` or `terraform-apply.yml`. |
+
+---
+
+## Upgrade Path
+
+### Immediate (v2.0 scope)
+
+| Component | Current | Target | Breaking Changes | Priority |
+|-----------|---------|--------|------------------|----------|
+| cp-ansible | 7.6.x (implicit, cp-rhel scenario) | 7.7.8 | None within 7.x. Minor config changes documented in cp-ansible 7.7 release notes (OAuth vars added, JMX exporter 0.20.0). | Phase 1 |
+| Ansible package | Not formalized | 11.x (new) | N/A -- new addition to project | Phase 1 |
+| ansible-lint | Not present | 26.3.0 (new) | N/A -- new addition | Phase 1 |
+| molecule | Not present | 26.3.0 (new) | N/A -- new addition | Phase 1 |
+| kubernetes.core | Not formalized | 6.3.0 (new) | N/A -- new addition | CFK phase |
+
+### Future (post-v2.0)
+
+| Component | Current | Target | Breaking Changes | Priority |
+|-----------|---------|--------|------------------|----------|
+| cp-ansible | 7.7.8 | 8.2.0 | KRaft migration required (ZooKeeper removed in CP 8.0). Java 21 recommended. FIPS 140-3 replaces 140-2. RHEL 10 support added. | Separate milestone |
+| Ansible package | 11.x | 13.x | Follow ansible-core lifecycle. Check cp-ansible compatibility before upgrading. | As needed |
 
 ---
 
 ## Sources
 
-- **Codebase analysis:** `environments/prod/main.tf`, `modules/topic/main.tf`, `reference/local-dev/docker-compose.yml`, `reference/java-producer/pom.xml` -- HIGH confidence
-- **ADR decisions:** `docs/adr/001-005` -- HIGH confidence (project decisions, not research)
-- **Confluent documentation patterns:** Training data through May 2025 -- MEDIUM confidence
-- **Terraform provider versions:** Extrapolated from known 2.x release cadence -- LOW confidence, verify at https://registry.terraform.io/providers/confluentinc/confluent
-- **CFK operator versions:** Extrapolated from known release cadence -- LOW confidence, verify at https://docs.confluent.io/operator/current
-- **Flink operator versions:** Extrapolated from known release cadence -- LOW confidence, verify at https://flink.apache.org/downloads
-- **Confluent Platform versions:** Extrapolated from ~2 releases/year cadence -- LOW confidence, verify at https://docs.confluent.io/platform/current
-- **cp-ansible collection:** Training data awareness of `confluent.platform` collection -- MEDIUM confidence, verify at https://galaxy.ansible.com/ui/repo/published/confluent/platform
+- [Confluent Ansible Requirements](https://docs.confluent.io/ansible/current/ansible-requirements.html) -- Compatibility matrix: cp-ansible 8.2.0 supports Ansible 9-11, Python 3.10+ (HIGH confidence)
+- [Confluent Ansible Release Notes](https://docs.confluent.io/ansible/current/ansible-release-notes.html) -- cp-ansible 8.2.0 features: RHEL 10, FIPS 140-3, AWS SSM (HIGH confidence)
+- [cp-ansible 7.7 Release Notes](https://docs.confluent.io/ansible/7.7/ansible-release-notes.html) -- cp-ansible 7.7.8 details, OAuth 2.0 support (HIGH confidence)
+- [cp-ansible GitHub Releases](https://github.com/confluentinc/cp-ansible/releases) -- Full version history confirming 7.7.8 and 8.2.0 as latest in each stream (HIGH confidence)
+- [Confluent Platform Versions](https://docs.confluent.io/platform/current/installation/versions-interoperability.html) -- CP-to-Kafka version mapping, RHEL/Java support matrix (HIGH confidence)
+- [MDS REST API Reference](https://docs.confluent.io/platform/current/security/authorization/rbac/mds-api.html) -- RBAC endpoints for role binding CRUD (HIGH confidence)
+- [Schema Registry REST API](https://docs.confluent.io/platform/current/schema-registry/develop/api.html) -- Schema registration, compatibility check endpoints (HIGH confidence)
+- [Kafka REST Proxy API](https://docs.confluent.io/platform/current/kafka-rest/api.html) -- Admin REST v3 topic management endpoints (HIGH confidence)
+- [ansible-core on PyPI](https://pypi.org/project/ansible-core/) -- ansible-core 2.20.4 latest, 2.18 in active support (HIGH confidence)
+- [ansible-lint on PyPI](https://pypi.org/project/ansible-lint/) -- Version 26.3.0, March 2026 (HIGH confidence)
+- [molecule on PyPI](https://pypi.org/project/molecule/) -- Version 26.3.0, March 2026 (HIGH confidence)
+- [molecule-plugins on PyPI](https://pypi.org/project/molecule-plugins/) -- Version 25.8.12, supports docker/podman/delegated drivers (HIGH confidence)
+- [kubernetes.core Collection](https://docs.ansible.com/projects/ansible/latest/collections/kubernetes/core/index.html) -- Version 6.3.0, helm module for CFK deployment (HIGH confidence)
+- [ansible-lint Profiles](https://docs.ansible.com/projects/lint/profiles/) -- Profile hierarchy: min > basic > moderate > safety > shared > production (HIGH confidence)
+- [Confluent CLI RBAC Commands](https://docs.confluent.io/confluent-cli/current/command-reference/iam/rbac/role-binding/index.html) -- confluent iam rbac role-binding create/list/delete (HIGH confidence)
 
 ---
 
-## Verification Checklist (Pre-Implementation)
-
-Before adopting this stack, verify these specific items:
-
-- [ ] Confluent Terraform Provider: actual latest 2.x version at registry.terraform.io
-- [ ] Confluent Platform: actual latest version at docs.confluent.io (is it 7.7.x or 7.8.x?)
-- [ ] CFK Operator: actual latest version and supported OCP versions
-- [ ] Flink Kubernetes Operator: actual latest version
-- [ ] Whether CFK 2.9+ bundles Flink operator (may eliminate need for separate Apache Flink operator)
-- [ ] cp-ansible collection: actual latest version and supported CP versions
-- [ ] Confluent Cloud Flink: current GA status and supported SQL features (window functions, joins, Avro serde)
-- [ ] MRC observer promotion: confirm available in target CP version
-- [ ] Confluent provider Flink resources: confirm `confluent_flink_compute_pool` and `confluent_flink_statement` exist in target provider version
-
----
-
-*Stack research: 2026-03-21*
+*Stack research for: Ansible-native governance automation for Confluent Platform*
+*Researched: 2026-04-07*
