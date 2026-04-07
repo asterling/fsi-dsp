@@ -2,7 +2,19 @@
 
 ## What This Is
 
-A universal, automation-first platform for standing up governed Kafka, Flink, and Schema Registry infrastructure across any deployment model — Confluent Cloud (AWS, Azure, GCP), Confluent Private Cloud, Confluent for Kubernetes on OpenShift, and Confluent Platform on RHEL. It packages FSI-specific C4E assets (Terraform modules, reference implementations, observability templates, DR automation, schema governance) into scenario-based starter kits that any financial institution can adopt in hours, not months.
+A universal, automation-first platform for standing up governed Kafka, Flink, and Schema Registry infrastructure across any deployment model — Confluent Cloud (AWS, Azure, GCP), Confluent Private Cloud, Confluent for Kubernetes on OpenShift, and Confluent Platform on RHEL. It packages FSI-specific C4E assets (Terraform modules, Ansible roles, reference implementations, observability templates, DR automation, schema governance) into scenario-based starter kits that any financial institution can adopt in hours, not months. Teams choose their automation tool: Terraform for Confluent Cloud, Ansible for Confluent Platform and CFK deployments.
+
+## Current Milestone: v2.0 Ansible Based Automation
+
+**Goal:** Add Ansible-native automation for Confluent Platform deployments — topic governance, schema management, RBAC, observability, and DR — in an `ansible/` directory alongside existing Terraform content, leaning heavily on Confluent's certified cp-ansible collection.
+
+**Target features:**
+- CP governance roles (topic lifecycle, schema registration, RBAC via MDS) as reusable Ansible roles
+- End-to-end deployment pipeline: deploy CP cluster → configure topics → register schemas → set RBAC → deploy observability
+- DR automation playbooks for CP (MM2 + MRC backends) with state validation and dry-run
+- CFK on OpenShift deployment via kubernetes.core.helm with governance parity
+- CI/CD for Ansible content (ansible-lint, molecule tests, GitHub Actions)
+- Observability deployment roles (JMX exporters, Prometheus configs, dashboard imports)
 
 ## Core Value
 
@@ -12,84 +24,53 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 
 ### Validated
 
-<!-- Shipped and confirmed valuable — inferred from existing codebase. -->
+<!-- Shipped and confirmed valuable. -->
 
-- ✓ Topic creation Terraform module with naming validation — existing (`modules/topic/`)
-- ✓ Schema registration with Avro and compatibility mode enforcement — existing (`modules/topic/main.tf`)
-- ✓ RBAC provisioning per service account — existing (`modules/topic/main.tf`)
-- ✓ SLA-tier-based defaults (critical/standard/best-effort) — existing (`modules/topic/main.tf`)
-- ✓ DR mirror topic creation via Cluster Linking — existing (`modules/topic/main.tf`)
-- ✓ Schema metadata tags (owner, sla-tier, PII) — existing (`modules/topic/variables.tf`)
-- ✓ Java producer reference (idempotent, Avro, JMX metrics) — existing (`reference/java-producer/`)
-- ✓ Java consumer reference (offset management, Avro, JMX) — existing (`reference/java-consumer/`)
-- ✓ .NET producer/consumer reference — existing (`reference/dotnet-producer/`, `reference/dotnet-consumer/`)
-- ✓ Connect JDBC source/sink configs with Consul resolution — existing (`reference/connect-configs/`)
-- ✓ DR failover/failback scripts — existing (`scripts/`)
-- ✓ Consul service discovery for endpoint failover — existing (ADR-003)
-- ✓ Architecture Decision Records (5 ADRs) — existing (`docs/adr/`)
-- ✓ Schema governance guide — existing (`docs/schema-guide.md`)
-- ✓ Self-service onboarding flow — existing (`docs/onboarding.md`)
-- ✓ CI/CD pipeline (plan on PR, apply on merge) — existing (`.github/workflows/`)
-- ✓ Local dev Docker Compose (Kafka + SR + Connect) — existing (`reference/local-dev/`)
-- ✓ Integration test roundtrip — existing (`reference/integration-test/`)
+**v1.0 — Terraform + Shell Foundation (Phases 1-9):**
+- ✓ Topic creation Terraform module with naming validation, SLA-tier defaults, RBAC, DR mirror — v1.0
+- ✓ Schema registration with Avro, compatibility enforcement, namespace validation — v1.0
+- ✓ CC multi-cloud scenarios (AWS, Azure, GCP) with native backends — v1.0 Phase 2
+- ✓ CFK on OpenShift with Helm/operator manifests, MM2 DR — v1.0 Phase 8
+- ✓ CP on RHEL with cp-ansible deployment, standalone Flink — v1.0 Phase 9
+- ✓ Confluent Private Cloud scenario with Terraform — v1.0 Phase 9
+- ✓ Pluggable DR framework (Cluster Linking, MM2, MRC backends) with dry-run and rollback — v1.0 Phase 4
+- ✓ Observability templates for 6 providers with SLA-tier alerting — v1.0 Phase 5
+- ✓ Flink on CC (compute pool module, SQL templates, SR integration) — v1.0 Phase 6
+- ✓ Flink on CFK (Kubernetes Operator) and CP-RHEL (standalone) — v1.0 Phases 8-9
+- ✓ Access control: SA provisioning, OAuth, Vault credential rotation, CSFLE — v1.0 Phase 3
+- ✓ Compliance: 7-year retention, audit trails, FIPS 140-2 — v1.0 Phases 3, 9
+- ✓ Onboarding: intake form, C4E CI automation, Python reference client, DLQ patterns — v1.0 Phase 7
+- ✓ Reference implementations: Java, .NET, Python producers/consumers — v1.0
+- ✓ 8 ADRs, schema guide, DR runbook, compliance guide — v1.0
+- ✓ CI/CD: plan-on-PR, apply-on-merge, schema validation, override detection — v1.0
+- ✓ Local dev Docker Compose (Kafka + SR + Connect + Flink) — v1.0
 
 ### Active
 
-<!-- Current scope. Building toward these. -->
+<!-- Current scope: v2.0 Ansible Based Automation -->
 
-**Multi-Deployment Scenarios:**
-- [x] Confluent Cloud on AWS scenario directory with Terraform modules — Validated in Phase 2
-- [x] Confluent Cloud on Azure scenario directory with Terraform modules — Validated in Phase 2
-- [x] Confluent Cloud on GCP scenario directory with Terraform modules — Validated in Phase 2
-- [x] Confluent for Kubernetes (CFK) on OpenShift scenario with Helm/operator manifests — Validated in Phase 8
-- [x] Confluent Platform on RHEL scenario with Ansible/systemd deployment — Validated in Phase 9
-- [x] Confluent Private Cloud scenario directory — Validated in Phase 9
-- [x] Shared module library consumed by all scenarios (topic, schema, RBAC, observability) — Validated in Phase 1
+**Ansible Governance Roles:**
+- [ ] Topic lifecycle management (create, configure, validate) with SLA-tier logic via Ansible roles
+- [ ] Schema validation and registration via SR REST API as Ansible role
+- [ ] RBAC provisioning via MDS REST API as Ansible role
+- [ ] Service account management for CP deployments via Ansible
 
-**Flink Runtime:**
-- [x] Flink cluster deployment per scenario (CC Flink, CFK Flink, standalone Flink) — Validated in Phase 6 (CC Flink compute pool module + scenario wiring)
-- [x] Flink SQL reference job templates (windowing, enrichment, filtering) — Validated in Phase 6
-- [x] Flink integration with Schema Registry (Avro serde) — Validated in Phase 6 (SR auto-discovery, no manual CREATE TABLE)
-- [x] Flink observability integration (metrics export per provider) — Validated in Phase 6
+**Ansible Deployment Pipeline:**
+- [ ] End-to-end CP deployment playbook: cp-ansible cluster deploy → topic governance → schema registration → RBAC → observability
+- [ ] CFK on OpenShift deployment via kubernetes.core.helm with Ansible governance roles
+- [ ] Observability deployment roles (JMX exporter config, Prometheus scrape rules, per-provider dashboard import)
+- [ ] Connect configuration and connector deployment via Ansible
 
-**DR Framework:**
-- [x] Pluggable DR abstraction — unified failover CLI with backend adapters — Validated in Phase 4
-- [x] CC backend: Cluster Linking with automated failover/failback — Validated in Phase 4
-- [x] CFK/CP backend: MirrorMaker 2 with automated failover/failback — Validated in Phase 8
-- [x] MRC with automatic observer promotion (2.5-cluster pattern) for RPO=0 — Validated in Phase 9
-- [x] Orchestrated failover script replacing 6 manual steps with single command — Validated in Phase 4
-- [x] Dry-run mode for all DR operations — Validated in Phase 4
-- [x] State validation between failover steps — Validated in Phase 4
-- [x] Rollback capability for partial failover — Validated in Phase 4
-- [x] Mirror lag monitoring with per-topic alerting — Validated in Phase 4
+**Ansible DR Automation:**
+- [ ] Failover/failback playbooks for CP (MM2 backend) with state validation
+- [ ] MRC failover/failback playbooks (observer promotion) via Ansible
+- [ ] Dry-run mode and rollback capability in Ansible DR playbooks
+- [ ] DR drill automation playbook (failover → validate → failback → report)
 
-**Observability (Per-Provider Templates):**
-- [x] Dynatrace dashboard templates (cluster health, app view, Connect, DR readiness) — Validated in Phase 5
-- [x] Datadog dashboard templates — Validated in Phase 5
-- [x] Splunk dashboard templates — Validated in Phase 5
-- [x] New Relic dashboard templates — Validated in Phase 5
-- [x] IBM Instana dashboard templates — Validated in Phase 5
-- [x] Prometheus/Grafana dashboard templates — Validated in Phase 5
-- [x] Auto-discovery rules (new topics appear by domain prefix) — Validated in Phase 5
-- [x] Alert threshold configuration per SLA tier — Validated in Phase 5
-
-**Concerns Remediation (from CONCERNS.md):**
-- [x] Externalize hardcoded cluster IDs into centralized config — Validated in Phase 1
-- [x] Post-apply Terraform validation (topic exists, schema registered, RBAC applied) — Validated in Phase 2
-- [x] Credential rotation automation with zero-downtime support — Validated in Phase 3 (Vault dual-credential window, rotation runbook)
-- [x] Schema evolution enforcement in CI (block dangerous compatibility overrides) — Validated in Phase 1
-- [x] DLQ pattern in reference producer with retry and alerting — Validated in Phase 7 (Java, .NET, Python with 3-retry backoff, error categorization, Kafka headers)
-- [x] Connect state tracking for pause/resume coordination — Validated in Phase 4
-- [x] Compliance-tier retention (configurable up to 7-year) — Validated in Phase 1
-- [x] Error-path integration tests (serialization failure, RBAC denial, broker failure) — Validated in Phase 7
-- [x] Unified DR runbook with decision trees and rollback guidance — Validated in Phase 4
-- [x] Schema namespace collision prevention in CI — Validated in Phase 1
-- [x] Kafka topic health metrics export per deployment model — Validated in Phase 5
-
-**Governance & Onboarding:**
-- [x] Generic FSI intake form template (no client-specific names) — Validated in Phase 7
-- [x] C4E review automation (lint + validate in CI, human review as gate) — Validated in Phase 7
-- [x] Additional ADRs: OAuth vs API keys, topic naming rationale, DR tier classification — Validated in Phase 1
+**Ansible CI/CD:**
+- [ ] ansible-lint and molecule test framework for all roles
+- [ ] GitHub Actions workflows for Ansible content (lint, test, deploy)
+- [ ] Integration tests for Ansible roles (topic creation, schema registration, RBAC verification)
 
 ### Out of Scope
 
@@ -101,10 +82,12 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 - Client-specific customizations — generic FSI patterns only, teams extend
 - Real-time chat/collaboration features — use existing Teams/Slack
 - Data mesh or catalog integration — future milestone
+- Ansible for Confluent Cloud — no native Ansible provider; CC stays Terraform-only
+- Apache Kafka (non-Confluent) support — roles target CP with MDS/Confluent CLI only
 
 ## Context
 
-This platform generalizes a proven NFCU-specific C4E engagement into reusable FSI starter assets. The existing codebase covers Confluent Cloud on Azure with a single topic module, reference implementations, and manual DR scripts. The gap is: no multi-cloud/multi-deployment support, no Flink, no observability beyond Dynatrace stubs, manual DR, and 14 documented technical concerns.
+This platform generalizes a proven FSI C4E engagement into reusable starter assets. v1.0 delivered complete Terraform-based automation for all 4 deployment models with 9 phases of governance, DR, observability, and onboarding. The gap now: FSI shops that are Red Hat/Ansible-first have no native automation path. The existing `scenarios/cp-rhel/` uses cp-ansible for basic cluster deployment but lacks governance automation (topic lifecycle, schema management, RBAC). v2.0 adds an `ansible/` directory with roles and playbooks that mirror the Terraform module's governance logic for CP and CFK deployments.
 
 The C4E philosophy (from the engagement): **Automation > Documentation. Golden Path > Gatekeeping. Community > Committee.** Every asset should make it easier to do the right thing than the wrong thing.
 
@@ -129,6 +112,8 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 - **FSI compliance**: Retention policies must support regulatory requirements (up to 7-year for OFAC/AML)
 - **Backward compatibility**: Existing Confluent Cloud Terraform modules must continue to work — extend, don't break
 - **OpenShift compatibility**: CFK scenario must target OCP 4.x with operator lifecycle management
+- **cp-ansible alignment**: Ansible roles must integrate with Confluent's certified cp-ansible collection (v8.2.0+), not replace it
+- **Governance parity**: Ansible roles must enforce identical governance rules (naming, SLA tiers, schema compat, RBAC) as existing Terraform modules
 
 ## Key Decisions
 
@@ -142,6 +127,10 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 | Avro over Protobuf (existing ADR-001) | FSI ecosystem alignment, SR compatibility | ✓ Good |
 | Consul for service discovery (existing ADR-003) | Atomic failover across Kafka/SR/DB | ✓ Good |
 | Cluster Linking over MRC for CC (existing ADR-005) | CC-native, meets ~2h RPO target | ✓ Good |
+| Same repo for Ansible (v2.0) | Shared governance artifacts, schemas, ADRs, validation scripts | — Pending |
+| CC stays Terraform-only (v2.0) | No native Ansible provider for CC; Terraform is the right tool | — Pending |
+| Confluent Platform only for Ansible (v2.0) | Lean on cp-ansible + MDS + Confluent CLI; no vanilla Apache Kafka | — Pending |
+| ansible/ directory structure (v2.0) | Parallel to scenarios/; reusable roles + deployment playbooks | — Pending |
 
 ## Evolution
 
@@ -161,4 +150,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-28 after Phase 9 completion — CP on RHEL (Ansible roles, MDS RBAC, CPTopic governance), Private Cloud (Terraform with shared modules), MRC RPO=0 DR backend (27 tests), standalone Flink (systemd, SR integration), FIPS 140-2 validation. All 9 phases complete.*
+*Last updated: 2026-04-07 after milestone v2.0 start — Ansible Based Automation targeting CP governance roles, deployment pipeline, DR automation, CFK via Ansible, and CI/CD for Ansible content.*
