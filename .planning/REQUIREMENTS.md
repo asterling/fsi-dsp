@@ -3,9 +3,9 @@
 **Defined:** 2026-03-21
 **Core Value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
 
-## v1 Requirements
+## v1 Requirements (Complete)
 
-Requirements for initial milestone. Each maps to roadmap phases.
+All 60 v1 requirements completed in milestone v1.0. See traceability section below.
 
 ### Infrastructure as Code
 
@@ -96,12 +96,84 @@ Requirements for initial milestone. Each maps to roadmap phases.
 
 ## v2 Requirements
 
+Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap phases.
+
+### Ansible Foundation
+
+- [ ] **AFOUND-01**: `ansible/` directory contains `requirements.yml` with pinned cp-ansible 7.7.x collection, `ansible.cfg`, and multi-environment inventory skeletons (dev/staging/prod/dr)
+- [ ] **AFOUND-02**: Shared governance constants in `ansible/vars/sla_tiers.yml` mirror Terraform module SLA-tier mappings (partitions, retention, compatibility per tier) and CI validates parity
+- [ ] **AFOUND-03**: Topic naming validation regex in `ansible/vars/naming_rules.yml` matches Terraform `variables.tf` regex and CI validates parity
+- [ ] **AFOUND-04**: Filter plugin (`filter_plugins/fsi_governance.py`) provides Jinja2 filters for SLA-tier lookups and topic name assembly usable by all roles
+- [ ] **AFOUND-05**: `.ansible-lint` config with `shared` profile enforces FQCN, Galaxy metadata, and documentation standards on all roles
+
+### Ansible Topic Lifecycle
+
+- [ ] **ATOPIC-01**: Operator can create topics on CP cluster via Ansible role using Admin REST v3 API with idempotent GET-before-POST pattern
+- [ ] **ATOPIC-02**: Topic configuration (partitions, retention, min.insync.replicas, cleanup policy) is automatically derived from SLA tier using shared governance constants
+- [ ] **ATOPIC-03**: Role consumes existing CPTopic YAML format from `scenarios/cp-rhel/topics/*.yml` without requiring a new input format
+- [ ] **ATOPIC-04**: Role validates topic names against `{domain}.{application}.{version}.{entity}` regex before API calls, failing fast with clear error message
+- [ ] **ATOPIC-05**: Topic config updates (retention, cleanup, min.insync.replicas) converge to declared state without recreating topics
+- [ ] **ATOPIC-06**: Running the playbook in `--check` mode shows what would change without making any mutations (dry-run for CAB approval)
+- [ ] **ATOPIC-07**: Topic deletion requires explicit `state: absent` plus `confirm_deletion: true` and refuses to delete critical/compliance tier topics without override
+
+### Ansible Schema Registration
+
+- [ ] **ASCHEMA-01**: Operator can register Avro schemas to CP Schema Registry via Ansible role using SR REST API
+- [ ] **ASCHEMA-02**: Role runs compatibility pre-check against existing versions before registration and fails with clear message if incompatible (two-pass: validate all, then register all)
+- [ ] **ASCHEMA-03**: Schema compatibility mode per subject is set from SLA tier (critical/compliance=FULL_TRANSITIVE, standard=BACKWARD_TRANSITIVE, best-effort=BACKWARD)
+- [ ] **ASCHEMA-04**: Role reuses existing `ci/scripts/validate-schemas.py` for structural validation before SR API calls
+- [ ] **ASCHEMA-05**: PII metadata properties (owner, sla-tier, data-classification, pii-fields) are applied to SR subjects matching Terraform module metadata pattern
+
+### Ansible RBAC Provisioning
+
+- [ ] **ARBAC-01**: Operator can provision per-topic RBAC bindings (DeveloperWrite for producers, DeveloperRead for consumers) via MDS REST API
+- [ ] **ARBAC-02**: Role acquires MDS bearer token with automatic refresh handling for playbook runs exceeding 15-minute token TTL
+- [ ] **ARBAC-03**: Consumer group bindings (`DeveloperRead` on `{principal}-*` prefixed group pattern) are created alongside topic bindings
+- [ ] **ARBAC-04**: Schema Registry subject bindings (DeveloperWrite for producers, DeveloperRead for all) are created alongside topic bindings
+- [ ] **ARBAC-05**: Role uses LIST/DIFF/ADD/REMOVE reconciliation pattern to remove stale bindings, not just add new ones (prevents RBAC drift)
+
+### Ansible Deployment Pipeline
+
+- [ ] **APIPE-01**: Orchestration playbook (`site.yml`) chains cp-ansible cluster deployment with topic → schema → RBAC → connectors → observability in a single run
+- [ ] **APIPE-02**: Ansible tags allow selective execution (e.g., `--tags topics`, `--tags rbac`, `--tags observability`) for Day-2 operations without full pipeline re-run
+- [ ] **APIPE-03**: Connector deployment role creates/updates connectors via Connect REST API with idempotent create-if-absent, update-if-different pattern
+- [ ] **APIPE-04**: Connector health validation after deployment verifies all connectors and tasks are in RUNNING state with retry and backoff
+
+### Ansible DR Automation
+
+- [ ] **ADR-01**: MM2 failover playbook orchestrates: pause connectors → stop source MM2 → promote topics → update Consul → validate → resume on target
+- [ ] **ADR-02**: MM2 failback playbook reverses replication direction, re-establishes mirrors, validates data sync, and cuts back to primary
+- [ ] **ADR-03**: DR playbooks support `--check` mode (dry-run) generating audit-ready output showing every step without executing
+- [ ] **ADR-04**: DR state validation tasks check mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover
+- [ ] **ADR-05**: MRC failover playbook promotes observer replica to leader for RPO=0 scenarios using Confluent CLI
+- [ ] **ADR-06**: DR drill playbook runs full cycle (failover → validate → failback → validate → generate compliance report) for quarterly regulatory requirements
+
+### Ansible Observability Deployment
+
+- [ ] **AOBS-01**: Observability role deploys JMX exporter configs from existing `observability/` templates to CP cluster nodes
+- [ ] **AOBS-02**: Prometheus scrape config is generated from inventory (broker, SR, Connect host groups) and updates automatically when nodes are added
+- [ ] **AOBS-03**: Grafana dashboards from `observability/grafana/` are imported via `community.grafana.grafana_dashboard` module or file provisioning
+- [ ] **AOBS-04**: Alert rules with SLA-tier-aware thresholds are deployed to the monitoring provider matching existing `alerts.yaml` definitions
+
+### Ansible CFK on OpenShift
+
+- [ ] **ACFK-01**: Operator can deploy CFK operator on OpenShift via Ansible using `kubernetes.core.helm` module
+- [ ] **ACFK-02**: CFK custom resources (KafkaCluster, SchemaRegistry, Connect) are applied via `kubernetes.core.k8s` with readiness gates before governance tasks
+- [ ] **ACFK-03**: KafkaTopic CRDs are generated from CPTopic YAML definitions with governance parity (same SLA-tier defaults as CP REST API roles)
+
+### Ansible CI/CD
+
+- [ ] **ACI-01**: GitHub Actions workflow runs ansible-lint and yamllint on every PR touching `ansible/` directory
+- [ ] **ACI-02**: Molecule test scenarios exist for each governance role (cp_topic, cp_schema, cp_rbac) with delegated driver
+- [ ] **ACI-03**: CI job validates governance constant parity between `ansible/vars/sla_tiers.yml` and Terraform `modules/topic/main.tf` locals
+
+## v3 Requirements
+
 Deferred to future milestone. Tracked but not in current roadmap.
 
 ### Advanced Governance
 
 - **ADVGOV-01**: Data contract enforcement via Confluent Stream Governance (CEL-based field rules for encryption, validation, migration)
-- **ADVGOV-02**: Topic lifecycle management (created -> active -> deprecated -> decommissioned) with consumer migration workflow
 - **ADVGOV-03**: Schema catalog integration exporting SR subjects + metadata to Alation/Collibra/DataHub
 - **ADVGOV-04**: Cost optimization reporting per domain/team via Confluent Cloud billing API
 
@@ -113,13 +185,16 @@ Deferred to future milestone. Tracked but not in current roadmap.
 
 ### Advanced DR
 
-- **ADVDR-01**: DR drill automation (failover, validate, failback, compliance report) for quarterly regulatory requirements
 - **ADVDR-02**: Partial failover (per-domain topic-level mirror promotion) to reduce blast radius
 - **ADVDR-03**: Cross-scenario integration testing validates same topic spec produces equivalent results across CC, CFK, and CP
 
 ### Cross-Deployment
 
 - **XDEPLOY-01**: Deployment model migration tooling (export configs from source, generate IaC for target, migrate schemas)
+
+### KRaft Migration
+
+- **KRAFT-01**: cp-ansible 8.x migration playbook for ZooKeeper-to-KRaft transition on existing CP clusters
 
 ## Out of Scope
 
@@ -133,13 +208,20 @@ Explicitly excluded. Documented to prevent scope creep.
 | Custom Kafka distribution or fork | Confluent provides the distribution; C4E provides the governance wrapper |
 | Confluent Cloud account/org provisioning | Account-level automation is platform team responsibility, not C4E |
 | Real-time alerting engine | C4E provides alert definitions/thresholds; teams import into existing alerting stack |
-| Data mesh / catalog platform | Catalog integration (export) is v2; building a catalog is out of scope |
+| Data mesh / catalog platform | Catalog integration (export) is v3; building a catalog is out of scope |
 | ChatOps / Slack bot | PR-based workflow is more auditable; document commands as informational only |
 | Auto-scaling / capacity planning | Partition count is an architecture decision; CC auto-scales brokers; CFK/CP require manual sizing |
+| Ansible for Confluent Cloud | No native Ansible provider; CC stays Terraform-only |
+| Apache Kafka (non-Confluent) support | Roles target CP with MDS/Confluent CLI; vanilla Kafka lacks MDS |
+| cp-ansible 8.x / KRaft migration | ZooKeeper removal is a separate milestone; v2.0 targets CP 7.7.x |
+| Ansible Galaxy collection packaging | Roles are tightly coupled to repo governance data; distribution via Galaxy adds overhead with no consumer outside this repo |
+| Custom Python Ansible modules | ansible.builtin.uri covers all REST API needs; custom modules add maintenance burden |
 
 ## Traceability
 
 Which phases cover which requirements. Updated during roadmap creation.
+
+### v1 Traceability (Complete)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -204,11 +286,59 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GOV-02 | Phase 1 | Complete |
 | GOV-03 | Phase 1 | Complete |
 
+### v2 Traceability (Pending)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| AFOUND-01 | TBD | Pending |
+| AFOUND-02 | TBD | Pending |
+| AFOUND-03 | TBD | Pending |
+| AFOUND-04 | TBD | Pending |
+| AFOUND-05 | TBD | Pending |
+| ATOPIC-01 | TBD | Pending |
+| ATOPIC-02 | TBD | Pending |
+| ATOPIC-03 | TBD | Pending |
+| ATOPIC-04 | TBD | Pending |
+| ATOPIC-05 | TBD | Pending |
+| ATOPIC-06 | TBD | Pending |
+| ATOPIC-07 | TBD | Pending |
+| ASCHEMA-01 | TBD | Pending |
+| ASCHEMA-02 | TBD | Pending |
+| ASCHEMA-03 | TBD | Pending |
+| ASCHEMA-04 | TBD | Pending |
+| ASCHEMA-05 | TBD | Pending |
+| ARBAC-01 | TBD | Pending |
+| ARBAC-02 | TBD | Pending |
+| ARBAC-03 | TBD | Pending |
+| ARBAC-04 | TBD | Pending |
+| ARBAC-05 | TBD | Pending |
+| APIPE-01 | TBD | Pending |
+| APIPE-02 | TBD | Pending |
+| APIPE-03 | TBD | Pending |
+| APIPE-04 | TBD | Pending |
+| ADR-01 | TBD | Pending |
+| ADR-02 | TBD | Pending |
+| ADR-03 | TBD | Pending |
+| ADR-04 | TBD | Pending |
+| ADR-05 | TBD | Pending |
+| ADR-06 | TBD | Pending |
+| AOBS-01 | TBD | Pending |
+| AOBS-02 | TBD | Pending |
+| AOBS-03 | TBD | Pending |
+| AOBS-04 | TBD | Pending |
+| ACFK-01 | TBD | Pending |
+| ACFK-02 | TBD | Pending |
+| ACFK-03 | TBD | Pending |
+| ACI-01 | TBD | Pending |
+| ACI-02 | TBD | Pending |
+| ACI-03 | TBD | Pending |
+
 **Coverage:**
-- v1 requirements: 60 total
-- Mapped to phases: 60
-- Unmapped: 0
+- v1 requirements: 60 total (all complete)
+- v2 requirements: 42 total
+- Mapped to phases: 0 (pending roadmap)
+- Unmapped: 42
 
 ---
 *Requirements defined: 2026-03-21*
-*Last updated: 2026-03-26 after Phase 6 plan revision (FLINK-07 wording update)*
+*Last updated: 2026-04-07 after milestone v2.0 requirements definition*
