@@ -100,11 +100,11 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Foundation
 
-- [ ] **AFOUND-01**: `ansible/` directory contains `requirements.yml` with pinned cp-ansible 7.7.x collection, `ansible.cfg`, and multi-environment inventory skeletons (dev/staging/prod/dr)
+- [x] **AFOUND-01**: `ansible/` directory contains `requirements.yml` with pinned cp-ansible 7.7.x collection, `ansible.cfg`, and multi-environment inventory skeletons (dev/staging/prod/dr)
 - [ ] **AFOUND-02**: Shared governance constants in `ansible/vars/sla_tiers.yml` mirror Terraform module SLA-tier mappings (partitions, retention, compatibility per tier) and CI validates parity
 - [ ] **AFOUND-03**: Topic naming validation regex in `ansible/vars/naming_rules.yml` matches Terraform `variables.tf` regex and CI validates parity
 - [ ] **AFOUND-04**: Filter plugin (`filter_plugins/fsi_governance.py`) provides Jinja2 filters for SLA-tier lookups and topic name assembly usable by all roles
-- [ ] **AFOUND-05**: `.ansible-lint` config with `shared` profile enforces FQCN, Galaxy metadata, and documentation standards on all roles
+- [x] **AFOUND-05**: `.ansible-lint` config with `shared` profile enforces FQCN, Galaxy metadata, and documentation standards on all roles
 
 ### Ansible Topic Lifecycle
 
@@ -290,11 +290,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AFOUND-01 | Phase 10 | Pending |
+| AFOUND-01 | Phase 10 | Complete |
 | AFOUND-02 | Phase 10 | Pending |
 | AFOUND-03 | Phase 10 | Pending |
 | AFOUND-04 | Phase 10 | Pending |
-| AFOUND-05 | Phase 10 | Pending |
+| AFOUND-05 | Phase 10 | Complete |
 | ATOPIC-01 | Phase 11 | Pending |
 | ATOPIC-02 | Phase 11 | Pending |
 | ATOPIC-03 | Phase 11 | Pending |
