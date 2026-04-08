@@ -1,0 +1,28 @@
+# yaml-doc
+# =============================================================================
+# FSI Kafka Platform -- Ansible Collection Dependencies
+# =============================================================================
+# Install with:
+#   ansible-galaxy collection install -r requirements.yml
+#
+# This file pins all required Ansible collections for deploying and managing
+# Confluent Platform on RHEL. The confluent.platform collection (cp-ansible)
+# provides certified roles for broker, SR, Connect, and other CP components.
+# =============================================================================
+
+collections:
+  # cp-ansible 7.7.x -- Confluent Platform deployment roles
+  - name: confluent.platform
+    version: "7.7.8"
+
+  # General-purpose modules: json_query, ini_file, etc.
+  - name: community.general
+    version: ">=8.0.0"
+
+  # POSIX modules: sysctl, selinux, synchronize
+  - name: ansible.posix
+    version: ">=1.5.0"
+
+  # Utility filters: ipaddr, validate
+  - name: ansible.utils
+    version: ">=2.10.0"
