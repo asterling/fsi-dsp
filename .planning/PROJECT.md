@@ -130,7 +130,7 @@ The C4E philosophy (from the engagement): **Automation > Documentation. Golden P
 | Same repo for Ansible (v2.0) | Shared governance artifacts, schemas, ADRs, validation scripts | — Pending |
 | CC stays Terraform-only (v2.0) | No native Ansible provider for CC; Terraform is the right tool | — Pending |
 | Confluent Platform only for Ansible (v2.0) | Lean on cp-ansible + MDS + Confluent CLI; no vanilla Apache Kafka | — Pending |
-| ansible/ directory structure (v2.0) | Parallel to scenarios/; reusable roles + deployment playbooks | — Pending |
+| ansible/ directory structure (v2.0) | Parallel to scenarios/; reusable roles + deployment playbooks | ✓ Good — Phase 10 scaffolded ansible/ with inventories, filter_plugins, governance YAML |
 
 ## Evolution
 
@@ -150,4 +150,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-07 after milestone v2.0 start — Ansible Based Automation targeting CP governance roles, deployment pipeline, DR automation, CFK via Ansible, and CI/CD for Ansible content.*
+*Last updated: 2026-04-08 after Phase 10 complete — Ansible foundation scaffolded with pinned dependencies, governance constants mirroring Terraform, filter plugins, multi-environment inventories, and ansible-lint config.*
