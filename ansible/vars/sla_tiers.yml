@@ -1,0 +1,37 @@
+# =============================================================================
+# FSI Kafka Platform -- SLA Tier Governance Constants
+# =============================================================================
+# Source of truth: modules/topic/main.tf lines 44-82
+# WARNING: These values MUST stay in sync with Terraform.
+# CI validates parity -- see tests/ansible/test_governance_parity.py
+# =============================================================================
+
+sla_tiers:
+  critical:
+    compatibility: FULL_TRANSITIVE
+    partitions: 12
+    retention_ms: 604800000
+    min_insync_replicas: 2
+  standard:
+    compatibility: BACKWARD_TRANSITIVE
+    partitions: 6
+    retention_ms: 259200000
+    min_insync_replicas: 2
+  best-effort:
+    compatibility: BACKWARD
+    partitions: 3
+    retention_ms: 86400000
+    min_insync_replicas: 1
+  compliance:
+    compatibility: FULL_TRANSITIVE
+    partitions: 12
+    retention_ms: -1
+    min_insync_replicas: 2
+
+sla_tier_default: standard
+
+sla_tier_names:
+  - critical
+  - standard
+  - best-effort
+  - compliance

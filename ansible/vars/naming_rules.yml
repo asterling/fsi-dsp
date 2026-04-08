@@ -1,0 +1,24 @@
+# =============================================================================
+# FSI Kafka Platform -- Topic Naming Governance Rules
+# =============================================================================
+# Source of truth: modules/topic/variables.tf lines 8-46
+# WARNING: These patterns MUST stay in sync with Terraform variable validations.
+# CI validates parity -- see tests/ansible/test_governance_parity.py
+# =============================================================================
+
+naming_rules:
+  domain:
+    pattern: "^[a-z][a-z0-9-]{1,30}$"
+    description: "Lowercase alphanumeric with hyphens, 2-31 chars, starting with a letter"
+  application:
+    pattern: "^[a-z][a-z0-9-]{1,30}$"
+    description: "Lowercase alphanumeric with hyphens, 2-31 chars"
+  version:
+    pattern: "^v[0-9]+$"
+    description: "Version identifier: v1, v2, etc."
+  entity:
+    pattern: "^[a-z][a-z0-9-]{1,60}$"
+    description: "Lowercase alphanumeric with hyphens, 2-61 chars"
+
+topic_name_format: "{domain}.{application}.{version}.{entity}"
+topic_name_separator: "."
