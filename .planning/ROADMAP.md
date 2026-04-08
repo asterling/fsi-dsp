@@ -214,7 +214,7 @@ Plans:
 
 Plans:
 - [x] 10-01-PLAN.md -- Directory scaffolding, requirements.yml, ansible.cfg, inventories, and ansible-lint config
-- [ ] 10-02-PLAN.md -- Shared governance constants (sla_tiers.yml, naming_rules.yml), filter plugin, and parity tests
+- [x] 10-02-PLAN.md -- Shared governance constants (sla_tiers.yml, naming_rules.yml), filter plugin, and parity tests
 
 ### Phase 11: Core Governance Roles
 **Goal**: Operators can create topics, register schemas, and provision RBAC bindings on a Confluent Platform cluster using Ansible roles -- with identical governance rules to Terraform and full idempotency
@@ -309,7 +309,7 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 7. Onboarding and Developer Experience | v1.0 | 3/3 | Complete | - |
 | 8. CFK on OpenShift | v1.0 | 3/3 | Complete | - |
 | 9. CP on RHEL and Private Cloud | v1.0 | 4/4 | Complete | 2026-03-27 |
-| 10. Ansible Foundation and Governance Scaffolding | v2.0 | 1/2 | In Progress|  |
+| 10. Ansible Foundation and Governance Scaffolding | v2.0 | 2/2 | Complete   | 2026-04-08 |
 | 11. Core Governance Roles | v2.0 | 0/3 | Not started | - |
 | 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 0/3 | Not started | - |
 | 13. DR Automation Playbooks (MM2) | v2.0 | 0/2 | Not started | - |
