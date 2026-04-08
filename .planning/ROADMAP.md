@@ -210,11 +210,11 @@ Plans:
   3. Topic name assembly using the `fsi_governance` filter plugin produces names matching the Terraform `{domain}.{application}.{version}.{entity}` regex
   4. `ansible-lint` with the project config passes on the scaffolded directory with zero violations
   5. Inventory skeletons exist for dev, staging, prod, and dr environments with documented host group patterns
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: Directory scaffolding, requirements.yml, ansible.cfg, and multi-environment inventories
-- [ ] 10-02: Shared governance constants (sla_tiers.yml, naming_rules.yml), filter plugins, and ansible-lint config
+- [ ] 10-01-PLAN.md -- Directory scaffolding, requirements.yml, ansible.cfg, inventories, and ansible-lint config
+- [ ] 10-02-PLAN.md -- Shared governance constants (sla_tiers.yml, naming_rules.yml), filter plugin, and parity tests
 
 ### Phase 11: Core Governance Roles
 **Goal**: Operators can create topics, register schemas, and provision RBAC bindings on a Confluent Platform cluster using Ansible roles -- with identical governance rules to Terraform and full idempotency
