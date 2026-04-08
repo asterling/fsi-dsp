@@ -226,12 +226,12 @@ Plans:
   3. Operator runs the RBAC role and MDS bindings (DeveloperWrite, DeveloperRead, consumer group, SR subject) are created for each principal -- stale bindings from removed principals are cleaned up
   4. All three roles support `--check` mode, showing what would change without making mutations
   5. Molecule tests for each role pass with idempotency verification (second run reports zero changes)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 11-01: cp_topic role -- Admin REST v3, SLA-tier defaults, CPTopic YAML consumption, check mode, molecule tests
-- [ ] 11-02: cp_schema role -- SR REST API, two-pass validate-then-register, compatibility modes, PII metadata, molecule tests
-- [ ] 11-03: cp_rbac role -- MDS REST API, token refresh, LIST/DIFF/ADD/REMOVE reconciliation, molecule tests
+- [ ] 11-01-PLAN.md -- cp_topic role: Admin REST v3 CRUD, SLA-tier defaults, CPTopic YAML consumption, check mode, unit tests
+- [ ] 11-02-PLAN.md -- cp_schema role: SR REST API, two-pass validate-then-register, compatibility modes, PII metadata, unit tests
+- [ ] 11-03-PLAN.md -- cp_rbac role: MDS REST API, token refresh, LIST/DIFF/ADD/REMOVE reconciliation, unit tests
 
 ### Phase 12: Orchestration Pipeline, Observability, and CI/CD
 **Goal**: Governance roles are composed into an end-to-end deployment pipeline with connector management, observability deployment, tag-based selective execution, and CI quality gates for all Ansible content
