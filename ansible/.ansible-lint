@@ -1,0 +1,34 @@
+# =============================================================================
+# FSI Kafka Platform -- ansible-lint Configuration
+# =============================================================================
+# Uses the 'shared' profile (community-agreed baseline) plus explicit FQCN
+# enforcement. FQCN (Fully Qualified Collection Name) is not included in the
+# shared profile but is required by this project's standards (AFOUND-05) to
+# ensure all module references use the full namespace (e.g.,
+# ansible.builtin.copy instead of copy).
+#
+# Mock roles prevent lint errors for cp-ansible roles that are not installed
+# locally during CI linting (ansible-galaxy install is separate from linting).
+# =============================================================================
+
+profile: shared
+
+enable_list:
+  - fqcn
+
+exclude_paths:
+  - collections/
+  - .cache/
+
+mock_roles:
+  - confluent.platform.kafka_broker
+  - confluent.platform.schema_registry
+  - confluent.platform.kafka_connect
+  - confluent.platform.zookeeper
+  - confluent.platform.kafka_rest
+  - confluent.platform.ksql
+  - confluent.platform.control_center
+
+var_naming_pattern: "^[a-z_][a-z0-9_]*$"
+
+offline: true

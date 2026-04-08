@@ -1,0 +1,47 @@
+# =============================================================================
+# Staging Environment -- production-like security
+# =============================================================================
+# Mirrors production security settings (TLS, mTLS, RBAC) for validation.
+# All sensitive values reference Ansible Vault variables (vault_* prefix).
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# CP version and base settings
+# ---------------------------------------------------------------------------
+confluent_server_enabled: true
+confluent_package_version: "7.7.0"
+
+# ---------------------------------------------------------------------------
+# TLS -- mutual auth enabled (mirrors production)
+# ---------------------------------------------------------------------------
+ssl_enabled: true
+ssl_mutual_auth_enabled: true
+
+# ---------------------------------------------------------------------------
+# MDS RBAC
+# ---------------------------------------------------------------------------
+rbac_enabled: true
+
+# MDS superuser (bootstrap only -- restrict after initial setup)
+mds_super_user: mds
+mds_super_user_password: "{{ vault_mds_password }}"
+
+# Component LDAP service accounts
+kafka_broker_ldap_user: kafka_broker
+kafka_broker_ldap_password: "{{ vault_kafka_broker_password }}"
+
+schema_registry_ldap_user: schema_registry
+schema_registry_ldap_password: "{{ vault_sr_password }}"
+
+kafka_connect_ldap_user: connect_worker
+kafka_connect_ldap_password: "{{ vault_connect_password }}"
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+jmxexporter_enabled: true
+
+# ---------------------------------------------------------------------------
+# FIPS -- disabled for staging (enable to validate FIPS before prod)
+# ---------------------------------------------------------------------------
+fips_enabled: false

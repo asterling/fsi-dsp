@@ -1,0 +1,30 @@
+# =============================================================================
+# Prod -- Kafka Broker Overrides
+# =============================================================================
+# Broker-specific configuration applied to all hosts in the kafka_broker group.
+# Per-host overrides (broker.id, broker.rack) are in hosts.yml.
+# =============================================================================
+
+kafka_broker_custom_properties:
+  # -------------------------------------------------------------------------
+  # Log retention defaults (overridden per-topic via CPTopic definitions)
+  # -------------------------------------------------------------------------
+  log.retention.hours: 168
+
+  # -------------------------------------------------------------------------
+  # Thread tuning for production workloads
+  # -------------------------------------------------------------------------
+  num.io.threads: 16
+  num.network.threads: 8
+
+  # -------------------------------------------------------------------------
+  # Log segment size (1 GB)
+  # -------------------------------------------------------------------------
+  log.segment.bytes: 1073741824
+
+  # -------------------------------------------------------------------------
+  # Additional tuning
+  # -------------------------------------------------------------------------
+  # log.dirs: "/var/kafka-logs/disk1,/var/kafka-logs/disk2"
+  # default.replication.factor: 3
+  # min.insync.replicas: 2

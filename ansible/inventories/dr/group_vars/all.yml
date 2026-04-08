@@ -1,0 +1,78 @@
+# =============================================================================
+# DR (Passive) Region -- Common Variables
+# =============================================================================
+# Mirrors production configuration. Used during failover/failback operations.
+# All sensitive values reference Ansible Vault variables (vault_* prefix).
+# Component-specific overrides should mirror prod/group_vars/ files.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# CP version and base settings
+# ---------------------------------------------------------------------------
+confluent_server_enabled: true
+confluent_package_version: "7.7.0"
+
+# Repository configuration (uncomment for air-gapped installs)
+# confluent_common_repository_baseurl: "https://internal-repo.fsi.org/confluent/"
+# confluent_common_repository_gpgcheck: true
+
+# ---------------------------------------------------------------------------
+# TLS -- mutual auth enabled (mirrors production)
+# ---------------------------------------------------------------------------
+ssl_enabled: true
+ssl_mutual_auth_enabled: true
+
+# Certificate configuration
+# Option 1: Auto-generated (development only)
+# ssl_custom_certs: false
+
+# Option 2: Custom CA-signed certificates (production)
+# ssl_custom_certs: true
+# ssl_ca_cert_filepath: "/etc/ssl/certs/fsi-ca.pem"
+# ssl_signed_cert_filepath: "/etc/ssl/certs/{{ inventory_hostname }}.pem"
+# ssl_key_filepath: "/etc/ssl/private/{{ inventory_hostname }}-key.pem"
+
+# ---------------------------------------------------------------------------
+# MDS RBAC
+# ---------------------------------------------------------------------------
+rbac_enabled: true
+
+# MDS superuser (bootstrap only -- restrict after initial setup)
+mds_super_user: mds
+mds_super_user_password: "{{ vault_mds_password }}"
+
+# Component LDAP service accounts
+kafka_broker_ldap_user: kafka_broker
+kafka_broker_ldap_password: "{{ vault_kafka_broker_password }}"
+
+schema_registry_ldap_user: schema_registry
+schema_registry_ldap_password: "{{ vault_sr_password }}"
+
+kafka_connect_ldap_user: connect_worker
+kafka_connect_ldap_password: "{{ vault_connect_password }}"
+
+# LDAP configuration for MDS identity backend
+# mds_ldap_search_base: "dc=fsi,dc=org"
+# mds_ldap_server_url: "ldaps://ldap.fsi.org:636"
+# mds_ldap_user_search_filter: "(uid={0})"
+# mds_ldap_group_search_filter: "(member={0})"
+
+# ---------------------------------------------------------------------------
+# FIPS -- toggle for FIPS 140-2 compliance (see validate-fips.yml)
+# Set true for FIPS 140-2 compliant clusters
+# ---------------------------------------------------------------------------
+fips_enabled: false
+fips_mode: "fips-140-2"
+
+# ---------------------------------------------------------------------------
+# JMX exporter for observability
+# ---------------------------------------------------------------------------
+jmxexporter_enabled: true
+# jmxexporter_port: 7778  # default port for Prometheus scraping
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+# kafka_broker_log4j_root_logger: "INFO, stdout, kafkaAppender"
+# schema_registry_log4j_root_logger: "INFO, stdout"
+# kafka_connect_log4j_root_logger: "INFO, stdout, connectAppender"

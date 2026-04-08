@@ -1,0 +1,13 @@
+# =============================================================================
+# Prod -- Schema Registry Overrides
+# =============================================================================
+# Schema Registry-specific configuration applied to all hosts in the
+# schema_registry group.
+# =============================================================================
+
+schema_registry_custom_properties:
+  # -------------------------------------------------------------------------
+  # Default compatibility level for new subjects
+  # Set per-subject via governance roles (ansible/roles/governance_schema)
+  # -------------------------------------------------------------------------
+  # schema.compatibility.level: BACKWARD  # Set per-subject via governance roles

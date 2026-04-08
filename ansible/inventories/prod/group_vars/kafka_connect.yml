@@ -1,0 +1,19 @@
+# =============================================================================
+# Prod -- Kafka Connect Overrides
+# =============================================================================
+# Connect-specific configuration applied to all hosts in the kafka_connect group.
+# =============================================================================
+
+kafka_connect_custom_properties:
+  # -------------------------------------------------------------------------
+  # Distributed mode internal topic replication
+  # -------------------------------------------------------------------------
+  config.storage.replication.factor: 3
+  offset.storage.replication.factor: 3
+  status.storage.replication.factor: 3
+
+  # -------------------------------------------------------------------------
+  # Plugin path for JDBC and custom connectors
+  # Install connector JARs to /usr/share/confluent-hub-components
+  # -------------------------------------------------------------------------
+  # plugin.path: "/usr/share/java,/usr/share/confluent-hub-components"
