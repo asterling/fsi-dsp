@@ -1,0 +1,43 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Start mock MDS server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/mds
+        python3 -m http.server 18092 &
+        echo $! > /tmp/mock_mds.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
+
+    - name: Wait for mock server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18092
+        timeout: 10
+
+    - name: Apply cp_rbac role with mock MDS API
+      ansible.builtin.include_role:
+        name: cp_rbac
+      vars:
+        cp_mds_url: "http://localhost:18092"
+        cp_mds_username: "admin"
+        cp_mds_password: "mock-password"
+        cp_kafka_cluster_id: "abc123"
+        cp_sr_cluster_id: "schema-registry"
+        cp_rbac_reconcile: false
+        cp_rbac_bindings:
+          - topic_name: corebanking.transactions.v1.account-transaction
+            producers:
+              - User:sa-corebanking-producer
+            consumers:
+              - User:sa-corebanking-consumer
+
+  post_tasks:
+    - name: Stop mock server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_mds.pid) 2>/dev/null || true
+      changed_when: false
+      failed_when: false

@@ -1,0 +1,33 @@
+---
+- name: Verify idempotency
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Apply cp_rbac role a second time (must produce zero changes)
+      ansible.builtin.include_role:
+        name: cp_rbac
+      vars:
+        cp_mds_url: "http://localhost:18092"
+        cp_mds_username: "admin"
+        cp_mds_password: "mock-password"
+        cp_kafka_cluster_id: "abc123"
+        cp_sr_cluster_id: "schema-registry"
+        cp_rbac_reconcile: false
+        cp_rbac_bindings:
+          - topic_name: corebanking.transactions.v1.account-transaction
+            producers:
+              - User:sa-corebanking-producer
+            consumers:
+              - User:sa-corebanking-consumer
+      register: second_run
+
+    - name: Assert no changes on second run (idempotency)
+      ansible.builtin.assert:
+        that:
+          - second_run is not changed
+        fail_msg: >-
+          cp_rbac role is NOT idempotent --
+          second run produced changes
+        success_msg: >-
+          cp_rbac role is idempotent --
+          zero changes on second run

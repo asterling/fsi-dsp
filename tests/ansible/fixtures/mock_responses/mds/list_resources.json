@@ -1,0 +1,5 @@
+[
+  {"resourceType": "Topic", "name": "corebanking.transactions.v1.account-transaction", "patternType": "LITERAL"},
+  {"resourceType": "Topic", "name": "fraud.detection.v1.alert-signal", "patternType": "LITERAL"},
+  {"resourceType": "Group", "name": "sa-corebanking-consumer-", "patternType": "PREFIXED"}
+]
