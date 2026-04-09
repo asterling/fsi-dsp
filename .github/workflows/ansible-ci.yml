@@ -1,0 +1,89 @@
+# =============================================================================
+# FSI Kafka Platform -- Ansible CI
+# =============================================================================
+# Runs on every PR touching ansible/ or tests/ansible/ paths.
+# Three jobs:
+#   1. lint   -- yamllint + ansible-lint (fast feedback)
+#   2. molecule -- molecule test per role via matrix (cp_topic, cp_schema,
+#                  cp_rbac, cp_connect, cp_observability)
+#   3. parity -- governance constant parity between Ansible YAML and Terraform
+# =============================================================================
+
+name: Ansible CI
+
+on:
+  pull_request:
+    paths:
+      - 'ansible/**'
+      - 'tests/ansible/**'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install ansible-core ansible-lint yamllint
+
+      - name: Run yamllint
+        run: yamllint -c ansible/.yamllint ansible/
+
+      - name: Run ansible-lint
+        run: ansible-lint -c ansible/.ansible-lint ansible/
+
+  molecule:
+    name: Molecule - ${{ matrix.role }}
+    runs-on: ubuntu-latest
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        role:
+          - cp_topic
+          - cp_schema
+          - cp_rbac
+          - cp_connect
+          - cp_observability
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install ansible-core molecule pytest pyyaml
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Run molecule test
+        run: molecule test
+        working-directory: ansible/roles/${{ matrix.role }}
+
+  parity:
+    name: Governance Parity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run governance parity tests
+        run: pytest tests/ansible/test_governance_parity.py -v

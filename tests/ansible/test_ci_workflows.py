@@ -36,7 +36,9 @@ class TestAnsibleLintWorkflow:
 
     def test_trigger_paths(self):
         wf = load_workflow()
-        paths = wf['on']['pull_request']['paths']
+        # PyYAML parses the YAML key 'on' as boolean True
+        trigger = wf.get('on') or wf.get(True)
+        paths = trigger['pull_request']['paths']
         assert 'ansible/**' in paths, "Missing 'ansible/**' in trigger paths"
         assert 'tests/ansible/**' in paths, "Missing 'tests/ansible/**' in trigger paths"
 
