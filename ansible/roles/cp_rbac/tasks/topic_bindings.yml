@@ -1,0 +1,70 @@
+---
+# =============================================================================
+# cp_rbac role -- Per-topic producer/consumer RBAC bindings
+# =============================================================================
+# Creates DeveloperWrite bindings for producers and DeveloperRead bindings
+# for consumers on the specified topic. MDS POST to create binding is
+# idempotent -- creating an already-existing binding returns 204.
+#
+# Receives: binding_item (loop variable from main.yml)
+# =============================================================================
+
+# --- Producer bindings: DeveloperWrite on Topic ---
+- name: "Create DeveloperWrite binding for producer on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperWrite/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Topic"
+          name: "{{ binding_item.topic_name }}"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.producers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperWrite -> {{ binding_item.topic_name }}"
+  retries: 3
+  delay: 5
+  register: _topic_producer_result
+  changed_when: _topic_producer_result.status == 204
+  no_log: false
+  ignore_errors: true
+
+# --- Consumer bindings: DeveloperRead on Topic ---
+- name: "Create DeveloperRead binding for consumer on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperRead/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Topic"
+          name: "{{ binding_item.topic_name }}"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.consumers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperRead -> {{ binding_item.topic_name }}"
+  retries: 3
+  delay: 5
+  register: _topic_consumer_result
+  changed_when: _topic_consumer_result.status == 204
+  no_log: false
+  ignore_errors: true

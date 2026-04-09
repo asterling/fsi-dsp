@@ -1,0 +1,38 @@
+---
+# =============================================================================
+# cp_rbac role -- MDS token acquisition
+# =============================================================================
+# Acquires a bearer token from the MDS REST API using Basic authentication.
+# Computes absolute epoch time for token refresh based on actual expires_in
+# from the response (not hardcoded), minus the configurable safety margin.
+# =============================================================================
+
+- name: Acquire MDS bearer token
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/authenticate"
+    method: GET
+    url_username: "{{ cp_mds_username }}"
+    url_password: "{{ cp_mds_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code:
+      - 200
+    headers:
+      Accept: "application/json"
+  register: _mds_auth_response
+  retries: 3
+  delay: 5
+  until: _mds_auth_response.status == 200
+  no_log: true
+
+- name: Store MDS bearer token
+  ansible.builtin.set_fact:
+    _mds_token: "{{ _mds_auth_response.json.auth_token }}"
+  no_log: true
+
+- name: Compute token refresh threshold from expires_in
+  ansible.builtin.set_fact:
+    _mds_token_expires_at: >-
+      {{ ansible_date_time.epoch | int
+         + _mds_auth_response.json.expires_in | int
+         - cp_rbac_token_refresh_margin | int }}

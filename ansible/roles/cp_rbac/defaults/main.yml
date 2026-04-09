@@ -1,0 +1,45 @@
+---
+# =============================================================================
+# cp_rbac role -- Default variable values
+# =============================================================================
+# Provisions and reconciles MDS RBAC bindings for Confluent Platform topics,
+# consumer groups, and Schema Registry subjects. All credential variables
+# default to empty string and are populated at runtime via inventory
+# group_vars, Vault lookup, or --extra-vars.
+# Variable names use snake_case per ansible-lint var_naming_pattern.
+# =============================================================================
+
+# MDS REST API connection
+cp_mds_url: ""
+cp_mds_username: ""
+cp_mds_password: ""
+
+# Cluster identifiers for binding scope
+cp_kafka_cluster_id: ""
+cp_sr_cluster_id: "schema-registry"
+
+# RBAC binding definitions: list of dicts with topic_name, producers, consumers
+# Example:
+#   cp_rbac_bindings:
+#     - topic_name: corebanking.transactions.v1.account-transaction
+#       producers:
+#         - User:sa-corebanking-producer
+#       consumers:
+#         - User:sa-corebanking-consumer
+#         - User:sa-fraud-enrichment
+cp_rbac_bindings: []
+
+# Reconciliation: enable stale binding removal (ARBAC-05)
+cp_rbac_reconcile: true
+
+# Token refresh: seconds before expiry to trigger re-authentication
+# Uses actual expires_in from MDS response, not hardcoded TTL
+cp_rbac_token_refresh_margin: 60
+
+# Output variable for downstream orchestration (Phase 12)
+cp_rbac_results:
+  created: 0
+  removed: 0
+  unchanged: 0
+  failed: 0
+  errors: []

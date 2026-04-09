@@ -1,0 +1,107 @@
+---
+# =============================================================================
+# cp_rbac role -- Main entry point
+# =============================================================================
+# Orchestrates RBAC binding lifecycle: authenticate, create bindings per topic,
+# reconcile stale bindings, and report results.
+# =============================================================================
+
+- name: Validate required connection variables
+  ansible.builtin.assert:
+    that:
+      - cp_mds_url | length > 0
+      - cp_mds_username | length > 0
+      - cp_mds_password | length > 0
+      - cp_kafka_cluster_id | length > 0
+    fail_msg: >-
+      cp_rbac requires cp_mds_url, cp_mds_username,
+      cp_mds_password, and cp_kafka_cluster_id
+    quiet: true
+
+# Step 1: Acquire MDS bearer token
+- name: Acquire MDS authentication token
+  ansible.builtin.include_tasks: authenticate.yml
+
+# Step 2: Check mode -- report planned changes without mutations
+- name: Run check-mode diff report
+  ansible.builtin.include_tasks: check.yml
+  when: ansible_check_mode
+
+# Step 3: Initialize result counters (skip in check mode)
+- name: Initialize result counters
+  ansible.builtin.set_fact:
+    _rbac_created: 0
+    _rbac_removed: 0
+    _rbac_unchanged: 0
+    _rbac_failed: 0
+    _rbac_errors: []
+  when: not ansible_check_mode
+
+# Step 4: Process bindings for each topic
+# Uses ignore_errors to collect all errors and report at end (locked decision)
+- name: Create topic RBAC bindings for each binding item  # noqa: ignore-errors
+  ansible.builtin.include_tasks: topic_bindings.yml
+  loop: "{{ cp_rbac_bindings }}"
+  loop_control:
+    loop_var: binding_item
+    label: "{{ binding_item.topic_name }}"
+  when: not ansible_check_mode
+  ignore_errors: true
+
+- name: Create consumer group RBAC bindings for each binding item  # noqa: ignore-errors
+  ansible.builtin.include_tasks: group_bindings.yml
+  loop: "{{ cp_rbac_bindings }}"
+  loop_control:
+    loop_var: binding_item
+    label: "{{ binding_item.topic_name }}"
+  when: not ansible_check_mode
+  ignore_errors: true
+
+- name: Create SR subject RBAC bindings for each binding item  # noqa: ignore-errors
+  ansible.builtin.include_tasks: sr_bindings.yml
+  loop: "{{ cp_rbac_bindings }}"
+  loop_control:
+    loop_var: binding_item
+    label: "{{ binding_item.topic_name }}"
+  when: not ansible_check_mode
+  ignore_errors: true
+
+# Step 5: Refresh MDS token if near expiry after binding creation
+- name: Refresh MDS token if near expiry
+  ansible.builtin.include_tasks: authenticate.yml
+  when:
+    - not ansible_check_mode
+    - cp_rbac_bindings | length > 0
+    - >-
+      ansible_date_time.epoch | int
+      >= (_mds_token_expires_at | default(0) | int)
+
+# Step 6: Reconcile stale bindings if enabled
+- name: Reconcile stale RBAC bindings
+  ansible.builtin.include_tasks: reconcile.yml
+  when:
+    - not ansible_check_mode
+    - cp_rbac_reconcile | bool
+    - cp_rbac_bindings | length > 0
+
+# Step 7: Set output results
+- name: Set cp_rbac_results output variable
+  ansible.builtin.set_fact:
+    cp_rbac_results:
+      created: "{{ _rbac_created | default(0) | int }}"
+      removed: "{{ _rbac_removed | default(0) | int }}"
+      unchanged: "{{ _rbac_unchanged | default(0) | int }}"
+      failed: "{{ _rbac_failed | default(0) | int }}"
+      errors: "{{ _rbac_errors | default([]) }}"
+  when: not ansible_check_mode
+
+# Step 8: Fail with summary if any errors occurred
+- name: Fail if RBAC binding errors occurred
+  ansible.builtin.fail:
+    msg: >-
+      cp_rbac completed with {{ _rbac_failed | default(0) }}
+      failures.
+      Errors: {{ _rbac_errors | default([]) | join('; ') }}
+  when:
+    - not ansible_check_mode
+    - (_rbac_failed | default(0) | int) > 0

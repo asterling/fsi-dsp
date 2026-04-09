@@ -1,0 +1,119 @@
+---
+# =============================================================================
+# cp_rbac role -- Check-mode binding diff report
+# =============================================================================
+# When running with --check, this file queries MDS for current state and
+# reports what changes WOULD be made. Uses check_mode: false on uri tasks
+# to force execution (uri module skips entirely in check mode by default).
+# =============================================================================
+
+# Force authentication even in check mode (GET is read-only)
+- name: Acquire MDS token for check mode (read-only)
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/authenticate"
+    method: GET
+    url_username: "{{ cp_mds_username }}"
+    url_password: "{{ cp_mds_password }}"
+    force_basic_auth: true
+    return_content: true
+    status_code:
+      - 200
+    headers:
+      Accept: "application/json"
+  register: _mds_check_auth
+  retries: 3
+  delay: 5
+  until: _mds_check_auth.status == 200
+  no_log: true
+  check_mode: false
+
+- name: Store check-mode token
+  ansible.builtin.set_fact:
+    _mds_check_token: "{{ _mds_check_auth.json.auth_token }}"
+  no_log: true
+
+# Query current bindings for each unique principal
+- name: Build unique principal list for check mode
+  ansible.builtin.set_fact:
+    _check_principals: >-
+      {{ (cp_rbac_bindings | map(attribute='producers', default=[]) | flatten
+          + cp_rbac_bindings | map(attribute='consumers', default=[]) | flatten)
+         | unique | list }}
+
+- name: List current role names for each principal (check mode)
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/lookup/principals/{{ item }}/roleNames"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_check_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+    status_code:
+      - 200
+    return_content: true
+  loop: "{{ _check_principals }}"
+  loop_control:
+    label: "{{ item }} roles"
+  register: _check_role_results
+  check_mode: false
+  ignore_errors: true
+
+# Query current resources per principal+role
+- name: List current DeveloperWrite resources (check mode)
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperWrite/resources"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_check_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+    status_code:
+      - 200
+    return_content: true
+  loop: "{{ _check_principals }}"
+  loop_control:
+    label: "{{ item }} DeveloperWrite"
+  register: _check_write_resources
+  check_mode: false
+  ignore_errors: true
+
+- name: List current DeveloperRead resources (check mode)
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperRead/resources"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_check_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+    status_code:
+      - 200
+    return_content: true
+  loop: "{{ _check_principals }}"
+  loop_control:
+    label: "{{ item }} DeveloperRead"
+  register: _check_read_resources
+  check_mode: false
+  ignore_errors: true
+
+# Report planned changes
+- name: Report RBAC binding check-mode diff
+  ansible.builtin.debug:
+    msg: >-
+      CHECK MODE: cp_rbac would process {{ cp_rbac_bindings | length }} binding definition(s)
+      for {{ _check_principals | length }} unique principal(s).
+      Topic bindings, consumer group PREFIXED bindings, and SR subject bindings
+      would be created or verified for each topic.
+      {% if cp_rbac_reconcile | bool %}Reconciliation is ENABLED -- stale bindings would be removed.{% endif %}
+  changed_when: cp_rbac_bindings | length > 0

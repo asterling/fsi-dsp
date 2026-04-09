@@ -1,0 +1,39 @@
+---
+# =============================================================================
+# cp_rbac role -- Consumer group PREFIXED bindings
+# =============================================================================
+# Creates DeveloperRead bindings with PREFIXED pattern for consumer groups.
+# The group name pattern is "{principal_name}-" (WITHOUT asterisk -- MDS
+# handles prefix matching implicitly per research pitfall 6).
+#
+# Receives: binding_item (loop variable from main.yml)
+# =============================================================================
+
+- name: "Create DeveloperRead group binding for consumer on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperRead/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Group"
+          name: "{{ item | regex_replace('^User:', '') }}-"
+          patternType: "PREFIXED"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.consumers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperRead -> Group PREFIXED"
+  retries: 3
+  delay: 5
+  register: _group_binding_result
+  changed_when: _group_binding_result.status == 204
+  no_log: false
+  ignore_errors: true

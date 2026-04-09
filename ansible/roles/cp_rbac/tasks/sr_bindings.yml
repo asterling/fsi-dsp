@@ -1,0 +1,135 @@
+---
+# =============================================================================
+# cp_rbac role -- Schema Registry subject bindings
+# =============================================================================
+# Creates DeveloperWrite (producers) and DeveloperRead (consumers) bindings
+# for Schema Registry subjects. Uses TopicNameStrategy: {topic_name}-value
+# and {topic_name}-key subjects, matching Terraform local value_subject
+# and key_subject from modules/topic/main.tf.
+#
+# Binding scope includes schema-registry-cluster in clusters object.
+#
+# Receives: binding_item (loop variable from main.yml)
+# =============================================================================
+
+# --- Producer SR bindings: DeveloperWrite on value + key subjects ---
+- name: "Create DeveloperWrite SR binding for producer value subject on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperWrite/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+          schema-registry-cluster: "{{ cp_sr_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Subject"
+          name: "{{ binding_item.topic_name }}-value"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.producers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperWrite -> {{ binding_item.topic_name }}-value"
+  retries: 3
+  delay: 5
+  register: _sr_producer_value_result
+  changed_when: _sr_producer_value_result.status == 204
+  no_log: false
+  ignore_errors: true
+
+- name: "Create DeveloperWrite SR binding for producer key subject on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperWrite/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+          schema-registry-cluster: "{{ cp_sr_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Subject"
+          name: "{{ binding_item.topic_name }}-key"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.producers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperWrite -> {{ binding_item.topic_name }}-key"
+  retries: 3
+  delay: 5
+  register: _sr_producer_key_result
+  changed_when: _sr_producer_key_result.status == 204
+  no_log: false
+  ignore_errors: true
+
+# --- Consumer SR bindings: DeveloperRead on value + key subjects ---
+- name: "Create DeveloperRead SR binding for consumer value subject on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperRead/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+          schema-registry-cluster: "{{ cp_sr_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Subject"
+          name: "{{ binding_item.topic_name }}-value"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.consumers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperRead -> {{ binding_item.topic_name }}-value"
+  retries: 3
+  delay: 5
+  register: _sr_consumer_value_result
+  changed_when: _sr_consumer_value_result.status == 204
+  no_log: false
+  ignore_errors: true
+
+- name: "Create DeveloperRead SR binding for consumer key subject on {{ binding_item.topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_mds_url }}/security/1.0/principals/{{ item }}/roles/DeveloperRead/bindings"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+          schema-registry-cluster: "{{ cp_sr_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "Subject"
+          name: "{{ binding_item.topic_name }}-key"
+          patternType: "LITERAL"
+    status_code:
+      - 204
+      - 200
+  loop: "{{ binding_item.consumers | default([]) }}"
+  loop_control:
+    label: "{{ item }} -> DeveloperRead -> {{ binding_item.topic_name }}-key"
+  retries: 3
+  delay: 5
+  register: _sr_consumer_key_result
+  changed_when: _sr_consumer_key_result.status == 204
+  no_log: false
+  ignore_errors: true

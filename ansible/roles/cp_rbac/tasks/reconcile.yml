@@ -1,0 +1,208 @@
+---
+# =============================================================================
+# cp_rbac role -- LIST/DIFF/ADD/REMOVE stale binding cleanup
+# =============================================================================
+# Reconciles RBAC bindings by listing current bindings from MDS, comparing
+# against the desired state from cp_rbac_bindings, and deleting any stale
+# bindings. Only processes Topic, Group, and Subject resourceTypes -- does
+# NOT touch Cluster-level bindings.
+# =============================================================================
+
+# Step 1: Build desired state -- collect all unique principals
+- name: Build list of unique principals from binding definitions
+  ansible.builtin.set_fact:
+    _rbac_desired_principals: >-
+      {{
+        (cp_rbac_bindings
+         | map(attribute='producers', default=[])
+         | flatten
+         + cp_rbac_bindings
+         | map(attribute='consumers', default=[])
+         | flatten)
+        | unique | list
+      }}
+
+# Step 2: Build desired binding tuples for comparison
+# Format: "principal:role:resourceType:name:patternType"
+- name: Initialize desired binding set
+  ansible.builtin.set_fact:
+    _rbac_desired_bindings: []
+
+- name: Build desired binding set per topic
+  ansible.builtin.set_fact:
+    _rbac_desired_bindings: >-
+      {{ _rbac_desired_bindings + _topic_binds
+         + _group_binds + _sr_binds }}
+  loop: "{{ cp_rbac_bindings }}"
+  loop_control:
+    loop_var: _binding_def
+    label: "{{ _binding_def.topic_name }}"
+  vars:
+    _tn: "{{ _binding_def.topic_name }}"
+    _topic_binds: >-
+      {{
+        (_binding_def.producers | default([])
+         | map('regex_replace', '(.*)',
+               '\1:DeveloperWrite:Topic:' + _tn
+               + ':LITERAL') | list)
+        + (_binding_def.consumers | default([])
+           | map('regex_replace', '(.*)',
+                 '\1:DeveloperRead:Topic:' + _tn
+                 + ':LITERAL') | list)
+      }}
+    _group_binds: >-
+      {{
+        _binding_def.consumers | default([])
+        | map('regex_replace', 'User:(.*)',
+              'User:\1:DeveloperRead:Group:\1-'
+              + ':PREFIXED') | list
+      }}
+    _sr_binds: >-
+      {{
+        (_binding_def.producers | default([])
+         | map('regex_replace', '(.*)',
+               '\1:DeveloperWrite:Subject:'
+               + _tn + '-value:LITERAL') | list)
+        + (_binding_def.producers | default([])
+           | map('regex_replace', '(.*)',
+                 '\1:DeveloperWrite:Subject:'
+                 + _tn + '-key:LITERAL') | list)
+        + (_binding_def.consumers | default([])
+           | map('regex_replace', '(.*)',
+                 '\1:DeveloperRead:Subject:'
+                 + _tn + '-value:LITERAL') | list)
+        + (_binding_def.consumers | default([])
+           | map('regex_replace', '(.*)',
+                 '\1:DeveloperRead:Subject:'
+                 + _tn + '-key:LITERAL') | list)
+      }}
+
+# Step 3: For each unique principal, list current DeveloperWrite resources
+- name: List current DeveloperWrite resources for each principal
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_mds_url }}/security/1.0/principals/{{
+        item }}/roles/DeveloperWrite/resources
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+    status_code:
+      - 200
+    return_content: true
+  loop: "{{ _rbac_desired_principals }}"
+  loop_control:
+    label: "{{ item }} DeveloperWrite resources"
+  register: _rbac_current_write_resources
+  failed_when: false
+
+# Step 4: List current DeveloperRead resources for each principal
+- name: List current DeveloperRead resources for each principal
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_mds_url }}/security/1.0/principals/{{
+        item }}/roles/DeveloperRead/resources
+    method: POST
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+    status_code:
+      - 200
+    return_content: true
+  loop: "{{ _rbac_desired_principals }}"
+  loop_control:
+    label: "{{ item }} DeveloperRead resources"
+  register: _rbac_current_read_resources
+  failed_when: false
+
+# Step 5: Remove stale DeveloperWrite bindings (current but not desired)
+- name: Remove stale DeveloperWrite bindings
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_mds_url }}/security/1.0/principals/{{
+        item.0.item }}/roles/DeveloperWrite/bindings
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "{{ item.1.resourceType }}"
+          name: "{{ item.1.name }}"
+          patternType: "{{ item.1.patternType }}"
+    status_code:
+      - 204
+      - 200
+  loop: >-
+    {{ _rbac_current_write_resources.results
+       | default([])
+       | subelements('json', skip_missing=true) }}
+  loop_control:
+    label: >-
+      DELETE stale DeveloperWrite
+      {{ item.1.resourceType }}:{{ item.1.name }}
+  when:
+    - item.1.resourceType in ['Topic', 'Group', 'Subject']
+    - >-
+      (item.0.item + ':DeveloperWrite:'
+       + item.1.resourceType + ':'
+       + item.1.name + ':'
+       + item.1.patternType)
+      not in (_rbac_desired_bindings | default([]))
+  failed_when: false
+  register: _rbac_stale_write_results
+
+# Step 6: Remove stale DeveloperRead bindings (current but not desired)
+- name: Remove stale DeveloperRead bindings
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_mds_url }}/security/1.0/principals/{{
+        item.0.item }}/roles/DeveloperRead/bindings
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ _mds_token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      scope:
+        clusters:
+          kafka-cluster: "{{ cp_kafka_cluster_id }}"
+      resourcePatterns:
+        - resourceType: "{{ item.1.resourceType }}"
+          name: "{{ item.1.name }}"
+          patternType: "{{ item.1.patternType }}"
+    status_code:
+      - 204
+      - 200
+  loop: >-
+    {{ _rbac_current_read_resources.results
+       | default([])
+       | subelements('json', skip_missing=true) }}
+  loop_control:
+    label: >-
+      DELETE stale DeveloperRead
+      {{ item.1.resourceType }}:{{ item.1.name }}
+  when:
+    - item.1.resourceType in ['Topic', 'Group', 'Subject']
+    - >-
+      (item.0.item + ':DeveloperRead:'
+       + item.1.resourceType + ':'
+       + item.1.name + ':'
+       + item.1.patternType)
+      not in (_rbac_desired_bindings | default([]))
+  failed_when: false
+  register: _rbac_stale_read_results

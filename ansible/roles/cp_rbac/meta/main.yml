@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: cp_rbac
+  author: fsi-c4e
+  description: Provision and reconcile MDS RBAC bindings for Confluent Platform topics, groups, and SR subjects
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+dependencies: []
