@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# cp_topic | Guarded topic deletion
+# =============================================================================
+# Requires state: absent AND confirm_deletion: true in the CPTopic spec.
+# Blocks deletion of critical/compliance tier topics unless
+# force_delete_override: true is explicitly set.
+# =============================================================================
+
+# --- Safety gates ------------------------------------------------------------
+- name: "Assert confirm_deletion is set for {{ _topic_name }}"
+  ansible.builtin.assert:
+    that:
+      - topic_item.spec.confirm_deletion | default(false) | bool
+    fail_msg: "Topic deletion requires confirm_deletion: true in CPTopic spec for '{{ _topic_name }}'"
+    quiet: true
+
+- name: "Block critical or compliance tier deletion for {{ _topic_name }}"
+  ansible.builtin.assert:
+    that:
+      - >-
+        _topic_sla_tier not in ['critical', 'compliance']
+        or (topic_item.spec.force_delete_override | default(false) | bool)
+    fail_msg: >-
+      Cannot delete critical/compliance tier topic '{{ _topic_name }}'
+      without force_delete_override: true
+    quiet: true
+
+# --- Build auth headers (reuse pattern from create.yml) ----------------------
+- name: "Build auth headers for delete of {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _cp_auth_headers: >-
+      {{ {'Authorization': 'Bearer ' + cp_admin_rest_token, 'Content-Type': 'application/json'}
+         if cp_admin_rest_token | length > 0
+         else {'Content-Type': 'application/json'} }}
+    _cp_use_basic_auth: "{{ (cp_admin_rest_token | length == 0) and (cp_admin_rest_user | length > 0) }}"
+  no_log: true
+
+# --- DELETE topic (idempotent: 404 = already gone) ---------------------------
+- name: "Delete topic via Admin REST v3 -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}"
+    method: DELETE
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    status_code:
+      - 200
+      - 204
+      - 404
+    validate_certs: true
+  register: _topic_delete
+  changed_when: _topic_delete.status != 404
+
+- name: Increment deleted counter
+  ansible.builtin.set_fact:
+    _cp_deleted: "{{ _cp_deleted | int + 1 }}"
+  when: _topic_delete.status != 404

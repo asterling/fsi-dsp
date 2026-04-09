@@ -1,0 +1,113 @@
+---
+# =============================================================================
+# cp_topic role -- Entry point
+# =============================================================================
+# Loads governance constants, discovers topics from directory or inline list,
+# validates each topic, and routes to create/update/delete or check mode.
+# Errors are collected per-topic and summarised at the end (locked decision).
+# =============================================================================
+
+# --- Load governance constants -----------------------------------------------
+- name: Load SLA tier governance constants
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/sla_tiers.yml"
+
+- name: Load topic naming governance rules
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/naming_rules.yml"
+
+# --- Discover topics ---------------------------------------------------------
+- name: Discover CPTopic YAML files from directory
+  ansible.builtin.find:
+    paths: "{{ cp_topics_dir }}"
+    patterns: "*.yml"
+    file_type: file
+  register: _cp_topic_files
+  when: cp_topics_dir | length > 0
+
+- name: Load CPTopic YAML files
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop: "{{ _cp_topic_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: _cp_topic_slurped
+  when: cp_topics_dir | length > 0
+
+- name: Parse CPTopic YAML content
+  ansible.builtin.set_fact:
+    _cp_topics_from_dir: >-
+      {{ _cp_topics_from_dir | default([]) +
+         [item.content | b64decode | from_yaml] }}
+  loop: "{{ _cp_topic_slurped.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.path | default('inline') | basename }}"
+  when:
+    - cp_topics_dir | length > 0
+    - (item.content | b64decode | from_yaml).kind | default('') == 'CPTopic'
+
+- name: Build combined topic list
+  ansible.builtin.set_fact:
+    _cp_all_topics: "{{ (_cp_topics_from_dir | default([])) + (cp_topics | default([])) }}"
+
+# --- Initialise result counters ----------------------------------------------
+- name: Initialise result counters
+  ansible.builtin.set_fact:
+    _cp_created: 0
+    _cp_updated: 0
+    _cp_unchanged: 0
+    _cp_deleted: 0
+    _cp_failed: 0
+    _cp_errors: []
+
+# --- Process each topic ------------------------------------------------------
+- name: "Process topic {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: "{{ (ansible_check_mode | bool) | ternary('check.yml', 'process_one.yml') }}"
+  loop: "{{ _cp_all_topics }}"
+  loop_control:
+    loop_var: topic_item
+    label: "{{ topic_item.metadata.name }}"
+  ignore_errors: true
+  register: _cp_topic_loop
+
+# --- Build results summary ---------------------------------------------------
+- name: Compute failure count from loop
+  ansible.builtin.set_fact:
+    _cp_failed: >-
+      {{ _cp_topic_loop.results | default([])
+         | selectattr('failed', 'defined')
+         | selectattr('failed', 'equalto', true)
+         | list | length }}
+    _cp_errors: >-
+      {{ _cp_topic_loop.results | default([])
+         | selectattr('failed', 'defined')
+         | selectattr('failed', 'equalto', true)
+         | map(attribute='msg', default='unknown error')
+         | list }}
+
+- name: Set cp_topic_results output variable
+  ansible.builtin.set_fact:
+    cp_topic_results:
+      created: "{{ _cp_created | int }}"
+      updated: "{{ _cp_updated | int }}"
+      unchanged: "{{ _cp_unchanged | int }}"
+      deleted: "{{ _cp_deleted | int }}"
+      failed: "{{ _cp_failed | int }}"
+      errors: "{{ _cp_errors }}"
+
+- name: Report results summary
+  ansible.builtin.debug:
+    msg: >-
+      cp_topic results: created={{ cp_topic_results.created }},
+      updated={{ cp_topic_results.updated }},
+      unchanged={{ cp_topic_results.unchanged }},
+      deleted={{ cp_topic_results.deleted }},
+      failed={{ cp_topic_results.failed }}
+
+- name: Fail if any topic operations failed
+  ansible.builtin.fail:
+    msg: >-
+      {{ cp_topic_results.failed }} topic operation(s) failed:
+      {{ cp_topic_results.errors | join('; ') }}
+  when: cp_topic_results.failed | int > 0

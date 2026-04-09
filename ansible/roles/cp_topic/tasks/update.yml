@@ -1,0 +1,76 @@
+---
+# =============================================================================
+# cp_topic | Config convergence via configs:alter
+# =============================================================================
+# Compares current topic configs against desired state and updates only the
+# configs that differ. Uses the Admin REST v3 configs:alter endpoint with SET
+# operation. Config values MUST be cast to string (research pitfall 2).
+# =============================================================================
+
+# --- Build list of configs that need updating --------------------------------
+- name: "Extract current config values for {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _current_retention_ms: >-
+      {{ (_topic_current_configs.json.data
+          | selectattr('name', 'equalto', 'retention.ms')
+          | map(attribute='value') | first | default('')) }}
+    _current_min_isr: >-
+      {{ (_topic_current_configs.json.data
+          | selectattr('name', 'equalto', 'min.insync.replicas')
+          | map(attribute='value') | first | default('')) }}
+    _current_cleanup_policy: >-
+      {{ (_topic_current_configs.json.data
+          | selectattr('name', 'equalto', 'cleanup.policy')
+          | map(attribute='value') | first | default('')) }}
+
+- name: "Build list of changed configs for {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _configs_to_alter: >-
+      {{
+        ([] +
+          ([{'name': 'retention.ms', 'value': _topic_retention_ms | string, 'operation': 'SET'}]
+           if (_current_retention_ms | trim) != (_topic_retention_ms | string) else []) +
+          ([{'name': 'min.insync.replicas', 'value': _topic_min_isr | string, 'operation': 'SET'}]
+           if (_current_min_isr | trim) != (_topic_min_isr | string) else []) +
+          ([{'name': 'cleanup.policy', 'value': _topic_cleanup_policy | default('delete'), 'operation': 'SET'}]
+           if (_current_cleanup_policy | trim) != (_topic_cleanup_policy | default('delete')) else []))
+      }}
+
+# --- Apply config changes if any differ --------------------------------------
+- name: "Update configs via configs:alter -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}/configs:alter"
+    method: POST
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    body_format: json
+    body:
+      data: "{{ _configs_to_alter }}"
+    status_code:
+      - 200
+      - 204
+    validate_certs: true
+  register: _topic_update
+  when: _configs_to_alter | length > 0
+  changed_when: _topic_update.status in [200, 204]
+
+- name: Increment updated counter
+  ansible.builtin.set_fact:
+    _cp_updated: "{{ _cp_updated | int + 1 }}"
+  when:
+    - _configs_to_alter | length > 0
+    - _topic_update is defined
+    - _topic_update is changed
+
+# --- No changes needed -------------------------------------------------------
+- name: "Report no config changes needed for {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: "Topic '{{ _topic_name }}' -- no config changes required"
+  when: _configs_to_alter | length == 0
+
+- name: Increment unchanged counter
+  ansible.builtin.set_fact:
+    _cp_unchanged: "{{ _cp_unchanged | int + 1 }}"
+  when: _configs_to_alter | length == 0

@@ -1,0 +1,97 @@
+---
+# =============================================================================
+# cp_topic | GET-before-POST idempotent topic creation
+# =============================================================================
+# Checks if topic exists (GET), creates if absent (POST), delegates to
+# update.yml for config convergence if already present.
+# Config values are cast to string per Admin REST v3 requirement (pitfall 2).
+# =============================================================================
+
+# --- Build auth headers ------------------------------------------------------
+- name: "Build auth headers for {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _cp_auth_headers: >-
+      {{ {'Authorization': 'Bearer ' + cp_admin_rest_token, 'Content-Type': 'application/json'}
+         if cp_admin_rest_token | length > 0
+         else {'Content-Type': 'application/json'} }}
+    _cp_use_basic_auth: "{{ (cp_admin_rest_token | length == 0) and (cp_admin_rest_user | length > 0) }}"
+  no_log: true
+
+# --- GET current topic state -------------------------------------------------
+- name: "Check if topic exists -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}"
+    method: GET
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    status_code:
+      - 200
+      - 404
+    return_content: true
+    validate_certs: true
+  register: _topic_check
+  retries: 3
+  delay: 5
+  until: _topic_check.status in [200, 404]
+  no_log: false
+
+# --- CREATE topic if absent ---------------------------------------------------
+- name: "Create topic via Admin REST v3 -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics"
+    method: POST
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    body_format: json
+    body:
+      topic_name: "{{ _topic_name }}"
+      partitions_count: "{{ _topic_partitions | int }}"
+      replication_factor: "{{ cp_replication_factor | int }}"
+      configs:
+        - name: "retention.ms"
+          value: "{{ _topic_retention_ms | string }}"
+        - name: "min.insync.replicas"
+          value: "{{ _topic_min_isr | string }}"
+        - name: "cleanup.policy"
+          value: "{{ _topic_cleanup_policy | default('delete') }}"
+    status_code:
+      - 200
+      - 201
+    return_content: true
+    validate_certs: true
+  register: _topic_create
+  when: _topic_check.status == 404
+  changed_when: _topic_create.status in [200, 201]
+
+- name: Increment created counter
+  ansible.builtin.set_fact:
+    _cp_created: "{{ _cp_created | int + 1 }}"
+  when:
+    - _topic_check.status == 404
+    - _topic_create is defined
+    - _topic_create is changed
+
+# --- TOPIC EXISTS: GET current configs and converge --------------------------
+- name: "Get current configs for existing topic -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}/configs"
+    method: GET
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    status_code:
+      - 200
+    return_content: true
+    validate_certs: true
+  register: _topic_current_configs
+  when: _topic_check.status == 200
+
+- name: "Converge config for existing topic -- {{ _topic_name }}"
+  ansible.builtin.include_tasks:
+    file: update.yml
+  when: _topic_check.status == 200

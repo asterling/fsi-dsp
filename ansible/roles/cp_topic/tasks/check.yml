@@ -1,0 +1,134 @@
+---
+# =============================================================================
+# cp_topic | Check-mode state diff (GET-only, no mutations)
+# =============================================================================
+# Performs read-only GET operations to determine what WOULD change if the
+# playbook were run without --check. Reports planned actions via debug.
+# Uses check_mode: false on uri tasks to force execution in check mode
+# (GET is read-only and safe).
+# =============================================================================
+
+# --- Validate first (reuse validate.yml) -------------------------------------
+- name: "Validate topic in check mode -- {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: validate.yml
+
+# --- Build auth headers ------------------------------------------------------
+- name: "Build auth headers for check of {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _cp_auth_headers: >-
+      {{ {'Authorization': 'Bearer ' + cp_admin_rest_token, 'Content-Type': 'application/json'}
+         if cp_admin_rest_token | length > 0
+         else {'Content-Type': 'application/json'} }}
+    _cp_use_basic_auth: "{{ (cp_admin_rest_token | length == 0) and (cp_admin_rest_user | length > 0) }}"
+  check_mode: false
+  no_log: true
+
+# --- GET current topic state -------------------------------------------------
+- name: "Check if topic exists in check mode -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}"
+    method: GET
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    status_code:
+      - 200
+      - 404
+    return_content: true
+    validate_certs: true
+  check_mode: false
+  register: _topic_check
+
+# --- GET current configs if topic exists -------------------------------------
+- name: "Get current configs in check mode -- {{ _topic_name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_admin_rest_url }}/kafka/v3/clusters/{{ cp_cluster_id }}/topics/{{ _topic_name }}/configs"
+    method: GET
+    headers: "{{ _cp_auth_headers }}"
+    url_username: "{{ cp_admin_rest_user if _cp_use_basic_auth | bool else omit }}"
+    url_password: "{{ cp_admin_rest_password if _cp_use_basic_auth | bool else omit }}"
+    force_basic_auth: "{{ _cp_use_basic_auth | bool }}"
+    status_code:
+      - 200
+    return_content: true
+    validate_certs: true
+  check_mode: false
+  register: _topic_current_configs
+  when: _topic_check.status == 200
+
+# --- Compute config diff for existing topics ---------------------------------
+- name: "Compute config diff for {{ _topic_name }}"
+  ansible.builtin.set_fact:
+    _check_configs_differ: >-
+      {{
+        (_topic_check.status == 200) and (
+          (_topic_current_configs.json.data
+            | selectattr('name', 'equalto', 'retention.ms')
+            | map(attribute='value') | first | default('') | trim)
+          != (_topic_retention_ms | string)
+          or
+          (_topic_current_configs.json.data
+            | selectattr('name', 'equalto', 'min.insync.replicas')
+            | map(attribute='value') | first | default('') | trim)
+          != (_topic_min_isr | string)
+          or
+          (_topic_current_configs.json.data
+            | selectattr('name', 'equalto', 'cleanup.policy')
+            | map(attribute='value') | first | default('') | trim)
+          != (_topic_cleanup_policy | default('delete'))
+        )
+      }}
+  when: _topic_check.status == 200
+
+# --- Report planned actions --------------------------------------------------
+- name: "Report WOULD CREATE -- {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      WOULD CREATE topic '{{ _topic_name }}' with
+      partitions={{ _topic_partitions }},
+      retention.ms={{ _topic_retention_ms }},
+      min.insync.replicas={{ _topic_min_isr }},
+      replication_factor={{ cp_replication_factor }}
+  when:
+    - _topic_state == 'present'
+    - _topic_check.status == 404
+  changed_when: true
+
+- name: "Report WOULD UPDATE -- {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      WOULD UPDATE topic '{{ _topic_name }}' -- config convergence required
+  when:
+    - _topic_state == 'present'
+    - _topic_check.status == 200
+    - _check_configs_differ | default(false) | bool
+  changed_when: true
+
+- name: "Report NO CHANGE -- {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: "Topic '{{ _topic_name }}' -- already converged, no changes needed"
+  when:
+    - _topic_state == 'present'
+    - _topic_check.status == 200
+    - not (_check_configs_differ | default(false) | bool)
+  changed_when: false
+
+- name: "Report WOULD DELETE -- {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: >-
+      WOULD DELETE topic '{{ _topic_name }}'
+      (confirm_deletion={{ topic_item.spec.confirm_deletion | default(false) }})
+  when:
+    - _topic_state == 'absent'
+    - _topic_check.status == 200
+  changed_when: true
+
+- name: "Report already absent -- {{ _topic_name }}"
+  ansible.builtin.debug:
+    msg: "Topic '{{ _topic_name }}' -- already absent, no delete needed"
+  when:
+    - _topic_state == 'absent'
+    - _topic_check.status == 404
+  changed_when: false

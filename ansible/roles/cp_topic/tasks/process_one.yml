@@ -1,0 +1,22 @@
+---
+# =============================================================================
+# cp_topic | Process a single topic (normal mode dispatcher)
+# =============================================================================
+# Validates the topic, then routes to create, update, or delete based on
+# the desired state. This file exists to separate per-topic logic from the
+# main loop, keeping main.yml clean.
+# =============================================================================
+
+- name: "Validate topic {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: validate.yml
+
+- name: "Route to create or update for {{ _topic_name }}"
+  ansible.builtin.include_tasks:
+    file: create.yml
+  when: _topic_state == 'present'
+
+- name: "Route to delete for {{ _topic_name }}"
+  ansible.builtin.include_tasks:
+    file: delete.yml
+  when: _topic_state == 'absent'

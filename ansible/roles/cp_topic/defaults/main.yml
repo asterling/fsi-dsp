@@ -1,0 +1,33 @@
+---
+# =============================================================================
+# cp_topic role -- Default variable values
+# =============================================================================
+# All credential variables default to empty string and are populated at
+# runtime via inventory group_vars, Vault lookup, or --extra-vars.
+# Variable names use snake_case per ansible-lint var_naming_pattern.
+# =============================================================================
+
+# Admin REST v3 connection
+cp_admin_rest_url: ""
+cp_cluster_id: ""
+
+# Authentication: bearer token (MDS) or basic auth -- choose one
+cp_admin_rest_token: ""
+cp_admin_rest_user: ""
+cp_admin_rest_password: ""
+
+# Topic defaults
+cp_replication_factor: 3
+
+# Topic input: directory path (glob *.yml) or inline list
+cp_topics_dir: ""
+cp_topics: []
+
+# Output variable for downstream orchestration (Phase 12)
+cp_topic_results:
+  created: 0
+  updated: 0
+  unchanged: 0
+  deleted: 0
+  failed: 0
+  errors: []
