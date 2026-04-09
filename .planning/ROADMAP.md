@@ -243,12 +243,12 @@ Plans:
   3. After connector deployment, all connectors and tasks are verified in RUNNING state -- failures trigger retry with backoff and report which connectors failed
   4. Prometheus scrape config is auto-generated from inventory host groups and updates when nodes are added without manual config editing
   5. GitHub Actions CI runs ansible-lint, yamllint, and molecule tests on every PR touching `ansible/` -- failing lint or tests blocks merge
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 12-01: Orchestration playbooks (site.yml, deploy-governance.yml) with tag-based execution and cp_connect role
-- [ ] 12-02: cp_observability role -- JMX exporter configs, Prometheus scrape generation, Grafana dashboard import, SLA-tier alerts
-- [ ] 12-03: GitHub Actions workflows (ansible-lint, molecule, governance parity validation)
+- [ ] 12-01-PLAN.md -- Orchestration playbooks (site.yml, deploy-governance.yml) with tag-based execution and cp_connect role
+- [ ] 12-02-PLAN.md -- cp_observability role: JMX exporter configs, Prometheus scrape generation, Grafana dashboard import, SLA-tier alerts
+- [ ] 12-03-PLAN.md -- GitHub Actions CI workflow (ansible-lint, yamllint, molecule matrix, governance parity validation)
 
 ### Phase 13: DR Automation Playbooks (MM2)
 **Goal**: Operators can execute MM2 failover and failback operations via Ansible playbooks with dry-run mode, state validation, and audit-ready output -- replacing manual shell script execution
