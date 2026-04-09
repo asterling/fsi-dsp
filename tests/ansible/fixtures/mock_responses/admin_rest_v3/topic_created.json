@@ -1,0 +1,7 @@
+{
+  "kind": "KafkaTopic",
+  "cluster_id": "abc123",
+  "topic_name": "corebanking.transactions.v1.account-transaction",
+  "partitions_count": 12,
+  "replication_factor": 3
+}

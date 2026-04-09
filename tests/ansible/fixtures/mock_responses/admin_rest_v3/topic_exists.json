@@ -1,0 +1,17 @@
+{
+  "kind": "KafkaTopic",
+  "metadata": {
+    "self": "https://broker:8090/kafka/v3/clusters/abc123/topics/corebanking.transactions.v1.account-transaction"
+  },
+  "cluster_id": "abc123",
+  "topic_name": "corebanking.transactions.v1.account-transaction",
+  "is_internal": false,
+  "replication_factor": 3,
+  "partitions_count": 12,
+  "partitions": {
+    "related": "https://broker:8090/kafka/v3/clusters/abc123/topics/corebanking.transactions.v1.account-transaction/partitions"
+  },
+  "configs": {
+    "related": "https://broker:8090/kafka/v3/clusters/abc123/topics/corebanking.transactions.v1.account-transaction/configs"
+  }
+}

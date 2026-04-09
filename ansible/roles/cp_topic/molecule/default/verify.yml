@@ -1,0 +1,39 @@
+---
+- name: Verify idempotency
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Apply cp_topic role a second time (must produce zero changes)
+      ansible.builtin.include_role:
+        name: cp_topic
+      vars:
+        cp_admin_rest_url: "http://localhost:18090"
+        cp_cluster_id: "abc123"
+        cp_admin_rest_token: "mock-token"
+        cp_topics:
+          - apiVersion: platform.confluent.io/v1beta1
+            kind: CPTopic
+            metadata:
+              name: corebanking.transactions.v1.account-transaction
+              labels:
+                fsi.domain: corebanking
+                fsi.application: transactions
+                fsi.version: v1
+                fsi.entity: account-transaction
+                fsi.sla-tier: critical
+                fsi.owner: core-banking-team@company.com
+                fsi.data-classification: internal
+            spec:
+              partitionCount: 12
+              configs:
+                retention.ms: 604800000
+                min.insync.replicas: 2
+                cleanup.policy: delete
+      register: second_run
+
+    - name: Assert no changes on second run (idempotency)
+      ansible.builtin.assert:
+        that:
+          - second_run is not changed
+        fail_msg: "cp_topic role is NOT idempotent -- second run produced changes"
+        success_msg: "cp_topic role is idempotent -- zero changes on second run"

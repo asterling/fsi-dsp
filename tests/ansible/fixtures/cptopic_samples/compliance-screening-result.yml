@@ -1,0 +1,19 @@
+# CPTopic definition for compliance screening match result topic
+apiVersion: platform.confluent.io/v1beta1
+kind: CPTopic
+metadata:
+  name: compliance.screening.v1.match-result
+  labels:
+    fsi.domain: compliance
+    fsi.application: screening
+    fsi.version: v1
+    fsi.entity: match-result
+    fsi.sla-tier: standard
+    fsi.owner: compliance-team@company.com
+    fsi.data-classification: internal
+spec:
+  partitionCount: 6
+  configs:
+    retention.ms: 259200000
+    min.insync.replicas: 2
+    cleanup.policy: delete

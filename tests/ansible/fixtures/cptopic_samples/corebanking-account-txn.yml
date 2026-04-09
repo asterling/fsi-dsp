@@ -1,0 +1,21 @@
+# CPTopic definition for core banking account transaction topic
+# Governance labels mirror the same fields used by CFK KafkaTopic CRDs
+# and Terraform module variables for cross-scenario parity.
+apiVersion: platform.confluent.io/v1beta1
+kind: CPTopic
+metadata:
+  name: corebanking.transactions.v1.account-transaction
+  labels:
+    fsi.domain: corebanking
+    fsi.application: transactions
+    fsi.version: v1
+    fsi.entity: account-transaction
+    fsi.sla-tier: critical
+    fsi.owner: core-banking-team@company.com
+    fsi.data-classification: internal
+spec:
+  partitionCount: 12
+  configs:
+    retention.ms: 604800000
+    min.insync.replicas: 2
+    cleanup.policy: delete

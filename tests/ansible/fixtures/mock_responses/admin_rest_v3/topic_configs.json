@@ -1,0 +1,32 @@
+{
+  "kind": "KafkaTopicConfigList",
+  "data": [
+    {
+      "kind": "KafkaTopicConfig",
+      "cluster_id": "abc123",
+      "name": "retention.ms",
+      "value": "604800000",
+      "is_default": false,
+      "is_read_only": false,
+      "is_sensitive": false
+    },
+    {
+      "kind": "KafkaTopicConfig",
+      "cluster_id": "abc123",
+      "name": "min.insync.replicas",
+      "value": "2",
+      "is_default": false,
+      "is_read_only": false,
+      "is_sensitive": false
+    },
+    {
+      "kind": "KafkaTopicConfig",
+      "cluster_id": "abc123",
+      "name": "cleanup.policy",
+      "value": "delete",
+      "is_default": false,
+      "is_read_only": false,
+      "is_sensitive": false
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Start mock Admin REST v3 server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/admin_rest_v3
+        python3 -m http.server 18090 &
+        echo $! > /tmp/mock_admin_rest.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+
+    - name: Wait for mock server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18090
+        timeout: 10
+
+    - name: Apply cp_topic role with mock API
+      ansible.builtin.include_role:
+        name: cp_topic
+      vars:
+        cp_admin_rest_url: "http://localhost:18090"
+        cp_cluster_id: "abc123"
+        cp_admin_rest_token: "mock-token"
+        cp_topics:
+          - apiVersion: platform.confluent.io/v1beta1
+            kind: CPTopic
+            metadata:
+              name: corebanking.transactions.v1.account-transaction
+              labels:
+                fsi.domain: corebanking
+                fsi.application: transactions
+                fsi.version: v1
+                fsi.entity: account-transaction
+                fsi.sla-tier: critical
+                fsi.owner: core-banking-team@company.com
+                fsi.data-classification: internal
+            spec:
+              partitionCount: 12
+              configs:
+                retention.ms: 604800000
+                min.insync.replicas: 2
+                cleanup.policy: delete
+
+  post_tasks:
+    - name: Stop mock server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_admin_rest.pid) 2>/dev/null || true
+      ignore_errors: true  # noqa: ignore-errors
