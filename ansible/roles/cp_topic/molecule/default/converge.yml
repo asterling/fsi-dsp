@@ -10,6 +10,7 @@
         echo $! > /tmp/mock_admin_rest.pid
       args:
         chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
 
     - name: Wait for mock server to be ready
       ansible.builtin.wait_for:
@@ -48,4 +49,5 @@
     - name: Stop mock server
       ansible.builtin.shell: |
         kill $(cat /tmp/mock_admin_rest.pid) 2>/dev/null || true
+      changed_when: false
       ignore_errors: true  # noqa: ignore-errors
