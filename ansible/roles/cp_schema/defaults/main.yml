@@ -1,0 +1,29 @@
+# =============================================================================
+# cp_schema role -- Default variables
+# =============================================================================
+# Schema Registry connection and governance settings for Avro schema
+# registration on Confluent Platform. Mirrors Terraform metadata pattern
+# from modules/topic/main.tf.
+# =============================================================================
+
+# Schema Registry connection
+cp_sr_url: ""
+cp_sr_user: ""
+cp_sr_password: ""
+cp_sr_token: ""
+
+# Schema input sources (one of these must be set)
+cp_schemas_dir: ""
+cp_schemas: []
+
+# Governance settings
+cp_schema_metadata_enabled: true
+cp_schema_validate_structural: true
+cp_schema_validate_script: "{{ playbook_dir }}/../ci/scripts/validate-schemas.py"
+
+# Output variable for downstream orchestration (Phase 12)
+cp_schema_results:
+  registered: 0
+  unchanged: 0
+  failed: 0
+  errors: []

@@ -1,0 +1,92 @@
+# =============================================================================
+# cp_schema role -- Compatibility pre-check per schema
+# =============================================================================
+# Sets subject compatibility mode from SLA tier, then checks if the proposed
+# schema is compatible with the latest registered version. New subjects
+# (404) skip the check -- first registration is always compatible.
+# =============================================================================
+---
+# Step 1: Build auth headers
+- name: "Set auth headers for {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _sr_headers:
+      Content-Type: "application/vnd.schemaregistry.v1+json"
+      Authorization: "Bearer {{ cp_sr_token }}"
+  when: cp_sr_token | length > 0
+  no_log: true
+
+- name: "Set basic auth for {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _sr_use_basic_auth: "{{ cp_sr_token | length == 0 }}"
+    _sr_headers:
+      Content-Type: "application/vnd.schemaregistry.v1+json"
+  when: cp_sr_token | length == 0
+  no_log: true
+
+# Step 2: Set subject compatibility mode from SLA tier
+- name: "Set compatibility mode for {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/config/{{ schema_item.subject }}"
+    method: PUT
+    headers: "{{ _sr_headers }}"
+    body_format: json
+    body:
+      compatibility: "{{ schema_item.sla_tier | fsi_sla_lookup('compatibility') }}"
+    url_username: "{{ cp_sr_user if _sr_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_use_basic_auth | default(false) }}"
+    status_code: [200]
+    timeout: 30
+  register: _compat_mode_result
+  retries: 3
+  delay: 5
+  until: _compat_mode_result.status == 200
+  no_log: true
+
+# Step 3: Check if subject has existing versions
+- name: "Check if subject exists: {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/subjects/{{ schema_item.subject }}/versions/latest"
+    method: GET
+    headers: "{{ _sr_headers }}"
+    url_username: "{{ cp_sr_user if _sr_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_use_basic_auth | default(false) }}"
+    status_code: [200, 404]
+    timeout: 30
+  register: _subject_exists
+
+# Step 4: Check compatibility if subject exists (skip for new subjects)
+- name: "Check compatibility for {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/compatibility/subjects/{{ schema_item.subject }}/versions/latest?verbose=true"
+    method: POST
+    headers: "{{ _sr_headers }}"
+    body_format: json
+    body:
+      schema: "{{ schema_item.schema_content | to_json }}"
+      schemaType: AVRO
+    url_username: "{{ cp_sr_user if _sr_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_use_basic_auth | default(false) }}"
+    status_code: [200]
+    timeout: 30
+  register: _compat_result
+  when: _subject_exists.status == 200
+  retries: 3
+  delay: 5
+  until: _compat_result.status | default(0) == 200
+
+# Step 5: Record incompatible schemas
+- name: "Record incompatibility for {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _compat_failures: >-
+      {{ _compat_failures + [{
+           'subject': schema_item.subject,
+           'is_compatible': _compat_result.json.is_compatible | default(true),
+           'messages': _compat_result.json.messages | default([])
+         }] }}
+  when:
+    - _subject_exists.status == 200
+    - _compat_result.json.is_compatible is defined
+    - not _compat_result.json.is_compatible

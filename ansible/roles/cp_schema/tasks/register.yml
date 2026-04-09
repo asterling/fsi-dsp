@@ -1,0 +1,111 @@
+# =============================================================================
+# cp_schema role -- Schema registration per subject
+# =============================================================================
+# Registers an Avro schema to Schema Registry with optional Data Contracts
+# metadata properties matching the Terraform schema_metadata pattern from
+# modules/topic/main.tf. Only reached after ALL compatibility checks pass.
+# =============================================================================
+---
+# Step 1: Build auth headers
+- name: "Set auth headers for registration: {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _sr_reg_headers:
+      Content-Type: "application/vnd.schemaregistry.v1+json"
+      Authorization: "Bearer {{ cp_sr_token }}"
+  when: cp_sr_token | length > 0
+  no_log: true
+
+- name: "Set basic auth for registration: {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _sr_reg_use_basic_auth: "{{ cp_sr_token | length == 0 }}"
+    _sr_reg_headers:
+      Content-Type: "application/vnd.schemaregistry.v1+json"
+  when: cp_sr_token | length == 0
+  no_log: true
+
+# Step 2: Get current latest version (to detect changes)
+- name: "Get current schema version: {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/subjects/{{ schema_item.subject }}/versions/latest"
+    method: GET
+    headers: "{{ _sr_reg_headers }}"
+    url_username: "{{ cp_sr_user if _sr_reg_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_reg_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_reg_use_basic_auth | default(false) }}"
+    status_code: [200, 404]
+    timeout: 30
+  register: _current_version
+
+# Step 3: Build registration body with metadata (matches Terraform pattern)
+- name: "Register schema with metadata: {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/subjects/{{ schema_item.subject }}/versions"
+    method: POST
+    headers: "{{ _sr_reg_headers }}"
+    body_format: json
+    body:
+      schema: "{{ schema_item.schema_content | to_json }}"
+      schemaType: AVRO
+      metadata:
+        properties:
+          owner: "{{ schema_item.owner | default('') }}"
+          sla-tier: "{{ schema_item.sla_tier | default('standard') }}"
+          data-classification: "{{ schema_item.data_classification | default('internal') }}"
+          domain: "{{ schema_item.domain | default('') }}"
+          application: "{{ schema_item.application | default('') }}"
+          pii: "{{ schema_item.pii | default('false') }}"
+          pii-fields: "{{ schema_item.pii_fields | default([]) | join(',') }}"
+    url_username: "{{ cp_sr_user if _sr_reg_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_reg_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_reg_use_basic_auth | default(false) }}"
+    status_code: [200]
+    timeout: 30
+  register: _register_result
+  retries: 3
+  delay: 5
+  until: _register_result.status | default(0) == 200
+  when: cp_schema_metadata_enabled | bool
+  no_log: true
+  changed_when: >-
+    _current_version.status == 404 or
+    (_current_version.json.id | default(-1) != _register_result.json.id | default(-2))
+
+# Step 4: Register without metadata when disabled
+- name: "Register schema without metadata: {{ schema_item.subject }}"
+  ansible.builtin.uri:
+    url: "{{ cp_sr_url }}/subjects/{{ schema_item.subject }}/versions"
+    method: POST
+    headers: "{{ _sr_reg_headers }}"
+    body_format: json
+    body:
+      schema: "{{ schema_item.schema_content | to_json }}"
+      schemaType: AVRO
+    url_username: "{{ cp_sr_user if _sr_reg_use_basic_auth | default(false) else omit }}"
+    url_password: "{{ cp_sr_password if _sr_reg_use_basic_auth | default(false) else omit }}"
+    force_basic_auth: "{{ _sr_reg_use_basic_auth | default(false) }}"
+    status_code: [200]
+    timeout: 30
+  register: _register_result_no_meta
+  retries: 3
+  delay: 5
+  until: _register_result_no_meta.status | default(0) == 200
+  when: not (cp_schema_metadata_enabled | bool)
+  no_log: true
+  changed_when: >-
+    _current_version.status == 404 or
+    (_current_version.json.id | default(-1) != _register_result_no_meta.json.id | default(-2))
+
+# Step 5: Update counters
+- name: "Update registration counters: {{ schema_item.subject }}"
+  ansible.builtin.set_fact:
+    _registered_count: >-
+      {{ _registered_count | int + (1 if (
+           _current_version.status == 404 or
+           (_current_version.json.id | default(-1) != (_register_result.json.id | default(_register_result_no_meta.json.id | default(-2))))
+         ) else 0) }}
+    _unchanged_count: >-
+      {{ _unchanged_count | int + (1 if (
+           _current_version.status == 200 and
+           (_current_version.json.id | default(-1) == (_register_result.json.id | default(_register_result_no_meta.json.id | default(-1))))
+         ) else 0) }}
+  failed_when: false

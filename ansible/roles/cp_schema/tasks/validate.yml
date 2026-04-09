@@ -1,0 +1,24 @@
+# =============================================================================
+# cp_schema role -- Structural validation via validate-schemas.py
+# =============================================================================
+# Reuses the existing CI validation script to check Avro schema structure,
+# namespace format, and required fields before making any SR API calls.
+# =============================================================================
+---
+- name: Run validate-schemas.py structural checks
+  ansible.builtin.command:
+    cmd: "python3 {{ cp_schema_validate_script }} --schemas-dir {{ cp_schemas_dir }}"
+  register: _validate_result
+  changed_when: false
+  failed_when: false
+  when: cp_schemas_dir | length > 0
+
+- name: Fail on structural validation errors
+  ansible.builtin.fail:
+    msg: >-
+      Schema structural validation failed.
+      stdout: {{ _validate_result.stdout | default('') }}
+      stderr: {{ _validate_result.stderr | default('') }}
+  when:
+    - cp_schemas_dir | length > 0
+    - _validate_result.rc | default(0) != 0

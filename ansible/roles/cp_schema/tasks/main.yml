@@ -1,0 +1,128 @@
+# =============================================================================
+# cp_schema role -- Entry point
+# =============================================================================
+# Two-pass safety: validate all schemas structurally, check compatibility
+# for ALL schemas, then register ALL schemas. Partial registration states
+# are avoided by failing the entire run if any schema is incompatible.
+# =============================================================================
+---
+- name: Load governance SLA tier constants
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/sla_tiers.yml"
+
+# -------------------------------------------------------------------------
+# Build schema list from directory or inline input
+# -------------------------------------------------------------------------
+- name: Find .avsc schema files in directory
+  ansible.builtin.find:
+    paths: "{{ cp_schemas_dir }}"
+    patterns: "*.avsc"
+    recurse: true
+  register: _schema_files
+  when: cp_schemas_dir | length > 0
+
+- name: Load schema file contents
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  register: _schema_raw
+  loop: "{{ _schema_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when: cp_schemas_dir | length > 0
+
+- name: Build schema list from directory files
+  ansible.builtin.set_fact:
+    _schema_list: >-
+      {{
+        _schema_raw.results | default([]) | map(attribute='content') |
+        map('b64decode') | map('from_json') | list |
+        zip(_schema_files.files | default([]) | map(attribute='path') | list) |
+        map('reverse') | map('list') |
+        map('community.general.dict_kw', keys=['file_path', 'schema_content']) |
+        list
+      }}
+  when: cp_schemas_dir | length > 0
+
+# When schemas are provided inline, use them directly
+- name: Use inline schema list
+  ansible.builtin.set_fact:
+    _schema_list: "{{ cp_schemas }}"
+  when: cp_schemas_dir | length == 0
+
+# -------------------------------------------------------------------------
+# Phase 0: Structural validation via validate-schemas.py
+# -------------------------------------------------------------------------
+- name: Run structural schema validation
+  ansible.builtin.include_tasks: validate.yml
+  when:
+    - cp_schema_validate_structural | bool
+    - cp_schemas_dir | length > 0
+
+# -------------------------------------------------------------------------
+# Check mode: report what would change without mutations
+# -------------------------------------------------------------------------
+- name: Run check-mode report
+  ansible.builtin.include_tasks: check.yml
+  loop: "{{ _schema_list }}"
+  loop_control:
+    loop_var: schema_item
+    label: "{{ schema_item.subject | default('unknown') }}"
+  when: ansible_check_mode
+
+# -------------------------------------------------------------------------
+# Normal mode: two-pass compatibility-then-register
+# -------------------------------------------------------------------------
+- name: Initialize compatibility failure tracker
+  ansible.builtin.set_fact:
+    _compat_failures: []
+  when: not ansible_check_mode
+
+# Pass 1: Check compatibility for ALL schemas before any registration
+- name: "Pass 1: Compatibility pre-check"
+  ansible.builtin.include_tasks: compatibility.yml
+  loop: "{{ _schema_list }}"
+  loop_control:
+    loop_var: schema_item
+    label: "{{ schema_item.subject | default('unknown') }}"
+  when: not ansible_check_mode
+
+# Fail if ANY schema is incompatible (prevents partial registration)
+- name: Fail if any schemas are incompatible
+  ansible.builtin.fail:
+    msg: >-
+      Schema compatibility check failed for {{ _compat_failures | length }}
+      schema(s): {{ _compat_failures | map(attribute='subject') | join(', ') }}.
+      Details: {{ _compat_failures | to_json }}
+  when:
+    - not ansible_check_mode
+    - _compat_failures | length > 0
+
+# Pass 2: Register ALL schemas (only reached if all compatibility checks passed)
+- name: Initialize registration counters
+  ansible.builtin.set_fact:
+    _registered_count: 0
+    _unchanged_count: 0
+    _failed_count: 0
+    _registration_errors: []
+  when: not ansible_check_mode
+
+- name: "Pass 2: Register schemas"
+  ansible.builtin.include_tasks: register.yml
+  loop: "{{ _schema_list }}"
+  loop_control:
+    loop_var: schema_item
+    label: "{{ schema_item.subject | default('unknown') }}"
+  when: not ansible_check_mode
+
+# -------------------------------------------------------------------------
+# Register output results for downstream orchestration
+# -------------------------------------------------------------------------
+- name: Set cp_schema_results output variable
+  ansible.builtin.set_fact:
+    cp_schema_results:
+      registered: "{{ _registered_count | default(0) | int }}"
+      unchanged: "{{ _unchanged_count | default(0) | int }}"
+      failed: "{{ _failed_count | default(0) | int }}"
+      errors: "{{ _registration_errors | default([]) }}"
+  failed_when: false
+  when: not ansible_check_mode

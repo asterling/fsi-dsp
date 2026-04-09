@@ -1,0 +1,15 @@
+---
+galaxy_info:
+  role_name: cp_schema
+  author: fsi-c4e
+  description: >-
+    Register Avro schemas to Confluent Platform Schema Registry
+    with governance enforcement
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+dependencies: []
