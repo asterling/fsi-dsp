@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# cp_observability -- Check mode (GET-only, no mutations)
+# =============================================================================
+# Reports current state of JMX configs, Prometheus targets, and Grafana
+# dashboards without making any changes. Used with ansible --check.
+# =============================================================================
+
+- name: Check JMX exporter config directory exists
+  ansible.builtin.stat:
+    path: "{{ cp_obs_jmx_exporter_config_dir }}"
+  register: _cp_obs_jmx_dir
+  check_mode: false
+  changed_when: false
+
+- name: Report JMX exporter config state
+  ansible.builtin.debug:
+    msg: >-
+      JMX exporter config dir {{ cp_obs_jmx_exporter_config_dir }}:
+      {{ _cp_obs_jmx_dir.stat.exists | ternary('exists', 'missing') }}
+
+- name: Check Prometheus targets directory exists
+  ansible.builtin.stat:
+    path: "{{ cp_obs_prometheus_targets_dir }}"
+  register: _cp_obs_prom_dir
+  check_mode: false
+  changed_when: false
+
+- name: Report Prometheus targets state
+  ansible.builtin.debug:
+    msg: >-
+      Prometheus file_sd dir {{ cp_obs_prometheus_targets_dir }}:
+      {{ _cp_obs_prom_dir.stat.exists | ternary('exists', 'missing') }}
+
+- name: Check Grafana dashboard provisioning directory exists
+  ansible.builtin.stat:
+    path: "{{ cp_obs_grafana_provisioning_dir }}"
+  register: _cp_obs_grafana_dir
+  check_mode: false
+  changed_when: false
+
+- name: Report Grafana dashboard state
+  ansible.builtin.debug:
+    msg: >-
+      Grafana provisioning dir {{ cp_obs_grafana_provisioning_dir }}:
+      {{ _cp_obs_grafana_dir.stat.exists | ternary('exists', 'missing') }}
+
+- name: Check Grafana alert provisioning directory exists
+  ansible.builtin.stat:
+    path: "{{ cp_obs_grafana_alert_provisioning_dir }}"
+  register: _cp_obs_alert_dir
+  check_mode: false
+  changed_when: false
+
+- name: Report Grafana alert state
+  ansible.builtin.debug:
+    msg: >-
+      Grafana alert dir {{ cp_obs_grafana_alert_provisioning_dir }}:
+      {{ _cp_obs_alert_dir.stat.exists | ternary('exists', 'missing') }}

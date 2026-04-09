@@ -1,0 +1,82 @@
+---
+# =============================================================================
+# cp_observability -- Grafana dashboard import and alert rule deployment
+# =============================================================================
+# Supports two methods for dashboard deployment:
+#   1. file_provisioning: Copy dashboard JSON files to Grafana provisioning dir
+#   2. api: Import dashboards via community.grafana.grafana_dashboard module
+#
+# Alert rules from observability/grafana/alerts.yaml are deployed to the
+# Grafana alert provisioning directory with SLA-tier thresholds.
+# =============================================================================
+
+# --- File provisioning method -----------------------------------------------
+- name: Create Grafana dashboard provisioning directory
+  ansible.builtin.file:
+    path: "{{ cp_obs_grafana_provisioning_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: grafana
+  become: true
+  when: cp_obs_grafana_method == "file_provisioning" and cp_obs_deploy_grafana | bool
+
+- name: Deploy Grafana dashboards via file provisioning
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ cp_obs_grafana_provisioning_dir }}/{{ item | basename }}"
+    mode: "0644"
+    owner: root
+    group: grafana
+  become: true
+  loop: "{{ lookup('ansible.builtin.fileglob', role_path + '/../../observability/grafana/dashboard-*.json', wantlist=True) | default([]) }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  when: cp_obs_grafana_method == "file_provisioning" and cp_obs_deploy_grafana | bool
+  notify: Reload Grafana dashboards
+
+- name: Deploy Grafana dashboard provisioning config
+  ansible.builtin.template:
+    src: grafana_dashboard_provider.yml.j2
+    dest: "{{ cp_obs_grafana_provisioning_dir }}/../fsi-kafka-dashboards.yml"
+    mode: "0644"
+    owner: root
+    group: grafana
+  become: true
+  when: cp_obs_grafana_method == "file_provisioning" and cp_obs_deploy_grafana | bool
+
+# --- API method -------------------------------------------------------------
+- name: Import Grafana dashboards via API
+  community.grafana.grafana_dashboard:
+    grafana_url: "{{ cp_obs_grafana_url }}"
+    grafana_api_key: "{{ cp_obs_grafana_api_key }}"
+    state: present
+    commit_message: "Imported by cp_observability role"
+    overwrite: true
+    path: "{{ item }}"
+  loop: "{{ lookup('ansible.builtin.fileglob', role_path + '/../../observability/grafana/dashboard-*.json', wantlist=True) | default([]) }}"
+  loop_control:
+    label: "{{ item | basename }}"
+  when: cp_obs_grafana_method == "api" and cp_obs_deploy_grafana | bool
+
+# --- Alert rules deployment -------------------------------------------------
+- name: Create Grafana alert provisioning directory
+  ansible.builtin.file:
+    path: "{{ cp_obs_grafana_alert_provisioning_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: grafana
+  become: true
+  when: cp_obs_deploy_alerts | bool
+
+- name: Deploy alert rules from alerts.yaml
+  ansible.builtin.copy:
+    src: "{{ role_path }}/../../observability/grafana/alerts.yaml"
+    dest: "{{ cp_obs_grafana_alert_provisioning_dir }}/fsi-kafka-alerts.yaml"
+    mode: "0644"
+    owner: root
+    group: grafana
+  become: true
+  when: cp_obs_deploy_alerts | bool
+  notify: Reload Grafana alerting

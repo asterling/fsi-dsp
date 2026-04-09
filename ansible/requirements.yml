@@ -26,3 +26,7 @@ collections:
   # Utility filters: ipaddr, validate
   - name: ansible.utils
     version: ">=2.10.0"
+
+  # Grafana modules: grafana_dashboard, grafana_datasource
+  - name: community.grafana
+    version: ">=1.7.0"

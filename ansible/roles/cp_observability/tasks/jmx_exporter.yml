@@ -1,0 +1,53 @@
+---
+# =============================================================================
+# cp_observability -- JMX exporter config deployment
+# =============================================================================
+# Deploys JMX exporter configuration files to broker, Schema Registry, and
+# Connect nodes using Jinja2 templates. Each component gets a tailored config
+# with the correct JMX port and metric rules.
+#
+# Templates are derived from observability/grafana/jmx-exporter-stub.yaml
+# with component-specific MBean patterns for each CP service.
+# =============================================================================
+
+- name: Create JMX exporter config directory
+  ansible.builtin.file:
+    path: "{{ cp_obs_jmx_exporter_config_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+
+- name: Deploy JMX exporter config for brokers
+  ansible.builtin.template:
+    src: jmx_exporter_broker.yml.j2
+    dest: "{{ cp_obs_jmx_exporter_config_dir }}/kafka-broker.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+  when: inventory_hostname in groups.get('kafka_broker', [])
+  notify: Restart JMX exporter
+
+- name: Deploy JMX exporter config for Schema Registry
+  ansible.builtin.template:
+    src: jmx_exporter_schema_registry.yml.j2
+    dest: "{{ cp_obs_jmx_exporter_config_dir }}/schema-registry.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+  when: inventory_hostname in groups.get('schema_registry', [])
+  notify: Restart JMX exporter
+
+- name: Deploy JMX exporter config for Connect
+  ansible.builtin.template:
+    src: jmx_exporter_connect.yml.j2
+    dest: "{{ cp_obs_jmx_exporter_config_dir }}/kafka-connect.yml"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true
+  when: inventory_hostname in groups.get('kafka_connect', [])
+  notify: Restart JMX exporter

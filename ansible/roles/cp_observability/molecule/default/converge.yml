@@ -1,0 +1,16 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Apply cp_observability role with mock variables
+      ansible.builtin.include_role:
+        name: cp_observability
+      vars:
+        # Disable filesystem-dependent tasks for molecule test
+        cp_obs_deploy_jmx: false
+        cp_obs_deploy_prometheus: false
+        cp_obs_deploy_grafana: false
+        cp_obs_deploy_alerts: false
+        cp_obs_cluster_name: "test-cluster"
+        cp_obs_environment: "test"

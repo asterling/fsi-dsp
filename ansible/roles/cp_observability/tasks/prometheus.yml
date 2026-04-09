@@ -1,0 +1,30 @@
+---
+# =============================================================================
+# cp_observability -- Prometheus scrape target generation
+# =============================================================================
+# Generates Prometheus file_sd_configs JSON target files from Ansible inventory.
+# Prometheus watches these files and automatically picks up changes without
+# restart -- nodes added to inventory groups appear in scrape targets on the
+# next file_sd refresh cycle.
+#
+# Target file deployed to cp_obs_prometheus_targets_dir on the monitoring host
+# (first broker or dedicated monitoring host).
+# =============================================================================
+
+- name: Create Prometheus file_sd directory
+  ansible.builtin.file:
+    path: "{{ cp_obs_prometheus_targets_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+  become: true
+
+- name: Generate Prometheus scrape targets from inventory
+  ansible.builtin.template:
+    src: prometheus_targets.json.j2
+    dest: "{{ cp_obs_prometheus_targets_dir }}/confluent-platform.json"
+    mode: "0644"
+    owner: root
+    group: root
+  become: true

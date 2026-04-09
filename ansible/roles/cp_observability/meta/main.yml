@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: cp_observability
+  author: fsi-c4e
+  description: Observability deployment for Confluent Platform (JMX, Prometheus, Grafana)
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - kafka
+    - observability
+    - prometheus
+    - grafana
+    - jmx
+dependencies: []

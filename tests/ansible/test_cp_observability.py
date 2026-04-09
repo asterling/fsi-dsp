@@ -300,33 +300,36 @@ class TestRequirementsYml:
 class TestFQCN:
     """Verify all task files use FQCN for every module reference."""
 
+    # Bare module names that should never appear as top-level task action keys.
+    # Excludes 'file:' and 'stat:' because they also appear as parameter keys
+    # (e.g., ansible.builtin.include_tasks file: X).
     BARE_MODULES = [
         'uri:', 'set_fact:', 'debug:', 'assert:', 'fail:',
         'include_tasks:', 'find:', 'slurp:', 'include_vars:',
         'include_role:', 'shell:', 'wait_for:', 'template:',
-        'copy:', 'file:', 'stat:'
+        'copy:'
     ]
 
     def test_all_tasks_use_fqcn(self):
+        """Check that no bare module names appear as task-level action keys."""
         task_files = ['main.yml', 'jmx_exporter.yml', 'prometheus.yml',
                       'grafana.yml', 'check.yml']
         for fname in task_files:
             path = os.path.join(TASKS_DIR, fname)
             if not os.path.isfile(path):
                 continue
-            text = _read_text(path)
-            for bare in self.BARE_MODULES:
-                lines = text.split('\n')
-                for i, line in enumerate(lines):
-                    stripped = line.lstrip()
-                    if stripped.startswith('#') or not stripped:
-                        continue
-                    if stripped.startswith('- name:') or stripped.startswith('name:'):
-                        continue
-                    if stripped.startswith(bare):
+            data = _load_yaml(path)
+            if not isinstance(data, list):
+                continue
+            for task in data:
+                if not isinstance(task, dict):
+                    continue
+                for bare in self.BARE_MODULES:
+                    key = bare.rstrip(':')
+                    if key in task:
                         assert False, (
-                            f"Bare module '{bare}' found in {fname} line {i + 1}: "
-                            f"'{stripped}'. Use ansible.builtin.{bare[:-1]} instead."
+                            f"Bare module '{key}' found as task action in {fname}. "
+                            f"Use ansible.builtin.{key} instead."
                         )
 
 

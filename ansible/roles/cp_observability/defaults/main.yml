@@ -1,0 +1,47 @@
+---
+# =============================================================================
+# cp_observability role -- Default variable values
+# =============================================================================
+# Deploys JMX exporter configs, generates Prometheus scrape targets from
+# inventory, imports Grafana dashboards, and deploys SLA-tier-aware alert
+# rules for Confluent Platform clusters.
+#
+# Port defaults match cp-ansible 7.7.x JMX exporter agent settings:
+#   broker=8080, schema_registry=8078, kafka_connect=8077, zookeeper=8079
+# =============================================================================
+
+# JMX exporter ports per component (cp-ansible defaults)
+cp_obs_broker_jmx_port: 8080
+cp_obs_sr_jmx_port: 8078
+cp_obs_connect_jmx_port: 8077
+cp_obs_zk_jmx_port: 8079
+
+# Directory for JMX exporter config files on target nodes
+cp_obs_jmx_exporter_config_dir: "/opt/prometheus/jmx-exporter"
+
+# Directory for Prometheus file_sd_configs target files
+cp_obs_prometheus_targets_dir: "/etc/prometheus/file_sd"
+
+# Cluster identification (used in Prometheus labels and Grafana)
+cp_obs_cluster_name: "fsi-kafka"
+cp_obs_environment: "prod"
+
+# Grafana connection and provisioning settings
+cp_obs_grafana_url: "http://localhost:3000"
+cp_obs_grafana_api_key: ""
+cp_obs_grafana_method: "file_provisioning"
+cp_obs_grafana_provisioning_dir: "/etc/grafana/provisioning/dashboards"
+cp_obs_grafana_alert_provisioning_dir: "/etc/grafana/provisioning/alerting"
+
+# Feature flags -- enable or disable each observability component
+cp_obs_deploy_jmx: true
+cp_obs_deploy_prometheus: true
+cp_obs_deploy_grafana: true
+cp_obs_deploy_alerts: true
+
+# Output variable for downstream orchestration (Phase 12 pipeline)
+cp_observability_results:
+  jmx_deployed: false
+  prometheus_deployed: false
+  grafana_deployed: false
+  alerts_deployed: false

@@ -1,0 +1,68 @@
+---
+# =============================================================================
+# cp_observability role -- Entry point
+# =============================================================================
+# Dispatches to sub-task files based on cp_obs_deploy_* feature flags.
+# Each component (JMX, Prometheus, Grafana/alerts) can be enabled/disabled
+# independently for selective Day-2 operations.
+# =============================================================================
+
+# --- Check mode (GET-only, no mutations) ------------------------------------
+- name: Include check mode tasks
+  ansible.builtin.include_tasks:
+    file: check.yml
+  when: ansible_check_mode | bool
+  tags:
+    - observability
+    - check
+
+# --- JMX exporter config deployment ----------------------------------------
+- name: Include JMX exporter tasks
+  ansible.builtin.include_tasks:
+    file: jmx_exporter.yml
+  when:
+    - cp_obs_deploy_jmx | bool
+    - not (ansible_check_mode | bool)
+  tags:
+    - jmx
+    - observability
+
+# --- Prometheus scrape target generation ------------------------------------
+- name: Include Prometheus target generation tasks
+  ansible.builtin.include_tasks:
+    file: prometheus.yml
+  when:
+    - cp_obs_deploy_prometheus | bool
+    - not (ansible_check_mode | bool)
+  tags:
+    - prometheus
+    - observability
+
+# --- Grafana dashboard import and alert rule deployment ---------------------
+- name: Include Grafana dashboard and alert tasks
+  ansible.builtin.include_tasks:
+    file: grafana.yml
+  when:
+    - (cp_obs_deploy_grafana | bool) or (cp_obs_deploy_alerts | bool)
+    - not (ansible_check_mode | bool)
+  tags:
+    - grafana
+    - alerts
+    - observability
+
+# --- Build results summary --------------------------------------------------
+- name: Set cp_observability_results output variable
+  ansible.builtin.set_fact:
+    cp_observability_results:
+      jmx_deployed: "{{ cp_obs_deploy_jmx | bool }}"
+      prometheus_deployed: "{{ cp_obs_deploy_prometheus | bool }}"
+      grafana_deployed: "{{ cp_obs_deploy_grafana | bool }}"
+      alerts_deployed: "{{ cp_obs_deploy_alerts | bool }}"
+
+- name: Report observability results summary
+  ansible.builtin.debug:
+    msg: >-
+      cp_observability results: jmx={{ cp_observability_results.jmx_deployed }},
+      prometheus={{ cp_observability_results.prometheus_deployed }},
+      grafana={{ cp_observability_results.grafana_deployed }},
+      alerts={{ cp_observability_results.alerts_deployed }}

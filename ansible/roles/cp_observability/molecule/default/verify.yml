@@ -1,0 +1,15 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Verify cp_observability_results fact was set
+      ansible.builtin.assert:
+        that:
+          - cp_observability_results is defined
+          - cp_observability_results.jmx_deployed is defined
+          - cp_observability_results.prometheus_deployed is defined
+          - cp_observability_results.grafana_deployed is defined
+          - cp_observability_results.alerts_deployed is defined
+        success_msg: "cp_observability_results fact is properly set"
+        fail_msg: "cp_observability_results fact is missing or incomplete"
