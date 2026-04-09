@@ -126,11 +126,11 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible RBAC Provisioning
 
-- [ ] **ARBAC-01**: Operator can provision per-topic RBAC bindings (DeveloperWrite for producers, DeveloperRead for consumers) via MDS REST API
-- [ ] **ARBAC-02**: Role acquires MDS bearer token with automatic refresh handling for playbook runs exceeding 15-minute token TTL
-- [ ] **ARBAC-03**: Consumer group bindings (`DeveloperRead` on `{principal}-*` prefixed group pattern) are created alongside topic bindings
-- [ ] **ARBAC-04**: Schema Registry subject bindings (DeveloperWrite for producers, DeveloperRead for all) are created alongside topic bindings
-- [ ] **ARBAC-05**: Role uses LIST/DIFF/ADD/REMOVE reconciliation pattern to remove stale bindings, not just add new ones (prevents RBAC drift)
+- [x] **ARBAC-01**: Operator can provision per-topic RBAC bindings (DeveloperWrite for producers, DeveloperRead for consumers) via MDS REST API
+- [x] **ARBAC-02**: Role acquires MDS bearer token with automatic refresh handling for playbook runs exceeding 15-minute token TTL
+- [x] **ARBAC-03**: Consumer group bindings (`DeveloperRead` on `{principal}-*` prefixed group pattern) are created alongside topic bindings
+- [x] **ARBAC-04**: Schema Registry subject bindings (DeveloperWrite for producers, DeveloperRead for all) are created alongside topic bindings
+- [x] **ARBAC-05**: Role uses LIST/DIFF/ADD/REMOVE reconciliation pattern to remove stale bindings, not just add new ones (prevents RBAC drift)
 
 ### Ansible Deployment Pipeline
 
@@ -307,11 +307,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ASCHEMA-03 | Phase 11 | Complete |
 | ASCHEMA-04 | Phase 11 | Complete |
 | ASCHEMA-05 | Phase 11 | Complete |
-| ARBAC-01 | Phase 11 | Pending |
-| ARBAC-02 | Phase 11 | Pending |
-| ARBAC-03 | Phase 11 | Pending |
-| ARBAC-04 | Phase 11 | Pending |
-| ARBAC-05 | Phase 11 | Pending |
+| ARBAC-01 | Phase 11 | Complete |
+| ARBAC-02 | Phase 11 | Complete |
+| ARBAC-03 | Phase 11 | Complete |
+| ARBAC-04 | Phase 11 | Complete |
+| ARBAC-05 | Phase 11 | Complete |
 | APIPE-01 | Phase 12 | Pending |
 | APIPE-02 | Phase 12 | Pending |
 | APIPE-03 | Phase 12 | Pending |
