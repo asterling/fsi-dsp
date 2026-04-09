@@ -246,8 +246,8 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 12-01-PLAN.md -- Orchestration playbooks (site.yml, deploy-governance.yml) with tag-based execution and cp_connect role
-- [ ] 12-02-PLAN.md -- cp_observability role: JMX exporter configs, Prometheus scrape generation, Grafana dashboard import, SLA-tier alerts
+- [x] 12-01-PLAN.md -- Orchestration playbooks (site.yml, deploy-governance.yml) with tag-based execution and cp_connect role
+- [x] 12-02-PLAN.md -- cp_observability role: JMX exporter configs, Prometheus scrape generation, Grafana dashboard import, SLA-tier alerts
 - [ ] 12-03-PLAN.md -- GitHub Actions CI workflow (ansible-lint, yamllint, molecule matrix, governance parity validation)
 
 ### Phase 13: DR Automation Playbooks (MM2)
@@ -311,7 +311,7 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 9. CP on RHEL and Private Cloud | v1.0 | 4/4 | Complete | 2026-03-27 |
 | 10. Ansible Foundation and Governance Scaffolding | v2.0 | 2/2 | Complete    | 2026-04-08 |
 | 11. Core Governance Roles | v2.0 | 3/3 | Complete    | 2026-04-09 |
-| 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 0/3 | Not started | - |
+| 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 2/3 | In Progress|  |
 | 13. DR Automation Playbooks (MM2) | v2.0 | 0/2 | Not started | - |
 | 14. CFK on OpenShift Governance | v2.0 | 0/2 | Not started | - |
 | 15. MRC Failover and DR Drill | v2.0 | 0/2 | Not started | - |

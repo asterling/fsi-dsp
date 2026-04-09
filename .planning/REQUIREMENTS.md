@@ -150,10 +150,10 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Observability Deployment
 
-- [ ] **AOBS-01**: Observability role deploys JMX exporter configs from existing `observability/` templates to CP cluster nodes
-- [ ] **AOBS-02**: Prometheus scrape config is generated from inventory (broker, SR, Connect host groups) and updates automatically when nodes are added
-- [ ] **AOBS-03**: Grafana dashboards from `observability/grafana/` are imported via `community.grafana.grafana_dashboard` module or file provisioning
-- [ ] **AOBS-04**: Alert rules with SLA-tier-aware thresholds are deployed to the monitoring provider matching existing `alerts.yaml` definitions
+- [x] **AOBS-01**: Observability role deploys JMX exporter configs from existing `observability/` templates to CP cluster nodes
+- [x] **AOBS-02**: Prometheus scrape config is generated from inventory (broker, SR, Connect host groups) and updates automatically when nodes are added
+- [x] **AOBS-03**: Grafana dashboards from `observability/grafana/` are imported via `community.grafana.grafana_dashboard` module or file provisioning
+- [x] **AOBS-04**: Alert rules with SLA-tier-aware thresholds are deployed to the monitoring provider matching existing `alerts.yaml` definitions
 
 ### Ansible CFK on OpenShift
 
@@ -164,7 +164,7 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 ### Ansible CI/CD
 
 - [ ] **ACI-01**: GitHub Actions workflow runs ansible-lint and yamllint on every PR touching `ansible/` directory
-- [ ] **ACI-02**: Molecule test scenarios exist for each governance role (cp_topic, cp_schema, cp_rbac) with delegated driver
+- [x] **ACI-02**: Molecule test scenarios exist for each governance role (cp_topic, cp_schema, cp_rbac) with delegated driver
 - [ ] **ACI-03**: CI job validates governance constant parity between `ansible/vars/sla_tiers.yml` and Terraform `modules/topic/main.tf` locals
 
 ## v3 Requirements
@@ -322,15 +322,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADR-04 | Phase 13 | Pending |
 | ADR-05 | Phase 15 | Pending |
 | ADR-06 | Phase 15 | Pending |
-| AOBS-01 | Phase 12 | Pending |
-| AOBS-02 | Phase 12 | Pending |
-| AOBS-03 | Phase 12 | Pending |
-| AOBS-04 | Phase 12 | Pending |
+| AOBS-01 | Phase 12 | Complete |
+| AOBS-02 | Phase 12 | Complete |
+| AOBS-03 | Phase 12 | Complete |
+| AOBS-04 | Phase 12 | Complete |
 | ACFK-01 | Phase 14 | Pending |
 | ACFK-02 | Phase 14 | Pending |
 | ACFK-03 | Phase 14 | Pending |
 | ACI-01 | Phase 12 | Pending |
-| ACI-02 | Phase 12 | Pending |
+| ACI-02 | Phase 12 | Complete |
 | ACI-03 | Phase 12 | Pending |
 
 **Coverage:**

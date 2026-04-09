@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
-status: verifying
-stopped_at: Completed 11-03-PLAN.md (cp_rbac RBAC role)
-last_updated: "2026-04-09T12:41:28.931Z"
+status: executing
+stopped_at: Completed 12-02-PLAN.md (cp_observability role)
+last_updated: "2026-04-09T16:07:05.617Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 15
   completed_phases: 11
-  total_plans: 33
-  completed_plans: 33
+  total_plans: 36
+  completed_plans: 35
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 11 — core-governance-roles
+**Current focus:** Phase 12 — orchestration-pipeline-observability-and-ci-cd
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 12 (orchestration-pipeline-observability-and-ci-cd) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
 Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 11 P02 | 5min | 2 tasks | 16 files |
 | Phase 11 P01 | 6min | 2 tasks | 20 files |
 | Phase 11 P03 | 5min | 2 tasks | 17 files |
+| Phase 12 P02 | 5min | 1 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 11]: Task names start with uppercase and Jinja at end only (ansible-lint name[casing] and name[template] rules)
 - [Phase 11]: noqa ignore-errors on include_tasks for locked error collection decision
 - [Phase 11]: MDS token refresh reads actual expires_in from response, not hardcoded TTL
+- [Phase 12]: JMX exporter ports follow cp-ansible 7.7.x defaults (broker=8080, SR=8078, Connect=8077, ZK=8079)
+- [Phase 12]: Prometheus file_sd_configs for zero-restart service discovery from Ansible inventory
+- [Phase 12]: Grafana dual-method: file_provisioning (default/production) and API (development)
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T01:24:55.243Z
-Stopped at: Completed 11-03-PLAN.md (cp_rbac RBAC role)
+Last session: 2026-04-09T16:07:05.615Z
+Stopped at: Completed 12-02-PLAN.md (cp_observability role)
 Resume file: None
