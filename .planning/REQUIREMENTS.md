@@ -163,9 +163,9 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible CI/CD
 
-- [ ] **ACI-01**: GitHub Actions workflow runs ansible-lint and yamllint on every PR touching `ansible/` directory
+- [x] **ACI-01**: GitHub Actions workflow runs ansible-lint and yamllint on every PR touching `ansible/` directory
 - [x] **ACI-02**: Molecule test scenarios exist for each governance role (cp_topic, cp_schema, cp_rbac) with delegated driver
-- [ ] **ACI-03**: CI job validates governance constant parity between `ansible/vars/sla_tiers.yml` and Terraform `modules/topic/main.tf` locals
+- [x] **ACI-03**: CI job validates governance constant parity between `ansible/vars/sla_tiers.yml` and Terraform `modules/topic/main.tf` locals
 
 ## v3 Requirements
 
@@ -329,9 +329,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ACFK-01 | Phase 14 | Pending |
 | ACFK-02 | Phase 14 | Pending |
 | ACFK-03 | Phase 14 | Pending |
-| ACI-01 | Phase 12 | Pending |
+| ACI-01 | Phase 12 | Complete |
 | ACI-02 | Phase 12 | Complete |
-| ACI-03 | Phase 12 | Pending |
+| ACI-03 | Phase 12 | Complete |
 
 **Coverage:**
 - v1 requirements: 60 total (all complete)

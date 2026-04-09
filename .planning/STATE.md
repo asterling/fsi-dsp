@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
 status: executing
-stopped_at: Completed 12-01-PLAN.md (orchestration pipeline and cp_connect)
-last_updated: "2026-04-09T16:07:27.262Z"
+stopped_at: Completed 12-03-PLAN.md (Ansible CI workflow)
+last_updated: "2026-04-09T17:53:00.734Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 15
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 36
-  completed_plans: 35
+  completed_plans: 36
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 12 (orchestration-pipeline-observability-and-ci-cd) — EXECUTING
-Plan: 3 of 3
+Plan: 2 of 3
 Status: Ready to execute
 Last activity: 2026-04-09
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 11 P03 | 5min | 2 tasks | 17 files |
 | Phase 12 P02 | 5min | 1 tasks | 17 files |
 | Phase 12 P01 | 5min | 2 tasks | 18 files |
+| Phase 12 P03 | 2min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 12]: Grafana dual-method: file_provisioning (default/production) and API (development)
 - [Phase 12]: Disjoint tag sets per play in site.yml to prevent import_playbook tag inheritance leakage
 - [Phase 12]: PUT /connectors/{name}/config for idempotent create-or-update (201 new, 200 update)
+- [Phase 12]: PyYAML parses YAML on key as boolean True; CI workflow tests use wf.get(on) or wf.get(True)
 
 ### Pending Todos
 
@@ -102,6 +104,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T16:07:27.260Z
-Stopped at: Completed 12-01-PLAN.md (orchestration pipeline and cp_connect)
+Last session: 2026-04-09T17:53:00.731Z
+Stopped at: Completed 12-03-PLAN.md (Ansible CI workflow)
 Resume file: None
