@@ -259,11 +259,11 @@ Plans:
   2. Operator runs the failback playbook and replication direction is reversed, mirrors re-established, data sync validated, and traffic cut back to primary
   3. Running either playbook with `--check` generates audit-ready output showing every step without executing any mutations
   4. DR state validation checks mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover -- failing validation halts the playbook with clear diagnostics
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: cp_dr_mm2 role -- failover tasks, state validation, Consul integration, dry-run mode
-- [ ] 13-02: cp_dr_mm2 failback tasks, reverse replication, and audit report generation
+- [ ] 13-01-PLAN.md -- cp_dr_mm2 role with failover tasks, state validation, Consul integration, check mode audit, and unit tests
+- [ ] 13-02-PLAN.md -- cp_dr_mm2 failback tasks, reverse replication, audit report extension, and failback playbook
 
 ### Phase 14: CFK on OpenShift Governance
 **Goal**: Operators can deploy the CFK operator and apply governed Kafka custom resources on OpenShift using Ansible -- with the same SLA-tier defaults and governance rules as CP REST API roles
