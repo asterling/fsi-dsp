@@ -108,13 +108,13 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Topic Lifecycle
 
-- [ ] **ATOPIC-01**: Operator can create topics on CP cluster via Ansible role using Admin REST v3 API with idempotent GET-before-POST pattern
-- [ ] **ATOPIC-02**: Topic configuration (partitions, retention, min.insync.replicas, cleanup policy) is automatically derived from SLA tier using shared governance constants
-- [ ] **ATOPIC-03**: Role consumes existing CPTopic YAML format from `scenarios/cp-rhel/topics/*.yml` without requiring a new input format
-- [ ] **ATOPIC-04**: Role validates topic names against `{domain}.{application}.{version}.{entity}` regex before API calls, failing fast with clear error message
-- [ ] **ATOPIC-05**: Topic config updates (retention, cleanup, min.insync.replicas) converge to declared state without recreating topics
-- [ ] **ATOPIC-06**: Running the playbook in `--check` mode shows what would change without making any mutations (dry-run for CAB approval)
-- [ ] **ATOPIC-07**: Topic deletion requires explicit `state: absent` plus `confirm_deletion: true` and refuses to delete critical/compliance tier topics without override
+- [x] **ATOPIC-01**: Operator can create topics on CP cluster via Ansible role using Admin REST v3 API with idempotent GET-before-POST pattern
+- [x] **ATOPIC-02**: Topic configuration (partitions, retention, min.insync.replicas, cleanup policy) is automatically derived from SLA tier using shared governance constants
+- [x] **ATOPIC-03**: Role consumes existing CPTopic YAML format from `scenarios/cp-rhel/topics/*.yml` without requiring a new input format
+- [x] **ATOPIC-04**: Role validates topic names against `{domain}.{application}.{version}.{entity}` regex before API calls, failing fast with clear error message
+- [x] **ATOPIC-05**: Topic config updates (retention, cleanup, min.insync.replicas) converge to declared state without recreating topics
+- [x] **ATOPIC-06**: Running the playbook in `--check` mode shows what would change without making any mutations (dry-run for CAB approval)
+- [x] **ATOPIC-07**: Topic deletion requires explicit `state: absent` plus `confirm_deletion: true` and refuses to delete critical/compliance tier topics without override
 
 ### Ansible Schema Registration
 
@@ -295,13 +295,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AFOUND-03 | Phase 10 | Complete |
 | AFOUND-04 | Phase 10 | Complete |
 | AFOUND-05 | Phase 10 | Complete |
-| ATOPIC-01 | Phase 11 | Pending |
-| ATOPIC-02 | Phase 11 | Pending |
-| ATOPIC-03 | Phase 11 | Pending |
-| ATOPIC-04 | Phase 11 | Pending |
-| ATOPIC-05 | Phase 11 | Pending |
-| ATOPIC-06 | Phase 11 | Pending |
-| ATOPIC-07 | Phase 11 | Pending |
+| ATOPIC-01 | Phase 11 | Complete |
+| ATOPIC-02 | Phase 11 | Complete |
+| ATOPIC-03 | Phase 11 | Complete |
+| ATOPIC-04 | Phase 11 | Complete |
+| ATOPIC-05 | Phase 11 | Complete |
+| ATOPIC-06 | Phase 11 | Complete |
+| ATOPIC-07 | Phase 11 | Complete |
 | ASCHEMA-01 | Phase 11 | Complete |
 | ASCHEMA-02 | Phase 11 | Complete |
 | ASCHEMA-03 | Phase 11 | Complete |

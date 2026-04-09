@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
-status: executing
-stopped_at: Completed 11-02-PLAN.md (cp_schema role)
-last_updated: "2026-04-09T01:23:51.718Z"
+status: verifying
+stopped_at: Completed 11-01-PLAN.md (cp_topic role)
+last_updated: "2026-04-09T01:24:54.371Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 15
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 33
-  completed_plans: 31
+  completed_plans: 33
   percent: 0
 ---
 
@@ -26,8 +26,8 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 11 (core-governance-roles) — EXECUTING
-Plan: 2 of 3
-Status: Ready to execute
+Plan: 3 of 3
+Status: Phase complete — ready for verification
 Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
@@ -49,6 +49,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10 P01 | 2min | 2 tasks | 16 files |
 | Phase 10 P02 | 3min | 2 tasks | 7 files |
 | Phase 11 P02 | 5min | 2 tasks | 16 files |
+| Phase 11 P01 | 6min | 2 tasks | 20 files |
+| Phase 11 P03 | 5min | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -76,6 +78,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 10]: conftest.py over __init__.py for tests/ansible/ to avoid ansible namespace collision
 - [Phase 10]: Embedded SLA_TIERS dict in filter plugin for O(1) runtime lookups; parity test validates sync with YAML
 - [Phase 11]: Used failed_when: false instead of ignore_errors: true for ansible-lint shared profile compliance in cp_schema role
+- [Phase 11]: Added process_one.yml dispatcher to separate per-topic logic from main loop
+- [Phase 11]: Task names start with uppercase and Jinja at end only (ansible-lint name[casing] and name[template] rules)
+- [Phase 11]: noqa ignore-errors on include_tasks for locked error collection decision
+- [Phase 11]: MDS token refresh reads actual expires_in from response, not hardcoded TTL
 
 ### Pending Todos
 
@@ -89,6 +95,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T01:23:51.716Z
-Stopped at: Completed 11-02-PLAN.md (cp_schema role)
+Last session: 2026-04-09T01:24:48.414Z
+Stopped at: Completed 11-01-PLAN.md (cp_topic role)
 Resume file: None
