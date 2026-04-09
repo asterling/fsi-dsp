@@ -230,7 +230,7 @@ Plans:
 
 Plans:
 - [ ] 11-01-PLAN.md -- cp_topic role: Admin REST v3 CRUD, SLA-tier defaults, CPTopic YAML consumption, check mode, unit tests
-- [ ] 11-02-PLAN.md -- cp_schema role: SR REST API, two-pass validate-then-register, compatibility modes, PII metadata, unit tests
+- [x] 11-02-PLAN.md -- cp_schema role: SR REST API, two-pass validate-then-register, compatibility modes, PII metadata, unit tests
 - [ ] 11-03-PLAN.md -- cp_rbac role: MDS REST API, token refresh, LIST/DIFF/ADD/REMOVE reconciliation, unit tests
 
 ### Phase 12: Orchestration Pipeline, Observability, and CI/CD
@@ -310,7 +310,7 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 8. CFK on OpenShift | v1.0 | 3/3 | Complete | - |
 | 9. CP on RHEL and Private Cloud | v1.0 | 4/4 | Complete | 2026-03-27 |
 | 10. Ansible Foundation and Governance Scaffolding | v2.0 | 2/2 | Complete    | 2026-04-08 |
-| 11. Core Governance Roles | v2.0 | 0/3 | Not started | - |
+| 11. Core Governance Roles | v2.0 | 1/3 | In Progress|  |
 | 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 0/3 | Not started | - |
 | 13. DR Automation Playbooks (MM2) | v2.0 | 0/2 | Not started | - |
 | 14. CFK on OpenShift Governance | v2.0 | 0/2 | Not started | - |

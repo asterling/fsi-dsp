@@ -118,11 +118,11 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Schema Registration
 
-- [ ] **ASCHEMA-01**: Operator can register Avro schemas to CP Schema Registry via Ansible role using SR REST API
-- [ ] **ASCHEMA-02**: Role runs compatibility pre-check against existing versions before registration and fails with clear message if incompatible (two-pass: validate all, then register all)
-- [ ] **ASCHEMA-03**: Schema compatibility mode per subject is set from SLA tier (critical/compliance=FULL_TRANSITIVE, standard=BACKWARD_TRANSITIVE, best-effort=BACKWARD)
-- [ ] **ASCHEMA-04**: Role reuses existing `ci/scripts/validate-schemas.py` for structural validation before SR API calls
-- [ ] **ASCHEMA-05**: PII metadata properties (owner, sla-tier, data-classification, pii-fields) are applied to SR subjects matching Terraform module metadata pattern
+- [x] **ASCHEMA-01**: Operator can register Avro schemas to CP Schema Registry via Ansible role using SR REST API
+- [x] **ASCHEMA-02**: Role runs compatibility pre-check against existing versions before registration and fails with clear message if incompatible (two-pass: validate all, then register all)
+- [x] **ASCHEMA-03**: Schema compatibility mode per subject is set from SLA tier (critical/compliance=FULL_TRANSITIVE, standard=BACKWARD_TRANSITIVE, best-effort=BACKWARD)
+- [x] **ASCHEMA-04**: Role reuses existing `ci/scripts/validate-schemas.py` for structural validation before SR API calls
+- [x] **ASCHEMA-05**: PII metadata properties (owner, sla-tier, data-classification, pii-fields) are applied to SR subjects matching Terraform module metadata pattern
 
 ### Ansible RBAC Provisioning
 
@@ -302,11 +302,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ATOPIC-05 | Phase 11 | Pending |
 | ATOPIC-06 | Phase 11 | Pending |
 | ATOPIC-07 | Phase 11 | Pending |
-| ASCHEMA-01 | Phase 11 | Pending |
-| ASCHEMA-02 | Phase 11 | Pending |
-| ASCHEMA-03 | Phase 11 | Pending |
-| ASCHEMA-04 | Phase 11 | Pending |
-| ASCHEMA-05 | Phase 11 | Pending |
+| ASCHEMA-01 | Phase 11 | Complete |
+| ASCHEMA-02 | Phase 11 | Complete |
+| ASCHEMA-03 | Phase 11 | Complete |
+| ASCHEMA-04 | Phase 11 | Complete |
+| ASCHEMA-05 | Phase 11 | Complete |
 | ARBAC-01 | Phase 11 | Pending |
 | ARBAC-02 | Phase 11 | Pending |
 | ARBAC-03 | Phase 11 | Pending |

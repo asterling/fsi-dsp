@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
-status: verifying
-stopped_at: Completed 10-02-PLAN.md (governance constants and filter plugin)
-last_updated: "2026-04-08T14:23:54.623Z"
-last_activity: 2026-04-08
+status: executing
+stopped_at: Completed 11-02-PLAN.md (cp_schema role)
+last_updated: "2026-04-09T01:23:51.718Z"
+last_activity: 2026-04-09
 progress:
   total_phases: 15
   completed_phases: 10
-  total_plans: 30
-  completed_plans: 30
+  total_plans: 33
+  completed_plans: 31
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 10 — ansible-foundation-and-governance-scaffolding
+**Current focus:** Phase 11 — core-governance-roles
 
 ## Current Position
 
-Phase: 11
-Plan: Not started
-Status: Phase complete — ready for verification
-Last activity: 2026-04-08
+Phase: 11 (core-governance-roles) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-04-09
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -48,6 +48,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 10 P01 | 2min | 2 tasks | 16 files |
 | Phase 10 P02 | 3min | 2 tasks | 7 files |
+| Phase 11 P02 | 5min | 2 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 10]: ansible-lint shared profile plus explicit FQCN enforcement (not in shared by default)
 - [Phase 10]: conftest.py over __init__.py for tests/ansible/ to avoid ansible namespace collision
 - [Phase 10]: Embedded SLA_TIERS dict in filter plugin for O(1) runtime lookups; parity test validates sync with YAML
+- [Phase 11]: Used failed_when: false instead of ignore_errors: true for ansible-lint shared profile compliance in cp_schema role
 
 ### Pending Todos
 
@@ -87,6 +89,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-08T14:19:56.935Z
-Stopped at: Completed 10-02-PLAN.md (governance constants and filter plugin)
+Last session: 2026-04-09T01:23:51.716Z
+Stopped at: Completed 11-02-PLAN.md (cp_schema role)
 Resume file: None
