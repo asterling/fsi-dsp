@@ -1,0 +1,31 @@
+---
+- name: Verify idempotency
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Apply cp_schema role a second time (must produce zero changes)
+      ansible.builtin.include_role:
+        name: cp_schema
+      vars:
+        cp_sr_url: "http://localhost:18081"
+        cp_sr_token: "mock-token"
+        cp_schema_validate_structural: false
+        cp_schema_metadata_enabled: false
+        cp_schemas:
+          - subject: corebanking.transactions.v1.account-transaction-value
+            sla_tier: critical
+            schema_content:
+              type: record
+              name: AccountTransaction
+              namespace: org.fsi.corebanking.transactions.v1
+              fields:
+                - name: transaction_id
+                  type: string
+      register: second_run
+
+    - name: Assert no changes on second run (idempotency)
+      ansible.builtin.assert:
+        that:
+          - second_run is not changed
+        fail_msg: "cp_schema role is NOT idempotent -- second run produced changes"
+        success_msg: "cp_schema role is idempotent -- zero changes on second run"

@@ -1,0 +1,44 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Start mock Schema Registry server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/schema_registry
+        python3 -m http.server 18081 &
+        echo $! > /tmp/mock_schema_registry.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
+
+    - name: Wait for mock server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18081
+        timeout: 10
+
+    - name: Apply cp_schema role with mock SR API
+      ansible.builtin.include_role:
+        name: cp_schema
+      vars:
+        cp_sr_url: "http://localhost:18081"
+        cp_sr_token: "mock-token"
+        cp_schema_validate_structural: false
+        cp_schema_metadata_enabled: false
+        cp_schemas:
+          - subject: corebanking.transactions.v1.account-transaction-value
+            sla_tier: critical
+            schema_content:
+              type: record
+              name: AccountTransaction
+              namespace: org.fsi.corebanking.transactions.v1
+              fields:
+                - name: transaction_id
+                  type: string
+
+  post_tasks:
+    - name: Stop mock server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_schema_registry.pid) 2>/dev/null || true
+      changed_when: false
