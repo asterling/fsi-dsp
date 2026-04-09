@@ -1,0 +1,47 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Start mock Connect REST API server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/connect
+        python3 -m http.server 18083 &
+        echo $! > /tmp/mock_connect_rest.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
+
+    - name: Wait for mock server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18083
+        timeout: 10
+
+    - name: Apply cp_connect role with mock API
+      ansible.builtin.include_role:
+        name: cp_connect
+      vars:
+        cp_connect_url: "http://localhost:18083"
+        cp_connect_validate_health: false
+        cp_connectors:
+          - name: jdbc-source-oracle-east
+            config:
+              connector.class: io.confluent.connect.jdbc.JdbcSourceConnector
+              connection.url: "jdbc:oracle:thin:@oracle-east.fsi.internal:1521/KAFKA"
+              topic.prefix: "corebanking.transactions.v1."
+              mode: "timestamp+incrementing"
+              tasks.max: "2"
+          - name: jdbc-sink-postgres-reporting
+            config:
+              connector.class: io.confluent.connect.jdbc.JdbcSinkConnector
+              connection.url: "jdbc:postgresql://pg-reporting.fsi.internal:5432/reporting"
+              topics: "corebanking.transactions.v1.account-transaction"
+              insert.mode: "upsert"
+
+  post_tasks:
+    - name: Stop mock server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_connect_rest.pid) 2>/dev/null || true
+      changed_when: false
+      ignore_errors: true  # noqa: ignore-errors

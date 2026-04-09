@@ -1,0 +1,53 @@
+---
+# =============================================================================
+# cp_connect role -- Check mode (GET-only, no mutations)
+# =============================================================================
+# Reports what would change by comparing existing connector configs with
+# desired configs. Uses only GET requests -- never PUT, POST, or DELETE.
+# =============================================================================
+
+# List currently deployed connectors
+- name: List existing connectors
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _existing_connectors
+  check_mode: false
+  changed_when: false
+
+# Retrieve current config for each desired connector
+- name: "Get current config for connector {{ connector_item.name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors/{{ connector_item.name }}/config"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _current_configs
+  loop: "{{ cp_connectors }}"
+  loop_control:
+    loop_var: connector_item
+    label: "{{ connector_item.name }}"
+  check_mode: false
+  changed_when: false
+
+# Report planned changes
+- name: "Report planned changes for connector {{ item.connector_item.name }}"
+  ansible.builtin.debug:
+    msg: >-
+      Connector '{{ item.connector_item.name }}':
+      {% if item.status == 404 %}
+      Would CREATE (new connector)
+      {% elif item.json != item.connector_item.config %}
+      Would UPDATE (config differs)
+      {% else %}
+      No changes (config identical)
+      {% endif %}
+  loop: "{{ _current_configs.results | default([]) }}"
+  loop_control:
+    label: "{{ item.connector_item.name }}"
+  changed_when: false

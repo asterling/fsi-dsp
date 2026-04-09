@@ -1,0 +1,27 @@
+---
+# =============================================================================
+# cp_connect role -- Default variable values
+# =============================================================================
+# Manages Kafka Connect connector lifecycle via the Connect REST API.
+# Credentials and connector definitions come from inventory group_vars,
+# Vault lookup, or --extra-vars at runtime.
+# =============================================================================
+
+# Connect REST API endpoint
+cp_connect_url: "http://localhost:8083"
+
+# List of connector definitions: [{name: "...", config: {...}}, ...]
+cp_connectors: []
+
+# Health validation after deployment
+cp_connect_validate_health: true
+cp_connect_health_retries: 5
+cp_connect_health_delay: 10
+
+# Output variable for downstream orchestration
+cp_connect_results:
+  created: 0
+  updated: 0
+  failed: 0
+  healthy: 0
+  unhealthy: 0

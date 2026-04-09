@@ -1,0 +1,86 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- Top-level orchestration playbook
+# =============================================================================
+# Chains the full deployment pipeline:
+#   1. Cluster deploy (via cp-ansible)
+#   2. Governance resources (topics, schemas, RBAC)
+#   3. Kafka Connect connectors
+#   4. Observability stack
+#
+# Tag architecture: each play has a DISJOINT top-level tag to prevent
+# import_playbook tag inheritance leakage (see RESEARCH.md Pitfall 1).
+# Run selectively: ansible-playbook site.yml --tags connectors
+# =============================================================================
+
+# --- Play 1: Deploy Confluent Platform cluster --------------------------------
+# Uses import_playbook to delegate to cp-ansible's deploy playbook.
+# CRITICAL: Only the "cluster" tag is applied here. No other play uses this
+# tag, preventing --tags governance from triggering cluster deployment.
+- name: Deploy Confluent Platform cluster
+  ansible.builtin.import_playbook: ../scenarios/cp-rhel/playbooks/deploy-cp.yml
+  tags:
+    - cluster
+
+# --- Play 2: Deploy governance resources --------------------------------------
+# Runs on a single broker to configure topics, schemas, and RBAC via REST APIs.
+# Each role gets both the parent "governance" tag and a specific tag for
+# granular --tags execution.
+- name: Deploy governance resources
+  hosts: kafka_broker[0]
+  gather_facts: false
+  tags:
+    - governance
+  tasks:
+    - name: Deploy topic governance
+      ansible.builtin.include_role:
+        name: cp_topic
+      tags:
+        - topics
+        - governance
+
+    - name: Deploy schema governance
+      ansible.builtin.include_role:
+        name: cp_schema
+      tags:
+        - schemas
+        - governance
+
+    - name: Deploy RBAC governance
+      ansible.builtin.include_role:
+        name: cp_rbac
+      tags:
+        - rbac
+        - governance
+
+# --- Play 3: Deploy Kafka Connect connectors ----------------------------------
+# Targets the first Connect worker. Waits for the REST API to be available
+# before deploying connectors via idempotent PUT.
+- name: Deploy Kafka Connect connectors
+  hosts: kafka_connect[0]
+  gather_facts: false
+  tags:
+    - connectors
+  pre_tasks:
+    - name: Wait for Connect REST API to be available
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+  tasks:
+    - name: Deploy connectors via cp_connect role
+      ansible.builtin.include_role:
+        name: cp_connect
+
+# --- Play 4: Deploy observability stack ---------------------------------------
+# Deploys JMX exporters, Prometheus configs, and dashboards to all hosts.
+- name: Deploy observability stack
+  hosts: all
+  gather_facts: true
+  tags:
+    - observability
+  tasks:
+    - name: Deploy observability via cp_observability role
+      ansible.builtin.include_role:
+        name: cp_observability

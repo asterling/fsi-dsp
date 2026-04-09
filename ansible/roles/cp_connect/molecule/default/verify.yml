@@ -1,0 +1,23 @@
+---
+- name: Verify connector deployment results
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check cp_connect_results fact was set
+      ansible.builtin.assert:
+        that:
+          - cp_connect_results is defined
+          - cp_connect_results.created is defined
+          - cp_connect_results.updated is defined
+          - cp_connect_results.failed is defined
+          - cp_connect_results.healthy is defined
+          - cp_connect_results.unhealthy is defined
+        fail_msg: "cp_connect_results fact not properly set"
+        success_msg: "cp_connect_results fact is present and complete"
+
+    - name: Verify no failed deployments
+      ansible.builtin.assert:
+        that:
+          - cp_connect_results.failed | int == 0
+        fail_msg: "Some connectors failed to deploy"
+        success_msg: "All connectors deployed successfully"

@@ -1,0 +1,86 @@
+---
+# =============================================================================
+# cp_connect role -- Validate connector health
+# =============================================================================
+# GET /connectors/{name}/status to check running state.
+# If FAILED tasks found, restart with POST then re-check with retries.
+# =============================================================================
+
+# Step 1: Initial status check for all connectors
+- name: "Check connector status for {{ connector_item.name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors/{{ connector_item.name }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _status_result
+  loop: "{{ cp_connectors }}"
+  loop_control:
+    loop_var: connector_item
+    label: "{{ connector_item.name }}"
+  failed_when: false
+
+# Step 2: Identify connectors with FAILED tasks and restart them
+- name: "Restart failed tasks for connector {{ connector_item.name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors/{{ connector_item.name }}/restart?includeTasks=true&onlyFailed=true"
+    method: POST
+    status_code:
+      - 200
+      - 202
+      - 204
+  loop: "{{ cp_connectors }}"
+  loop_control:
+    loop_var: connector_item
+    label: "{{ connector_item.name }}"
+  when: >-
+    _status_result.results | default([])
+    | selectattr('json', 'defined')
+    | selectattr('json.tasks', 'defined')
+    | map(attribute='json')
+    | selectattr('name', 'equalto', connector_item.name)
+    | map(attribute='tasks')
+    | flatten
+    | selectattr('state', 'equalto', 'FAILED')
+    | list | length > 0
+  failed_when: false
+
+# Step 3: Re-check with retries until all healthy
+- name: "Verify connector {{ connector_item.name }} is healthy"
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors/{{ connector_item.name }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _health_result
+  retries: "{{ cp_connect_health_retries }}"
+  delay: "{{ cp_connect_health_delay }}"
+  until: >-
+    _health_result.json is defined
+    and _health_result.json.connector.state == 'RUNNING'
+    and (_health_result.json.tasks
+         | selectattr('state', 'equalto', 'FAILED')
+         | list | length == 0)
+  loop: "{{ cp_connectors }}"
+  loop_control:
+    loop_var: connector_item
+    label: "{{ connector_item.name }}"
+  failed_when: false
+
+# Step 4: Count healthy and unhealthy connectors
+- name: Count healthy connectors
+  ansible.builtin.set_fact:
+    _connect_healthy: >-
+      {{ _health_result.results | default([])
+         | selectattr('json', 'defined')
+         | selectattr('json.connector.state', 'equalto', 'RUNNING')
+         | list | length }}
+  when: _health_result.results is defined
+
+- name: Count unhealthy connectors
+  ansible.builtin.set_fact:
+    _connect_unhealthy: >-
+      {{ (cp_connectors | length) - (_connect_healthy | int) }}
+  when: _health_result.results is defined

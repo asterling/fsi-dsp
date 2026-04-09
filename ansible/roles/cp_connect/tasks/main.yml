@@ -1,0 +1,65 @@
+---
+# =============================================================================
+# cp_connect role -- Entry point
+# =============================================================================
+# Routes to check mode (GET-only) or deploy + validate flow.
+# Collects results into cp_connect_results for downstream orchestration.
+# =============================================================================
+
+# --- Initialize result counters -----------------------------------------------
+- name: Initialize connector result counters
+  ansible.builtin.set_fact:
+    _connect_created: 0
+    _connect_updated: 0
+    _connect_failed: 0
+    _connect_healthy: 0
+    _connect_unhealthy: 0
+
+# --- Check mode: report planned changes without mutations ---------------------
+- name: Run check-mode connector report
+  ansible.builtin.include_tasks:
+    file: check.yml
+  when: ansible_check_mode | bool
+
+# --- Normal mode: deploy connectors ------------------------------------------
+- name: Deploy connectors via REST API  # noqa: ignore-errors
+  ansible.builtin.include_tasks:
+    file: deploy.yml
+  when: not (ansible_check_mode | bool)
+
+# --- Normal mode: validate health after deployment ----------------------------
+- name: Validate connector health
+  ansible.builtin.include_tasks:
+    file: validate.yml
+  when:
+    - not (ansible_check_mode | bool)
+    - cp_connect_validate_health | bool
+    - cp_connectors | length > 0
+
+# --- Build results summary ----------------------------------------------------
+- name: Set cp_connect_results output variable
+  ansible.builtin.set_fact:
+    cp_connect_results:
+      created: "{{ _connect_created | int }}"
+      updated: "{{ _connect_updated | int }}"
+      failed: "{{ _connect_failed | int }}"
+      healthy: "{{ _connect_healthy | int }}"
+      unhealthy: "{{ _connect_unhealthy | int }}"
+
+- name: Report connector results summary
+  ansible.builtin.debug:
+    msg: >-
+      cp_connect results: created={{ cp_connect_results.created }},
+      updated={{ cp_connect_results.updated }},
+      failed={{ cp_connect_results.failed }},
+      healthy={{ cp_connect_results.healthy }},
+      unhealthy={{ cp_connect_results.unhealthy }}
+
+- name: Fail if any connectors are unhealthy
+  ansible.builtin.fail:
+    msg: >-
+      {{ cp_connect_results.unhealthy }} connector(s) unhealthy after
+      deployment and health validation
+  when:
+    - not (ansible_check_mode | bool)
+    - cp_connect_results.unhealthy | int > 0

@@ -1,0 +1,56 @@
+---
+# =============================================================================
+# cp_connect role -- Deploy connectors via PUT (idempotent create-or-update)
+# =============================================================================
+# PUT /connectors/{name}/config creates if absent (201) or updates if
+# present (200). This is the canonical idempotent pattern for Connect REST API.
+# =============================================================================
+
+- name: "Deploy connector {{ connector_item.name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_connect_url }}/connectors/{{ connector_item.name }}/config"
+    method: PUT
+    body: "{{ connector_item.config | to_json }}"
+    body_format: json
+    headers:
+      Content-Type: "application/json"
+    status_code:
+      - 200
+      - 201
+    return_content: true
+  register: _deploy_result
+  retries: 3
+  delay: 5
+  until: _deploy_result is not failed
+  loop: "{{ cp_connectors }}"
+  loop_control:
+    loop_var: connector_item
+    label: "{{ connector_item.name }}"
+  failed_when: false
+
+- name: Count created connectors
+  ansible.builtin.set_fact:
+    _connect_created: >-
+      {{ _deploy_result.results | default([])
+         | selectattr('status', 'defined')
+         | selectattr('status', 'equalto', 201)
+         | list | length }}
+  when: _deploy_result.results is defined
+
+- name: Count updated connectors
+  ansible.builtin.set_fact:
+    _connect_updated: >-
+      {{ _deploy_result.results | default([])
+         | selectattr('status', 'defined')
+         | selectattr('status', 'equalto', 200)
+         | list | length }}
+  when: _deploy_result.results is defined
+
+- name: Count failed connector deployments
+  ansible.builtin.set_fact:
+    _connect_failed: >-
+      {{ _deploy_result.results | default([])
+         | selectattr('failed', 'defined')
+         | selectattr('failed', 'equalto', true)
+         | list | length }}
+  when: _deploy_result.results is defined

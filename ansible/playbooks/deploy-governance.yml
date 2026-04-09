@@ -1,0 +1,57 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- Governance-only deployment playbook
+# =============================================================================
+# Day-2 operations playbook: deploys governance resources (topics, schemas,
+# RBAC) and connectors WITHOUT cluster deployment. Use this for ongoing
+# governance changes after the initial cluster is deployed via site.yml.
+#
+# Usage: ansible-playbook playbooks/deploy-governance.yml -i inventories/prod/
+# Selective: ansible-playbook playbooks/deploy-governance.yml --tags topics
+# =============================================================================
+
+# --- Play 1: Governance resources on broker -----------------------------------
+- name: Deploy governance resources
+  hosts: kafka_broker[0]
+  gather_facts: false
+  tags:
+    - governance
+  tasks:
+    - name: Deploy topic governance
+      ansible.builtin.include_role:
+        name: cp_topic
+      tags:
+        - topics
+        - governance
+
+    - name: Deploy schema governance
+      ansible.builtin.include_role:
+        name: cp_schema
+      tags:
+        - schemas
+        - governance
+
+    - name: Deploy RBAC governance
+      ansible.builtin.include_role:
+        name: cp_rbac
+      tags:
+        - rbac
+        - governance
+
+# --- Play 2: Connectors on Connect worker ------------------------------------
+- name: Deploy Kafka Connect connectors
+  hosts: kafka_connect[0]
+  gather_facts: false
+  tags:
+    - connectors
+  pre_tasks:
+    - name: Wait for Connect REST API to be available
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+  tasks:
+    - name: Deploy connectors via cp_connect role
+      ansible.builtin.include_role:
+        name: cp_connect

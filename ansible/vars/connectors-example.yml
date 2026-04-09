@@ -1,0 +1,32 @@
+# =============================================================================
+# Example connector definitions for the cp_connect role
+# =============================================================================
+# Copy and adapt for your environment. Credentials should come from Vault
+# or inventory group_vars, never hardcoded in version control.
+# =============================================================================
+
+cp_connectors:
+  - name: jdbc-source-oracle-east
+    config:
+      connector.class: io.confluent.connect.jdbc.JdbcSourceConnector
+      connection.url: "jdbc:oracle:thin:@oracle-east.fsi.internal:1521/KAFKA"
+      connection.user: "{{ vault_oracle_user }}"
+      connection.password: "{{ vault_oracle_password }}"
+      topic.prefix: "corebanking.transactions.v1."
+      mode: "timestamp+incrementing"
+      timestamp.column.name: "last_modified"
+      incrementing.column.name: "id"
+      poll.interval.ms: "5000"
+      tasks.max: "2"
+
+  - name: jdbc-sink-postgres-reporting
+    config:
+      connector.class: io.confluent.connect.jdbc.JdbcSinkConnector
+      connection.url: "jdbc:postgresql://pg-reporting.fsi.internal:5432/reporting"
+      connection.user: "{{ vault_postgres_user }}"
+      connection.password: "{{ vault_postgres_password }}"
+      topics: "corebanking.transactions.v1.account-transaction"
+      auto.create: "true"
+      insert.mode: "upsert"
+      pk.mode: "record_key"
+      pk.fields: "transaction_id"
