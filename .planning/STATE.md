@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
 status: executing
-stopped_at: Completed 12-02-PLAN.md (cp_observability role)
-last_updated: "2026-04-09T16:07:05.617Z"
+stopped_at: Completed 12-01-PLAN.md (orchestration pipeline and cp_connect)
+last_updated: "2026-04-09T16:07:27.262Z"
 last_activity: 2026-04-09
 progress:
   total_phases: 15
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-04-07)
 ## Current Position
 
 Phase: 12 (orchestration-pipeline-observability-and-ci-cd) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-04-09
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 11 P01 | 6min | 2 tasks | 20 files |
 | Phase 11 P03 | 5min | 2 tasks | 17 files |
 | Phase 12 P02 | 5min | 1 tasks | 17 files |
+| Phase 12 P01 | 5min | 2 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 12]: JMX exporter ports follow cp-ansible 7.7.x defaults (broker=8080, SR=8078, Connect=8077, ZK=8079)
 - [Phase 12]: Prometheus file_sd_configs for zero-restart service discovery from Ansible inventory
 - [Phase 12]: Grafana dual-method: file_provisioning (default/production) and API (development)
+- [Phase 12]: Disjoint tag sets per play in site.yml to prevent import_playbook tag inheritance leakage
+- [Phase 12]: PUT /connectors/{name}/config for idempotent create-or-update (201 new, 200 update)
 
 ### Pending Todos
 
@@ -99,6 +102,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T16:07:05.615Z
-Stopped at: Completed 12-02-PLAN.md (cp_observability role)
+Last session: 2026-04-09T16:07:27.260Z
+Stopped at: Completed 12-01-PLAN.md (orchestration pipeline and cp_connect)
 Resume file: None

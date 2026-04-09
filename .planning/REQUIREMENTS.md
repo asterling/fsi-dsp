@@ -134,10 +134,10 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible Deployment Pipeline
 
-- [ ] **APIPE-01**: Orchestration playbook (`site.yml`) chains cp-ansible cluster deployment with topic -> schema -> RBAC -> connectors -> observability in a single run
-- [ ] **APIPE-02**: Ansible tags allow selective execution (e.g., `--tags topics`, `--tags rbac`, `--tags observability`) for Day-2 operations without full pipeline re-run
-- [ ] **APIPE-03**: Connector deployment role creates/updates connectors via Connect REST API with idempotent create-if-absent, update-if-different pattern
-- [ ] **APIPE-04**: Connector health validation after deployment verifies all connectors and tasks are in RUNNING state with retry and backoff
+- [x] **APIPE-01**: Orchestration playbook (`site.yml`) chains cp-ansible cluster deployment with topic -> schema -> RBAC -> connectors -> observability in a single run
+- [x] **APIPE-02**: Ansible tags allow selective execution (e.g., `--tags topics`, `--tags rbac`, `--tags observability`) for Day-2 operations without full pipeline re-run
+- [x] **APIPE-03**: Connector deployment role creates/updates connectors via Connect REST API with idempotent create-if-absent, update-if-different pattern
+- [x] **APIPE-04**: Connector health validation after deployment verifies all connectors and tasks are in RUNNING state with retry and backoff
 
 ### Ansible DR Automation
 
@@ -312,10 +312,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ARBAC-03 | Phase 11 | Complete |
 | ARBAC-04 | Phase 11 | Complete |
 | ARBAC-05 | Phase 11 | Complete |
-| APIPE-01 | Phase 12 | Pending |
-| APIPE-02 | Phase 12 | Pending |
-| APIPE-03 | Phase 12 | Pending |
-| APIPE-04 | Phase 12 | Pending |
+| APIPE-01 | Phase 12 | Complete |
+| APIPE-02 | Phase 12 | Complete |
+| APIPE-03 | Phase 12 | Complete |
+| APIPE-04 | Phase 12 | Complete |
 | ADR-01 | Phase 13 | Pending |
 | ADR-02 | Phase 13 | Pending |
 | ADR-03 | Phase 13 | Pending |
