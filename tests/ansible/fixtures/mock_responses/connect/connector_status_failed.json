@@ -1,0 +1,16 @@
+{
+  "name": "jdbc-source-oracle-east",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "connect-0.fsi.internal:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "FAILED",
+      "worker_id": "connect-0.fsi.internal:8083",
+      "trace": "org.apache.kafka.connect.errors.ConnectException: java.sql.SQLException: ORA-01017: invalid username/password; logon denied\n\tat io.confluent.connect.jdbc.JdbcSourceTask.poll(JdbcSourceTask.java:143)\n\tat org.apache.kafka.connect.runtime.WorkerSourceTask.poll(WorkerSourceTask.java:308)"
+    }
+  ],
+  "type": "source"
+}

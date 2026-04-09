@@ -1,0 +1,20 @@
+{
+  "name": "jdbc-source-oracle-east",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "connect-0.fsi.internal:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "connect-0.fsi.internal:8083"
+    },
+    {
+      "id": 1,
+      "state": "RUNNING",
+      "worker_id": "connect-1.fsi.internal:8083"
+    }
+  ],
+  "type": "source"
+}

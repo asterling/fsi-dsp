@@ -1,0 +1,27 @@
+{
+  "name": "jdbc-source-oracle-east",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSourceConnector",
+    "connection.url": "jdbc:oracle:thin:@oracle-east.fsi.internal:1521/KAFKA",
+    "connection.user": "kafka_connect",
+    "connection.password": "********",
+    "topic.prefix": "corebanking.transactions.v1.",
+    "mode": "timestamp+incrementing",
+    "timestamp.column.name": "last_modified",
+    "incrementing.column.name": "id",
+    "poll.interval.ms": "5000",
+    "tasks.max": "2",
+    "name": "jdbc-source-oracle-east"
+  },
+  "tasks": [
+    {
+      "connector": "jdbc-source-oracle-east",
+      "task": 0
+    },
+    {
+      "connector": "jdbc-source-oracle-east",
+      "task": 1
+    }
+  ],
+  "type": "source"
+}
