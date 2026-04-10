@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
 status: executing
-stopped_at: Completed 12-03-PLAN.md (Ansible CI workflow)
-last_updated: "2026-04-09T17:57:11.298Z"
-last_activity: 2026-04-09
+stopped_at: Completed 13-01-PLAN.md (cp_dr_mm2 role with failover)
+last_updated: "2026-04-10T12:47:46.506Z"
+last_activity: 2026-04-10
 progress:
   total_phases: 15
   completed_phases: 12
-  total_plans: 36
-  completed_plans: 36
+  total_plans: 38
+  completed_plans: 37
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 12 — orchestration-pipeline-observability-and-ci-cd
+**Current focus:** Phase 13 — dr-automation-playbooks-mm2
 
 ## Current Position
 
-Phase: 13
-Plan: Not started
+Phase: 13 (dr-automation-playbooks-mm2) — EXECUTING
+Plan: 2 of 2
 Status: Ready to execute
-Last activity: 2026-04-09
+Last activity: 2026-04-10
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12 P02 | 5min | 1 tasks | 17 files |
 | Phase 12 P01 | 5min | 2 tasks | 18 files |
 | Phase 12 P03 | 2min | 1 tasks | 2 files |
+| Phase 13 P01 | 4min | 1 tasks | 19 files |
 
 ## Accumulated Context
 
@@ -91,6 +92,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 12]: Disjoint tag sets per play in site.yml to prevent import_playbook tag inheritance leakage
 - [Phase 12]: PUT /connectors/{name}/config for idempotent create-or-update (201 new, 200 update)
 - [Phase 12]: PyYAML parses YAML on key as boolean True; CI workflow tests use wf.get(on) or wf.get(True)
+- [Phase 13]: sla_tier_mirror_lag as separate top-level key in sla_tiers.yml to avoid breaking parity test
+- [Phase 13]: Connector-level health validation via REST API; per-topic lag deferred to Prometheus/JMX
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-09T17:53:00.731Z
-Stopped at: Completed 12-03-PLAN.md (Ansible CI workflow)
+Last session: 2026-04-10T12:47:46.503Z
+Stopped at: Completed 13-01-PLAN.md (cp_dr_mm2 role with failover)
 Resume file: None
