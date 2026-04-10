@@ -1,0 +1,77 @@
+---
+# =============================================================================
+# cfk_operator role -- Check mode (read-only audit)
+# =============================================================================
+# Queries the current state of the CFK Helm release and platform CRs without
+# making any mutations. Safe for --check runs and drift detection.
+# =============================================================================
+
+- name: Query CFK Helm release status
+  kubernetes.core.helm_info:
+    name: "{{ cfk_helm_release_name }}"
+    release_namespace: "{{ cfk_namespace }}"
+  register: _cfk_helm_info
+  check_mode: false
+  changed_when: false
+
+- name: Report CFK operator status
+  ansible.builtin.debug:
+    msg: >-
+      CFK operator Helm release '{{ cfk_helm_release_name }}'
+      in namespace '{{ cfk_namespace }}':
+      {{ _cfk_helm_info.status | default('not found') }}
+  changed_when: false
+
+# --- Query Kafka CR status ---------------------------------------------------
+- name: Query Kafka CR status
+  kubernetes.core.k8s_info:
+    kind: Kafka
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_kafka_check
+  check_mode: false
+  changed_when: false
+
+- name: Report Kafka CR status
+  ansible.builtin.debug:
+    msg: >-
+      Kafka CRs in '{{ cfk_namespace }}':
+      {{ _cfk_kafka_check.resources | length }} found,
+      phases={{ _cfk_kafka_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false
+
+# --- Query SchemaRegistry CR status ------------------------------------------
+- name: Query SchemaRegistry CR status
+  kubernetes.core.k8s_info:
+    kind: SchemaRegistry
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_sr_check
+  check_mode: false
+  changed_when: false
+
+- name: Report SchemaRegistry CR status
+  ansible.builtin.debug:
+    msg: >-
+      SchemaRegistry CRs in '{{ cfk_namespace }}':
+      {{ _cfk_sr_check.resources | length }} found,
+      phases={{ _cfk_sr_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false
+
+# --- Query Connect CR status -------------------------------------------------
+- name: Query Connect CR status
+  kubernetes.core.k8s_info:
+    kind: Connect
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_connect_check
+  check_mode: false
+  changed_when: false
+
+- name: Report Connect CR status
+  ansible.builtin.debug:
+    msg: >-
+      Connect CRs in '{{ cfk_namespace }}':
+      {{ _cfk_connect_check.resources | length }} found,
+      phases={{ _cfk_connect_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false

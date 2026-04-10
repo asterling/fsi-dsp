@@ -1,0 +1,12 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Apply cfk_operator role (dry run -- no real cluster)
+      ansible.builtin.include_role:
+        name: cfk_operator
+      vars:
+        # Skip actual Helm/k8s operations in molecule; role structure
+        # and task routing are validated by unit tests and verify.yml
+        ansible_check_mode: true

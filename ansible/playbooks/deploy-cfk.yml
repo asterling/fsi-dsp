@@ -1,0 +1,38 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- CFK on OpenShift deployment playbook
+# =============================================================================
+# Two-play pipeline:
+#   Play 1: Deploy CFK operator via Helm + apply platform CRs (Kafka, SR, Connect)
+#   Play 2: Apply governed KafkaTopic CRDs (delegated to cfk_topic role)
+#
+# Usage:
+#   ansible-playbook ansible/playbooks/deploy-cfk.yml
+#   ansible-playbook ansible/playbooks/deploy-cfk.yml --tags cfk-operator
+#   ansible-playbook ansible/playbooks/deploy-cfk.yml --tags cfk-topics
+#   ansible-playbook ansible/playbooks/deploy-cfk.yml --check  # dry-run audit
+# =============================================================================
+
+# --- Play 1: Deploy CFK operator and platform CRs ---------------------------
+- name: Deploy CFK operator and platform components
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - cfk-operator
+  tasks:
+    - name: Deploy CFK operator and CRs
+      ansible.builtin.include_role:
+        name: cfk_operator
+
+# --- Play 2: Apply governed KafkaTopic CRDs ---------------------------------
+- name: Apply governed KafkaTopic CRDs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - cfk-topics
+  tasks:
+    - name: Apply CFK topic governance
+      ansible.builtin.include_role:
+        name: cfk_topic

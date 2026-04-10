@@ -1,0 +1,32 @@
+---
+# =============================================================================
+# cfk_operator role -- Helm-based CFK operator deployment
+# =============================================================================
+# Adds the Confluent Helm repository and installs the CFK operator chart
+# into the target namespace. Uses kubernetes.core.helm with wait to ensure
+# the operator is ready before proceeding to CR application.
+# =============================================================================
+
+- name: Add Confluent Helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ cfk_helm_repo_name }}"
+    repo_url: "{{ cfk_helm_repo_url }}"
+    state: present
+
+- name: Deploy CFK operator via Helm
+  kubernetes.core.helm:
+    name: "{{ cfk_helm_release_name }}"
+    chart_ref: "{{ cfk_helm_chart_ref }}"
+    chart_version: "{{ cfk_helm_chart_version }}"
+    release_namespace: "{{ cfk_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: "{{ cfk_helm_wait_timeout }}"
+  register: _cfk_helm_result
+
+- name: Report Helm deployment result
+  ansible.builtin.debug:
+    msg: >-
+      CFK operator Helm release '{{ cfk_helm_release_name }}'
+      status={{ _cfk_helm_result.status | default('unknown') }}
+  when: _cfk_helm_result is defined

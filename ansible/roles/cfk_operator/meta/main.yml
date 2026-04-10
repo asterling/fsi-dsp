@@ -1,0 +1,20 @@
+---
+# yaml-doc
+galaxy_info:
+  role_name: cfk_operator
+  author: fsi-c4e
+  description: Deploy CFK operator and platform CRs on OpenShift via Helm
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - kafka
+    - confluent
+    - cfk
+    - openshift
+    - kubernetes
+dependencies: []

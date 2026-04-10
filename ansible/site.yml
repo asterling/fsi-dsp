@@ -84,3 +84,25 @@
     - name: Deploy observability via cp_observability role
       ansible.builtin.include_role:
         name: cp_observability
+
+# --- Play 5: Deploy CFK on OpenShift ------------------------------------------
+- name: Deploy CFK on OpenShift
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tags:
+    - cfk
+  tasks:
+    - name: Deploy CFK operator and CRs
+      ansible.builtin.include_role:
+        name: cfk_operator
+      tags:
+        - cfk-operator
+        - cfk
+
+    - name: Apply CFK topic governance
+      ansible.builtin.include_role:
+        name: cfk_topic
+      tags:
+        - cfk-topics
+        - cfk

@@ -1,0 +1,72 @@
+---
+# =============================================================================
+# cfk_operator role -- Apply platform CRs with readiness polling
+# =============================================================================
+# Applies Kafka, SchemaRegistry, and Connect custom resources via
+# kubernetes.core.k8s, then polls status with kubernetes.core.k8s_info
+# using until/retries/delay (NOT wait_condition -- CFK CRDs use .status.phase
+# rather than standard conditions).
+# =============================================================================
+
+# --- Kafka CR ----------------------------------------------------------------
+- name: Apply Kafka custom resource
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ cfk_kafka_cr_path }}"
+    namespace: "{{ cfk_namespace }}"
+  when: cfk_kafka_cr_path | length > 0
+
+- name: Wait for Kafka to reach RUNNING state
+  kubernetes.core.k8s_info:
+    kind: Kafka
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_kafka_status
+  until:
+    - _cfk_kafka_status.resources | length > 0
+    - _cfk_kafka_status.resources[0].status.phase | default('') == cfk_expected_status_phase
+  retries: "{{ cfk_readiness_retries }}"
+  delay: "{{ cfk_readiness_delay }}"
+  when: cfk_kafka_cr_path | length > 0
+
+# --- SchemaRegistry CR -------------------------------------------------------
+- name: Apply SchemaRegistry custom resource
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ cfk_schema_registry_cr_path }}"
+    namespace: "{{ cfk_namespace }}"
+  when: cfk_schema_registry_cr_path | length > 0
+
+- name: Wait for SchemaRegistry to reach RUNNING state
+  kubernetes.core.k8s_info:
+    kind: SchemaRegistry
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_sr_status
+  until:
+    - _cfk_sr_status.resources | length > 0
+    - _cfk_sr_status.resources[0].status.phase | default('') == cfk_expected_status_phase
+  retries: "{{ cfk_readiness_retries }}"
+  delay: "{{ cfk_readiness_delay }}"
+  when: cfk_schema_registry_cr_path | length > 0
+
+# --- Connect CR --------------------------------------------------------------
+- name: Apply Connect custom resource
+  kubernetes.core.k8s:
+    state: present
+    src: "{{ cfk_connect_cr_path }}"
+    namespace: "{{ cfk_namespace }}"
+  when: cfk_connect_cr_path | length > 0
+
+- name: Wait for Connect to reach RUNNING state
+  kubernetes.core.k8s_info:
+    kind: Connect
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ cfk_namespace }}"
+  register: _cfk_connect_status
+  until:
+    - _cfk_connect_status.resources | length > 0
+    - _cfk_connect_status.resources[0].status.phase | default('') == cfk_expected_status_phase
+  retries: "{{ cfk_readiness_retries }}"
+  delay: "{{ cfk_readiness_delay }}"
+  when: cfk_connect_cr_path | length > 0

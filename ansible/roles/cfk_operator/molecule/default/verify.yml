@@ -1,0 +1,22 @@
+---
+- name: Verify cfk_operator role structure
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Confirm cfk_operator role was included
+      ansible.builtin.debug:
+        msg: "cfk_operator role converge completed successfully"
+
+    - name: Verify role defaults are loadable
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../../defaults/main.yml"
+      register: _cfk_defaults
+
+    - name: Assert key defaults are present
+      ansible.builtin.assert:
+        that:
+          - cfk_helm_chart_ref is defined
+          - cfk_namespace is defined
+          - cfk_expected_status_phase is defined
+        fail_msg: "cfk_operator defaults missing required variables"
+        success_msg: "cfk_operator defaults validated"

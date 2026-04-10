@@ -1,0 +1,24 @@
+---
+# =============================================================================
+# cfk_operator role -- Entry point
+# =============================================================================
+# Routes to check mode (GET-only audit) or deploy + apply CRs flow.
+# =============================================================================
+
+# --- Check mode: report operator and CR state without mutations --------------
+- name: Run check-mode CFK audit report
+  ansible.builtin.include_tasks:
+    file: check.yml
+  when: ansible_check_mode | bool
+
+# --- Normal mode: deploy operator via Helm -----------------------------------
+- name: Deploy CFK operator via Helm
+  ansible.builtin.include_tasks:
+    file: deploy.yml
+  when: not (ansible_check_mode | bool)
+
+# --- Normal mode: apply platform CRs with readiness gates -------------------
+- name: Apply platform custom resources
+  ansible.builtin.include_tasks:
+    file: apply_crs.yml
+  when: not (ansible_check_mode | bool)

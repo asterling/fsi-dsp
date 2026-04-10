@@ -1,0 +1,29 @@
+---
+# =============================================================================
+# cfk_operator role -- Default variable values
+# =============================================================================
+# Deploys the CFK operator on OpenShift via Helm and applies platform custom
+# resources (KafkaCluster, SchemaRegistry, Connect) with readiness gates.
+# =============================================================================
+
+# CFK Helm chart settings
+cfk_helm_repo_name: confluentinc
+cfk_helm_repo_url: https://packages.confluent.io/helm
+cfk_helm_chart_ref: confluentinc/confluent-for-kubernetes
+cfk_helm_chart_version: "0.921.2"
+cfk_helm_release_name: confluent-operator
+cfk_namespace: confluent
+cfk_helm_wait_timeout: "600s"
+
+# Custom resource paths (relative to playbook dir or absolute)
+cfk_kafka_cr_path: ""
+cfk_schema_registry_cr_path: ""
+cfk_connect_cr_path: ""
+
+# Readiness polling
+cfk_readiness_retries: 30
+cfk_readiness_delay: 20
+cfk_cr_wait_timeout: 600
+
+# CR expected status phase
+cfk_expected_status_phase: "RUNNING"
