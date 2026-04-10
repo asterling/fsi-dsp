@@ -71,7 +71,8 @@ class TestRoleStructure:
 
     def test_task_files_exist(self):
         expected = [
-            'main.yml', 'check.yml', 'failover.yml', 'validate_state.yml',
+            'main.yml', 'check.yml', 'failover.yml', 'failback.yml',
+            'validate_state.yml',
             'consul_flip.yml', 'connector_pause.yml', 'connector_resume.yml'
         ]
         for fname in expected:
@@ -185,7 +186,8 @@ class TestFQCNCompliance:
 
     def test_all_tasks_use_fqcn(self):
         task_files = [
-            'main.yml', 'check.yml', 'failover.yml', 'validate_state.yml',
+            'main.yml', 'check.yml', 'failover.yml', 'failback.yml',
+            'validate_state.yml',
             'consul_flip.yml', 'connector_pause.yml', 'connector_resume.yml'
         ]
         for fname in task_files:
@@ -217,7 +219,8 @@ class TestTaskNameCasing:
 
     def test_all_task_names_uppercase(self):
         task_files = [
-            'main.yml', 'check.yml', 'failover.yml', 'validate_state.yml',
+            'main.yml', 'check.yml', 'failover.yml', 'failback.yml',
+            'validate_state.yml',
             'consul_flip.yml', 'connector_pause.yml', 'connector_resume.yml'
         ]
         for fname in task_files:
@@ -241,7 +244,8 @@ class TestTaskNameCasing:
     def test_no_jinja_before_final_position(self):
         """Task names must not have Jinja templates before the end."""
         task_files = [
-            'main.yml', 'check.yml', 'failover.yml', 'validate_state.yml',
+            'main.yml', 'check.yml', 'failover.yml', 'failback.yml',
+            'validate_state.yml',
             'consul_flip.yml', 'connector_pause.yml', 'connector_resume.yml'
         ]
         for fname in task_files:
@@ -765,4 +769,355 @@ class TestMolecule:
         text = _read_text(os.path.join(MOLECULE_DIR, 'verify.yml'))
         assert 'cp_dr_mm2_results' in text, (
             "verify.yml must check cp_dr_mm2_results"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestFailbackTasks -- failback.yml 7-step sequence
+# ---------------------------------------------------------------------------
+class TestFailbackTasks:
+    """Verify failback.yml implements the 7-step failback sequence."""
+
+    FAILBACK_PATH = os.path.join(TASKS_DIR, 'failback.yml')
+
+    def test_failback_file_exists(self):
+        assert os.path.isfile(self.FAILBACK_PATH), (
+            "failback.yml must exist"
+        )
+
+    def test_failback_fetches_config_with_get(self):
+        """Pitfall 4: GET config BEFORE deleting connectors."""
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'method: GET' in text, (
+            "failback.yml must fetch original connector config via GET"
+        )
+        # GET must appear before DELETE
+        get_pos = text.index('method: GET')
+        delete_pos = text.index('method: DELETE')
+        assert get_pos < delete_pos, (
+            "failback.yml must GET config BEFORE DELETE (pitfall 4)"
+        )
+
+    def test_failback_deletes_connectors(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'method: DELETE' in text, (
+            "failback.yml must DELETE existing MM2 connectors"
+        )
+
+    def test_failback_creates_reversed_connectors(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'method: POST' in text, (
+            "failback.yml must POST reversed MM2 connectors"
+        )
+
+    def test_failback_has_retries_for_running(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'retries' in text, (
+            "failback.yml must have retries for polling reversed connectors"
+        )
+
+    def test_failback_has_delay_for_polling(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'delay' in text, (
+            "failback.yml must have delay for polling loop"
+        )
+
+    def test_failback_has_until_for_polling(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'until' in text, (
+            "failback.yml must have until condition for RUNNING poll"
+        )
+
+    def test_failback_includes_consul_flip(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'consul_flip' in text, (
+            "failback.yml must include consul_flip.yml for region cutback"
+        )
+
+    def test_failback_includes_connector_resume(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'connector_resume' in text, (
+            "failback.yml must include connector_resume.yml for app connectors"
+        )
+
+    def test_failback_increments_connectors_deleted(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert '_dr_connectors_deleted' in text, (
+            "failback.yml must increment _dr_connectors_deleted counter"
+        )
+
+    def test_failback_increments_connectors_created(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert '_dr_connectors_created' in text, (
+            "failback.yml must increment _dr_connectors_created counter"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestFailbackCheckMode -- failback audit steps in check.yml
+# ---------------------------------------------------------------------------
+class TestFailbackCheckMode:
+    """Verify check.yml has failback-specific audit steps."""
+
+    CHECK_PATH = os.path.join(TASKS_DIR, 'check.yml')
+
+    def test_check_has_failback_condition(self):
+        text = _read_text(self.CHECK_PATH)
+        assert 'failback' in text, (
+            "check.yml must contain failback audit steps"
+        )
+
+    def test_check_failback_has_7_steps(self):
+        """Failback audit must have 7 planned steps."""
+        data = _load_yaml(self.CHECK_PATH)
+        failback_steps = [
+            task for task in data
+            if isinstance(task, dict) and 'name' in task
+            and 'failback' in task['name'].lower()
+            and 'step' in task['name'].lower()
+        ]
+        assert len(failback_steps) == 7, (
+            f"check.yml must have 7 failback audit steps, found "
+            f"{len(failback_steps)}: {[s['name'] for s in failback_steps]}"
+        )
+
+    def test_check_failback_steps_have_operation_guard(self):
+        """Each failback audit step must be guarded by operation == failback."""
+        data = _load_yaml(self.CHECK_PATH)
+        for task in data:
+            if not isinstance(task, dict) or 'name' not in task:
+                continue
+            name = task['name']
+            if 'failback' in name.lower() and 'step' in name.lower():
+                when = task.get('when', '')
+                when_str = str(when) if not isinstance(when, list) else ' '.join(str(w) for w in when)
+                assert 'failback' in when_str, (
+                    f"Failback audit step '{name}' must be guarded by "
+                    f"cp_dr_mm2_operation == 'failback'"
+                )
+
+    def test_check_still_no_put(self):
+        text = _read_text(self.CHECK_PATH)
+        assert 'method: PUT' not in text, (
+            "check.yml must NOT use PUT even after failback extension"
+        )
+
+    def test_check_still_no_post(self):
+        text = _read_text(self.CHECK_PATH)
+        assert 'method: POST' not in text, (
+            "check.yml must NOT use POST even after failback extension"
+        )
+
+    def test_check_still_no_delete(self):
+        text = _read_text(self.CHECK_PATH)
+        assert 'method: DELETE' not in text, (
+            "check.yml must NOT use DELETE even after failback extension"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestFailbackPlaybook -- dr-failback-mm2.yml top-level playbook
+# ---------------------------------------------------------------------------
+class TestFailbackPlaybook:
+    """Verify the operator-facing failback playbook."""
+
+    PLAYBOOK_PATH = os.path.join(PLAYBOOKS_DIR, 'dr-failback-mm2.yml')
+
+    def test_failback_playbook_exists(self):
+        assert os.path.isfile(self.PLAYBOOK_PATH), (
+            "dr-failback-mm2.yml must exist"
+        )
+
+    def test_failback_playbook_targets_kafka_connect(self):
+        text = _read_text(self.PLAYBOOK_PATH)
+        assert 'kafka_connect[0]' in text, (
+            "dr-failback-mm2.yml must target kafka_connect[0] hosts"
+        )
+
+    def test_failback_playbook_sets_failback_operation(self):
+        text = _read_text(self.PLAYBOOK_PATH)
+        assert 'cp_dr_mm2_operation: failback' in text, (
+            "dr-failback-mm2.yml must set cp_dr_mm2_operation: failback"
+        )
+
+    def test_failback_playbook_includes_cp_dr_mm2_role(self):
+        text = _read_text(self.PLAYBOOK_PATH)
+        assert 'cp_dr_mm2' in text, (
+            "dr-failback-mm2.yml must include cp_dr_mm2 role"
+        )
+        assert 'include_role' in text, (
+            "dr-failback-mm2.yml must use include_role"
+        )
+
+    def test_failback_playbook_no_gather_facts(self):
+        data = _load_yaml(self.PLAYBOOK_PATH)
+        play = data[0]
+        assert play.get('gather_facts') is False, (
+            "dr-failback-mm2.yml must set gather_facts: false"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestMainRoutingFailback -- main.yml routes to failback.yml
+# ---------------------------------------------------------------------------
+class TestMainRoutingFailback:
+    """Verify main.yml includes failback.yml with correct condition."""
+
+    MAIN_PATH = os.path.join(TASKS_DIR, 'main.yml')
+
+    def test_main_routes_to_failback(self):
+        text = _read_text(self.MAIN_PATH)
+        assert 'failback.yml' in text, (
+            "main.yml must include failback.yml"
+        )
+
+    def test_main_failback_has_operation_condition(self):
+        data = _load_yaml(self.MAIN_PATH)
+        failback_task = None
+        for task in data:
+            if isinstance(task, dict) and 'name' in task:
+                if 'failback' in task['name'].lower():
+                    include = task.get('ansible.builtin.include_tasks', {})
+                    if isinstance(include, dict):
+                        if include.get('file', '') == 'failback.yml':
+                            failback_task = task
+                            break
+                    elif isinstance(include, str) and include == 'failback.yml':
+                        failback_task = task
+                        break
+        assert failback_task is not None, (
+            "main.yml must have a task that includes failback.yml"
+        )
+        when = failback_task.get('when', [])
+        when_str = str(when) if not isinstance(when, list) else ' '.join(str(w) for w in when)
+        assert 'failback' in when_str, (
+            "main.yml failback routing must check cp_dr_mm2_operation == 'failback'"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestReversedConnectorConfig -- failback.yml reversed alias swap
+# ---------------------------------------------------------------------------
+class TestReversedConnectorConfig:
+    """Verify failback.yml constructs reversed connectors with swapped aliases."""
+
+    FAILBACK_PATH = os.path.join(TASKS_DIR, 'failback.yml')
+
+    def test_failback_references_source_alias(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'cp_dr_mm2_source_alias' in text, (
+            "failback.yml must reference cp_dr_mm2_source_alias for swap"
+        )
+
+    def test_failback_references_target_alias(self):
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'cp_dr_mm2_target_alias' in text, (
+            "failback.yml must reference cp_dr_mm2_target_alias for swap"
+        )
+
+    def test_failback_swaps_aliases(self):
+        """The failback must swap source/target aliases in connector config."""
+        text = _read_text(self.FAILBACK_PATH)
+        # Must reference both source and target bootstrap servers for swapping
+        assert 'source.cluster.bootstrap.servers' in text or 'bootstrap.servers' in text, (
+            "failback.yml must reference bootstrap.servers for the swap"
+        )
+
+    def test_failback_constructs_reversed_names(self):
+        """Connector names must be reversed (east-west -> west-east)."""
+        text = _read_text(self.FAILBACK_PATH)
+        # The replace pattern for reversing connector direction
+        assert 'replace' in text or 'reversed' in text.lower(), (
+            "failback.yml must construct reversed connector names "
+            "(e.g., mm2-source-west-east from mm2-source-east-west)"
+        )
+
+    def test_failback_references_mm2_connector_config_fields(self):
+        """Must reference original config fields for reversal."""
+        text = _read_text(self.FAILBACK_PATH)
+        assert 'source.cluster.alias' in text, (
+            "failback.yml must reference source.cluster.alias config field"
+        )
+        assert 'target.cluster.alias' in text, (
+            "failback.yml must reference target.cluster.alias config field"
+        )
+
+
+# ---------------------------------------------------------------------------
+# TestFailbackFQCNCompliance -- FQCN enforcement on failback.yml
+# ---------------------------------------------------------------------------
+class TestFailbackFQCNCompliance:
+    """Verify failback.yml uses FQCN for every module reference."""
+
+    FAILBACK_PATH = os.path.join(TASKS_DIR, 'failback.yml')
+
+    BARE_MODULES = [
+        'uri:', 'set_fact:', 'debug:', 'assert:', 'fail:',
+        'include_tasks:', 'include_role:', 'shell:', 'wait_for:',
+        'include_vars:'
+    ]
+
+    def test_failback_uses_fqcn(self):
+        if not os.path.isfile(self.FAILBACK_PATH):
+            assert False, "failback.yml must exist"
+        text = _read_text(self.FAILBACK_PATH)
+        for bare in self.BARE_MODULES:
+            lines = text.split('\n')
+            for i, line in enumerate(lines):
+                stripped = line.lstrip()
+                if stripped.startswith('#') or not stripped:
+                    continue
+                if stripped.startswith('- name:') or stripped.startswith('name:'):
+                    continue
+                if stripped.startswith(bare):
+                    assert False, (
+                        f"Bare module '{bare}' found in failback.yml "
+                        f"line {i + 1}: '{stripped}'. "
+                        f"Use ansible.builtin.{bare[:-1]} instead."
+                    )
+
+
+# ---------------------------------------------------------------------------
+# TestFailbackTaskNameCasing -- task name casing for failback.yml
+# ---------------------------------------------------------------------------
+class TestFailbackTaskNameCasing:
+    """Verify failback.yml task names follow ansible-lint conventions."""
+
+    FAILBACK_PATH = os.path.join(TASKS_DIR, 'failback.yml')
+
+    def test_failback_task_names_uppercase(self):
+        if not os.path.isfile(self.FAILBACK_PATH):
+            assert False, "failback.yml must exist"
+        data = _load_yaml(self.FAILBACK_PATH)
+        if not data:
+            assert False, "failback.yml must contain tasks"
+        for task in data:
+            if isinstance(task, dict) and 'name' in task:
+                name = task['name']
+                if name.startswith('{{'):
+                    continue
+                assert name[0].isupper(), (
+                    f"Task name in failback.yml must start with uppercase: "
+                    f"'{name}'"
+                )
+
+
+# ---------------------------------------------------------------------------
+# TestDefaultsCounters -- defaults include connector deleted/created counters
+# ---------------------------------------------------------------------------
+class TestDefaultsCounters:
+    """Verify defaults/main.yml includes connectors_deleted and connectors_created in results."""
+
+    def test_results_has_connectors_deleted(self):
+        data = _load_yaml(os.path.join(ROLE_DIR, 'defaults', 'main.yml'))
+        results = data.get('cp_dr_mm2_results', {})
+        assert 'connectors_deleted' in results, (
+            "cp_dr_mm2_results must include connectors_deleted key"
+        )
+
+    def test_results_has_connectors_created(self):
+        data = _load_yaml(os.path.join(ROLE_DIR, 'defaults', 'main.yml'))
+        results = data.get('cp_dr_mm2_results', {})
+        assert 'connectors_created' in results, (
+            "cp_dr_mm2_results must include connectors_created key"
         )
