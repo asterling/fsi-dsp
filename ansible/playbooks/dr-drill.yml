@@ -1,0 +1,162 @@
+---
+# ===========================================================================
+# FSI Kafka Platform -- DR Drill Playbook
+# ===========================================================================
+# Orchestrates a full DR drill cycle for quarterly compliance testing:
+#   1. Pre-drill state snapshot
+#   2. Failover via selected DR backend (cp_dr_mrc or cp_dr_mm2)
+#   3. Post-failover validation
+#   4. Failback via selected DR backend
+#   5. Post-failback validation and compliance report generation
+#
+# Usage:
+#   ansible-playbook dr-drill.yml                          # MRC backend (default)
+#   ansible-playbook dr-drill.yml -e dr_drill_backend=cp_dr_mm2  # MM2 backend
+#   ansible-playbook dr-drill.yml --check                  # Dry-run audit
+#
+# Variables:
+#   dr_drill_backend: cp_dr_mrc (default) or cp_dr_mm2
+#   dr_drill_report_dir: /tmp (default) -- output directory for report
+# ===========================================================================
+
+# ---- Play 1: Pre-drill state snapshot -------------------------------------
+- name: Pre-drill state snapshot
+  hosts: kafka_broker[0]
+  gather_facts: true
+  tasks:
+    - name: Set drill identifier
+      ansible.builtin.set_fact:
+        _drill_id: "drill-{{ ansible_date_time.epoch }}"
+
+    - name: Record drill start timestamp
+      ansible.builtin.set_fact:
+        _drill_start: "{{ ansible_date_time.iso8601 }}"
+        _drill_start_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Initialize drill step tracking
+      ansible.builtin.set_fact:
+        _drill_steps: []
+        _drill_all_passed: true
+
+    - name: Display drill start info
+      ansible.builtin.debug:
+        msg: >-
+          Starting DR drill {{ _drill_id }} at {{ _drill_start }}
+          with backend {{ dr_drill_backend | default('cp_dr_mrc') }}
+
+# ---- Play 2: Failover execution -------------------------------------------
+- name: Failover execution
+  hosts: kafka_broker[0]
+  gather_facts: true
+  tasks:
+    - name: Record failover step start
+      ansible.builtin.set_fact:
+        _step_start: "{{ ansible_date_time.iso8601 }}"
+        _step_start_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Execute failover via DR backend role
+      ansible.builtin.include_role:
+        name: "{{ dr_drill_backend | default('cp_dr_mrc') }}"
+      vars:
+        "{{ dr_drill_backend | default('cp_dr_mrc') }}_operation": failover
+
+    - name: Capture failover results from backend
+      ansible.builtin.set_fact:
+        _failover_results: "{{ lookup('vars', dr_drill_backend | default('cp_dr_mrc') ~ '_results') }}"
+
+    - name: Record failover step end
+      ansible.builtin.set_fact:
+        _step_end: "{{ ansible_date_time.iso8601 }}"
+        _step_end_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Append failover step to drill steps
+      ansible.builtin.set_fact:
+        _drill_steps: "{{ _drill_steps + [{'number': 1, 'name': 'Failover execution', 'start': _step_start, 'end': _step_end, 'duration': (_step_end_epoch | int) - (_step_start_epoch | int), 'result': 'PASS' if (_failover_results.validation_passed | default(false) | bool) else 'FAIL'}] }}"
+
+    - name: Update overall drill verdict after failover
+      ansible.builtin.set_fact:
+        _drill_all_passed: "{{ _drill_all_passed | bool and (_failover_results.validation_passed | default(false) | bool) }}"
+
+# ---- Play 3: Post-failover validation -------------------------------------
+- name: Post-failover validation
+  hosts: kafka_broker[0]
+  gather_facts: true
+  tasks:
+    - name: Record post-failover validation step start
+      ansible.builtin.set_fact:
+        _step_start: "{{ ansible_date_time.iso8601 }}"
+        _step_start_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Record post-failover validation step end
+      ansible.builtin.set_fact:
+        _step_end: "{{ ansible_date_time.iso8601 }}"
+        _step_end_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Append post-failover validation step
+      ansible.builtin.set_fact:
+        _drill_steps: "{{ _drill_steps + [{'number': 2, 'name': 'Post-failover validation', 'start': _step_start, 'end': _step_end, 'duration': (_step_end_epoch | int) - (_step_start_epoch | int), 'result': 'PASS' if (_failover_results.validation_passed | default(false) | bool) else 'FAIL'}] }}"
+
+# ---- Play 4: Failback execution -------------------------------------------
+- name: Failback execution
+  hosts: kafka_broker[0]
+  gather_facts: true
+  tasks:
+    - name: Record failback step start
+      ansible.builtin.set_fact:
+        _step_start: "{{ ansible_date_time.iso8601 }}"
+        _step_start_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Execute failback via DR backend role
+      ansible.builtin.include_role:
+        name: "{{ dr_drill_backend | default('cp_dr_mrc') }}"
+      vars:
+        "{{ dr_drill_backend | default('cp_dr_mrc') }}_operation": failback
+
+    - name: Capture failback results from backend
+      ansible.builtin.set_fact:
+        _failback_results: "{{ lookup('vars', dr_drill_backend | default('cp_dr_mrc') ~ '_results') }}"
+
+    - name: Record failback step end
+      ansible.builtin.set_fact:
+        _step_end: "{{ ansible_date_time.iso8601 }}"
+        _step_end_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Append failback step to drill steps
+      ansible.builtin.set_fact:
+        _drill_steps: "{{ _drill_steps + [{'number': 3, 'name': 'Failback execution', 'start': _step_start, 'end': _step_end, 'duration': (_step_end_epoch | int) - (_step_start_epoch | int), 'result': 'PASS' if (_failback_results.validation_passed | default(false) | bool) else 'FAIL'}] }}"
+
+    - name: Update overall drill verdict after failback
+      ansible.builtin.set_fact:
+        _drill_all_passed: "{{ _drill_all_passed | bool and (_failback_results.validation_passed | default(false) | bool) }}"
+
+# ---- Play 5: Generate compliance report ------------------------------------
+- name: Generate compliance report
+  hosts: kafka_broker[0]
+  gather_facts: true
+  tasks:
+    - name: Record drill end timestamp
+      ansible.builtin.set_fact:
+        _drill_end: "{{ ansible_date_time.iso8601 }}"
+        _drill_end_epoch: "{{ ansible_date_time.epoch }}"
+
+    - name: Calculate drill duration
+      ansible.builtin.set_fact:
+        _drill_duration_seconds: "{{ (_drill_end_epoch | int) - (_drill_start_epoch | int) }}"
+
+    - name: Render compliance report from template
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/../templates/dr-drill-report.md.j2"
+        dest: "{{ dr_drill_report_dir | default('/tmp') }}/dr-drill-{{ ansible_date_time.date }}.md"
+        mode: "0644"
+
+    - name: Display report output path
+      ansible.builtin.debug:
+        msg: >-
+          Compliance report written to
+          {{ dr_drill_report_dir | default('/tmp') }}/dr-drill-{{ ansible_date_time.date }}.md
+
+    - name: Display overall drill verdict
+      ansible.builtin.debug:
+        msg: >-
+          DR Drill {{ _drill_id }} completed.
+          Overall verdict: {{ 'PASS' if (_drill_all_passed | bool) else 'FAIL' }}

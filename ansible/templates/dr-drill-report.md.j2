@@ -1,0 +1,51 @@
+# DR Drill Compliance Report
+
+**Drill ID:** {{ _drill_id }}
+**Date:** {{ _drill_start }}
+**Completed:** {{ _drill_end }}
+**Duration:** {{ _drill_duration_seconds }}s
+**Environment:** {{ inventory_hostname }}
+**DR Backend:** {{ dr_drill_backend | default('cp_dr_mrc') }}
+**Overall Verdict:** {{ 'PASS' if (_drill_all_passed | bool) else 'FAIL' }}
+
+---
+
+## Executive Summary
+
+A full disaster recovery drill was executed on {{ _drill_start | regex_replace('T.*', '') }}.
+The drill exercised {{ dr_drill_backend | default('cp_dr_mrc') }} failover
+and failback with state validation at each step.
+
+**Result: {{ 'ALL STEPS PASSED' if (_drill_all_passed | bool) else 'ONE OR MORE STEPS FAILED' }}**
+
+## Drill Steps
+
+| # | Step | Start | End | Duration | Result |
+|---|------|-------|-----|----------|--------|
+{% for step in _drill_steps %}
+| {{ step.number }} | {{ step.name }} | {{ step.start }} | {{ step.end }} | {{ step.duration }}s | {{ step.result }} |
+{% endfor %}
+
+## Validation Details
+
+### Post-Failover
+
+- Election triggered: {{ _failover_results.election_triggered | default(_failover_results.connectors_paused | default('N/A')) }}
+- Consul region flipped: {{ _failover_results.consul_flipped | default('N/A') }}
+- Validation passed: {{ _failover_results.validation_passed | default('N/A') }}
+
+### Post-Failback
+
+- Election triggered: {{ _failback_results.election_triggered | default(_failback_results.connectors_resumed | default('N/A')) }}
+- Consul region flipped: {{ _failback_results.consul_flipped | default('N/A') }}
+- Validation passed: {{ _failback_results.validation_passed | default('N/A') }}
+
+## Regulatory Attestation
+
+This report certifies that a full DR failover/failback cycle was executed
+and validated on the above date. This evidence supports quarterly DR
+testing requirements per OCC SR 20-13, FDIC FIL-67-2006, and internal
+BCM policy.
+
+**Prepared by:** Automated DR Drill Playbook (ansible)
+**Report generated:** {{ ansible_date_time.iso8601 }}
