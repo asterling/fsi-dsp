@@ -142,7 +142,7 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 ### Ansible DR Automation
 
 - [x] **ADR-01**: MM2 failover playbook orchestrates: pause connectors -> stop source MM2 -> promote topics -> update Consul -> validate -> resume on target
-- [ ] **ADR-02**: MM2 failback playbook reverses replication direction, re-establishes mirrors, validates data sync, and cuts back to primary
+- [x] **ADR-02**: MM2 failback playbook reverses replication direction, re-establishes mirrors, validates data sync, and cuts back to primary
 - [x] **ADR-03**: DR playbooks support `--check` mode (dry-run) generating audit-ready output showing every step without executing
 - [x] **ADR-04**: DR state validation tasks check mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover
 - [ ] **ADR-05**: MRC failover playbook promotes observer replica to leader for RPO=0 scenarios using Confluent CLI
@@ -317,7 +317,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APIPE-03 | Phase 12 | Complete |
 | APIPE-04 | Phase 12 | Complete |
 | ADR-01 | Phase 13 | Complete |
-| ADR-02 | Phase 13 | Pending |
+| ADR-02 | Phase 13 | Complete |
 | ADR-03 | Phase 13 | Complete |
 | ADR-04 | Phase 13 | Complete |
 | ADR-05 | Phase 15 | Pending |

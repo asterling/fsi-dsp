@@ -263,7 +263,7 @@ Plans:
 
 Plans:
 - [x] 13-01-PLAN.md -- cp_dr_mm2 role with failover tasks, state validation, Consul integration, check mode audit, and unit tests
-- [ ] 13-02-PLAN.md -- cp_dr_mm2 failback tasks, reverse replication, audit report extension, and failback playbook
+- [x] 13-02-PLAN.md -- cp_dr_mm2 failback tasks, reverse replication, audit report extension, and failback playbook
 
 ### Phase 14: CFK on OpenShift Governance
 **Goal**: Operators can deploy the CFK operator and apply governed Kafka custom resources on OpenShift using Ansible -- with the same SLA-tier defaults and governance rules as CP REST API roles
@@ -312,6 +312,6 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 10. Ansible Foundation and Governance Scaffolding | v2.0 | 2/2 | Complete    | 2026-04-08 |
 | 11. Core Governance Roles | v2.0 | 3/3 | Complete    | 2026-04-09 |
 | 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 3/3 | Complete    | 2026-04-09 |
-| 13. DR Automation Playbooks (MM2) | v2.0 | 1/2 | In Progress|  |
+| 13. DR Automation Playbooks (MM2) | v2.0 | 2/2 | Complete   | 2026-04-10 |
 | 14. CFK on OpenShift Governance | v2.0 | 0/2 | Not started | - |
 | 15. MRC Failover and DR Drill | v2.0 | 0/2 | Not started | - |
