@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
 status: verifying
-stopped_at: Completed 13-02-PLAN.md (cp_dr_mm2 failback sequence)
-last_updated: "2026-04-10T12:59:13.041Z"
+stopped_at: Completed 14-02-PLAN.md (cfk_topic role with governance parity)
+last_updated: "2026-04-10T13:18:11.232Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 15
-  completed_phases: 13
-  total_plans: 38
-  completed_plans: 38
+  completed_phases: 14
+  total_plans: 40
+  completed_plans: 40
   percent: 0
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 13 — dr-automation-playbooks-mm2
+**Current focus:** Phase 14 — cfk-on-openshift-governance
 
 ## Current Position
 
-Phase: 14
-Plan: Not started
+Phase: 14 (cfk-on-openshift-governance) — EXECUTING
+Plan: 2 of 2
 Status: Phase complete — ready for verification
 Last activity: 2026-04-10
 
@@ -56,6 +56,8 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12 P03 | 2min | 1 tasks | 2 files |
 | Phase 13 P01 | 4min | 1 tasks | 19 files |
 | Phase 13 P02 | 4min | 1 tasks | 5 files |
+| Phase 14 P01 | 3min | 2 tasks | 14 files |
+| Phase 14 P02 | 3min | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -97,6 +99,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 13]: Connector-level health validation via REST API; per-topic lag deferred to Prometheus/JMX
 - [Phase 13]: Reuse consul_flip.yml with vars override for failback region cutback
 - [Phase 13]: Jinja replace filter for connector name reversal (east-west -> west-east)
+- [Phase 14]: k8s_info+until/retries/delay for CFK CR readiness (not wait_condition -- CFK uses .status.phase)
+- [Phase 14]: molecule converge runs in check mode for CFK role (no real k8s cluster in CI)
+- [Phase 14]: Mirrored cp_topic validate.yml exactly for CFK governance parity -- same filters, same override pattern
+- [Phase 14]: CFK string-typed configs via | string filter on retention.ms, min.insync.replicas, cleanup.policy
 
 ### Pending Todos
 
@@ -110,6 +116,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T12:54:20.983Z
-Stopped at: Completed 13-02-PLAN.md (cp_dr_mm2 failback sequence)
+Last session: 2026-04-10T13:18:11.230Z
+Stopped at: Completed 14-02-PLAN.md (cfk_topic role with governance parity)
 Resume file: None

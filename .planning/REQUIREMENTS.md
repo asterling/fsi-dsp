@@ -157,8 +157,8 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 
 ### Ansible CFK on OpenShift
 
-- [ ] **ACFK-01**: Operator can deploy CFK operator on OpenShift via Ansible using `kubernetes.core.helm` module
-- [ ] **ACFK-02**: CFK custom resources (KafkaCluster, SchemaRegistry, Connect) are applied via `kubernetes.core.k8s` with readiness gates before governance tasks
+- [x] **ACFK-01**: Operator can deploy CFK operator on OpenShift via Ansible using `kubernetes.core.helm` module
+- [x] **ACFK-02**: CFK custom resources (KafkaCluster, SchemaRegistry, Connect) are applied via `kubernetes.core.k8s` with readiness gates before governance tasks
 - [ ] **ACFK-03**: KafkaTopic CRDs are generated from CPTopic YAML definitions with governance parity (same SLA-tier defaults as CP REST API roles)
 
 ### Ansible CI/CD
@@ -326,8 +326,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AOBS-02 | Phase 12 | Complete |
 | AOBS-03 | Phase 12 | Complete |
 | AOBS-04 | Phase 12 | Complete |
-| ACFK-01 | Phase 14 | Pending |
-| ACFK-02 | Phase 14 | Pending |
+| ACFK-01 | Phase 14 | Complete |
+| ACFK-02 | Phase 14 | Complete |
 | ACFK-03 | Phase 14 | Pending |
 | ACI-01 | Phase 12 | Complete |
 | ACI-02 | Phase 12 | Complete |
