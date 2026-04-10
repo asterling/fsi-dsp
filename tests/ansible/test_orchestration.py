@@ -58,8 +58,8 @@ class TestSiteYml:
                 flat.extend(item)
             else:
                 flat.append(item)
-        assert len(flat) == 4, (
-            f"Expected 4 plays in site.yml, found {len(flat)}"
+        assert len(flat) == 5, (
+            f"Expected 5 plays in site.yml, found {len(flat)}"
         )
 
     def test_play1_imports_cluster_deploy(self):
