@@ -1,0 +1,15 @@
+{
+  "name": "mm2-source-east-west",
+  "connector": {
+    "state": "RUNNING",
+    "worker_id": "connect-0.fsi.internal:8083"
+  },
+  "tasks": [
+    {
+      "id": 0,
+      "state": "RUNNING",
+      "worker_id": "connect-0.fsi.internal:8083"
+    }
+  ],
+  "type": "source"
+}

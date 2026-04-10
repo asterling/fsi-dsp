@@ -1,0 +1,10 @@
+{
+  "connector.class": "org.apache.kafka.connect.mirror.MirrorSourceConnector",
+  "source.cluster.alias": "east",
+  "target.cluster.alias": "west",
+  "source.cluster.bootstrap.servers": "kafka-east-0.fsi.internal:9092,kafka-east-1.fsi.internal:9092",
+  "target.cluster.bootstrap.servers": "kafka-west-0.fsi.internal:9092,kafka-west-1.fsi.internal:9092",
+  "topics": "corebanking\\..*,fraud\\..*",
+  "replication.factor": "3",
+  "tasks.max": "4"
+}
