@@ -31,6 +31,13 @@ cp .env.example .env          # fill in cluster details
 # CC scenarios:    terraform init && terraform apply
 # CFK on OCP:     helm install confluent-operator ... -f values/kafka.yaml
 # CP on RHEL:     ansible-playbook -i inventory/hosts.yml playbooks/deploy-cp.yml
+
+# 4. Ansible-driven governance (CP/CFK deployments)
+cd ansible/
+ansible-playbook site.yml                    # full stack: cluster + topics + schemas + RBAC + connectors + observability
+ansible-playbook site.yml --tags topics      # just topic governance
+ansible-playbook site.yml --tags rbac        # just RBAC bindings
+ansible-playbook site.yml --check            # dry-run / audit mode
 ```
 
 ## What's Included
@@ -41,9 +48,9 @@ cp .env.example .env          # fill in cluster details
 - **`modules/flink/`** — CC Flink compute pool with SQL statement management
 - SLA-tier-based defaults (critical / standard / best-effort) drive partitions, retention, compatibility, and DR thresholds automatically
 
-### DR Automation (`scripts/`)
+### DR Automation (`scripts/` + `ansible/playbooks/`)
 
-Unified CLI with pluggable backends — same commands regardless of deployment model:
+**Shell CLI** — unified interface with pluggable backends:
 
 ```bash
 ./scripts/fsi-dr.sh failover --backend cl    # Cluster Linking (CC)
@@ -52,7 +59,16 @@ Unified CLI with pluggable backends — same commands regardless of deployment m
 ./scripts/fsi-dr.sh status   --backend cl    # Mirror lag + health
 ```
 
-Features: dry-run mode, state validation, rollback, Consul-based atomic failover, 103 unit tests across 3 backends.
+**Ansible playbooks** — DR operations with check-mode audit and compliance output:
+
+```bash
+ansible-playbook playbooks/dr-failover-mm2.yml           # MM2 failover (6-step sequence)
+ansible-playbook playbooks/dr-failover-mrc.yml           # MRC observer promotion (RPO=0)
+ansible-playbook playbooks/dr-failover-mm2.yml --check   # audit-ready dry run
+ansible-playbook playbooks/dr-drill.yml                  # full DR drill: failover → validate → failback → validate → compliance report
+```
+
+Features: dry-run mode, state validation, rollback, Consul-based atomic failover, SLA-tier lag thresholds, quarterly DR drill automation with OCC/FDIC compliance reports. 103 shell tests + 662 Ansible tests.
 
 ### Observability (`observability/`)
 
@@ -97,11 +113,30 @@ Plus: Kafka Connect JDBC configs (East/West), Docker Compose local dev (Kafka + 
 - **FIPS 140-2**: Automated validation for CP on RHEL and CFK on FIPS-enabled OpenShift (`scripts/validate-fips.sh`)
 - **Compliance**: Configurable retention up to 7 years (OFAC/AML), schema evolution enforcement in CI
 
+### Ansible Automation (`ansible/`)
+
+Nine roles providing full lifecycle management for Confluent Platform and CFK deployments:
+
+| Role | Purpose |
+|------|---------|
+| `cp_topic` | Topic CRUD via Admin REST v3 with SLA-tier governance |
+| `cp_schema` | Avro schema registration with two-pass compatibility safety |
+| `cp_rbac` | MDS RBAC binding lifecycle with LIST/DIFF/ADD/REMOVE reconciliation |
+| `cp_connect` | Connector lifecycle via idempotent PUT REST API |
+| `cp_observability` | JMX exporter, Prometheus file_sd, Grafana dashboards, SLA-tier alerts |
+| `cp_dr_mm2` | MM2 failover/failback with Consul flip and state validation |
+| `cp_dr_mrc` | MRC observer promotion for RPO=0 scenarios |
+| `cfk_operator` | CFK Helm deployment with CR readiness gates |
+| `cfk_topic` | KafkaTopic CRD generation from CPTopic YAML with governance parity |
+
+All roles support `--check` mode for audit-ready dry runs. Orchestrated by `site.yml` with tag-isolated selective execution.
+
 ### CI/CD (`ci/`, `.github/`)
 
 - **C4E Pre-check** — Validates topic naming, SLA tiers, schema compatibility, retention, and RBAC across Terraform, CFK YAML, and CPTopic formats
 - **Schema Validation** — Avro syntax + compatibility checks on every PR
 - **Terraform Plan/Apply** — Plan on PR, apply on merge to main
+- **Ansible CI** — ansible-lint, yamllint, and molecule tests on every PR touching `ansible/`
 - **Override Detection** — Flags governance overrides for C4E review
 
 ## Project Structure
@@ -117,6 +152,22 @@ scenarios/
 modules/
   topic/                     # Shared governance module (topic + schema + RBAC + DR)
   flink/                     # CC Flink compute pool module
+ansible/
+  roles/
+    cp_topic/                # Topic lifecycle (Admin REST v3)
+    cp_schema/               # Schema registration (SR REST API)
+    cp_rbac/                 # MDS RBAC binding reconciliation
+    cp_connect/              # Connector lifecycle (PUT REST API)
+    cp_observability/        # JMX, Prometheus, Grafana, alerts
+    cp_dr_mm2/               # MM2 failover/failback
+    cp_dr_mrc/               # MRC observer promotion (RPO=0)
+    cfk_operator/            # CFK Helm + CR readiness gates
+    cfk_topic/               # KafkaTopic CRD from CPTopic YAML
+  playbooks/                 # DR, governance, CFK deployment playbooks
+  filter_plugins/            # fsi_governance Jinja2 filters
+  inventories/               # dev, staging, prod, dr environments
+  vars/                      # sla_tiers.yml, naming_rules.yml
+  site.yml                   # End-to-end orchestration pipeline
 scripts/
   fsi-dr.sh                  # Unified DR CLI (CL, MM2, MRC backends)
   validate-fips.sh           # FIPS 140-2 compliance validation
@@ -150,15 +201,16 @@ ci/
   scripts/                   # C4E pre-check, schema validation
 tests/
   dr/                        # DR backend unit tests (103 tests)
+  ansible/                   # Ansible role unit tests (662 tests)
 ```
 
 ## Documentation
 
-- **[DR Runbook](docs/dr-runbook.md)** — Failover/failback procedures for all three backends
+- **[DR Runbook](docs/dr-runbook.md)** — Failover/failback procedures for all three backends (CL, MM2, MRC) plus Ansible playbook operations
 - **[Schema Guide](docs/schema-guide.md)** — Naming, compatibility modes, evolution rules
 - **[Onboarding](docs/onboarding.md)** — Self-service intake form and team onboarding
 - **[Cloud Providers](docs/cloud-providers.md)** — AWS vs Azure vs GCP differences
-- **[Compliance Guide](docs/compliance-guide.md)** — FSI regulatory requirements
+- **[Compliance Guide](docs/compliance-guide.md)** — FSI regulatory requirements and DR drill compliance reporting
 - **[Credential Rotation](docs/rotation-runbook.md)** — Zero-downtime rotation procedures
 - **[ADRs](docs/adr/)** — Architecture Decision Records
 
