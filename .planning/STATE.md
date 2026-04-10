@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Ansible Based Automation
-status: verifying
-stopped_at: Completed 14-02-PLAN.md (cfk_topic role with governance parity)
-last_updated: "2026-04-10T13:20:33.709Z"
+status: executing
+stopped_at: Completed 15-01-PLAN.md (cp_dr_mrc MRC observer promotion DR)
+last_updated: "2026-04-10T13:55:25.322Z"
 last_activity: 2026-04-10
 progress:
   total_phases: 15
   completed_phases: 14
-  total_plans: 40
-  completed_plans: 40
+  total_plans: 42
+  completed_plans: 41
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-07)
 
 **Core value:** Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR cluster in their deployment model of choice with a single automation run -- and onboard their first topic in under a day.
-**Current focus:** Phase 14 — cfk-on-openshift-governance
+**Current focus:** Phase 15 — MRC Failover and DR Drill
 
 ## Current Position
 
-Phase: 15
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 15 (MRC Failover and DR Drill) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-04-10
 
 Progress: [░░░░░░░░░░] 0%
@@ -58,6 +58,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 13 P02 | 4min | 1 tasks | 5 files |
 | Phase 14 P01 | 3min | 2 tasks | 14 files |
 | Phase 14 P02 | 3min | 2 tasks | 12 files |
+| Phase 15 P01 | 5min | 1 tasks | 16 files |
 
 ## Accumulated Context
 
@@ -103,6 +104,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - [Phase 14]: molecule converge runs in check mode for CFK role (no real k8s cluster in CI)
 - [Phase 14]: Mirrored cp_topic validate.yml exactly for CFK governance parity -- same filters, same override pattern
 - [Phase 14]: CFK string-typed configs via | string filter on retention.ms, min.insync.replicas, cleanup.policy
+- [Phase 15]: UNCLEAN election requires --path-to-json-file; PREFERRED uses --all-topic-partitions
+- [Phase 15]: MRC playbooks target kafka_broker[0] (not kafka_connect[0]) since election runs on broker
 
 ### Pending Todos
 
@@ -116,6 +119,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-04-10T13:18:11.230Z
-Stopped at: Completed 14-02-PLAN.md (cfk_topic role with governance parity)
+Last session: 2026-04-10T13:55:25.319Z
+Stopped at: Completed 15-01-PLAN.md (cp_dr_mrc MRC observer promotion DR)
 Resume file: None

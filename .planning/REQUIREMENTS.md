@@ -145,7 +145,7 @@ Requirements for milestone v2.0: Ansible Based Automation. Each maps to roadmap 
 - [x] **ADR-02**: MM2 failback playbook reverses replication direction, re-establishes mirrors, validates data sync, and cuts back to primary
 - [x] **ADR-03**: DR playbooks support `--check` mode (dry-run) generating audit-ready output showing every step without executing
 - [x] **ADR-04**: DR state validation tasks check mirror lag against SLA-tier thresholds, cluster health, and topic writability before and after failover
-- [ ] **ADR-05**: MRC failover playbook promotes observer replica to leader for RPO=0 scenarios using Confluent CLI
+- [x] **ADR-05**: MRC failover playbook promotes observer replica to leader for RPO=0 scenarios using Confluent CLI
 - [ ] **ADR-06**: DR drill playbook runs full cycle (failover -> validate -> failback -> validate -> generate compliance report) for quarterly regulatory requirements
 
 ### Ansible Observability Deployment
@@ -320,7 +320,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADR-02 | Phase 13 | Complete |
 | ADR-03 | Phase 13 | Complete |
 | ADR-04 | Phase 13 | Complete |
-| ADR-05 | Phase 15 | Pending |
+| ADR-05 | Phase 15 | Complete |
 | ADR-06 | Phase 15 | Pending |
 | AOBS-01 | Phase 12 | Complete |
 | AOBS-02 | Phase 12 | Complete |
