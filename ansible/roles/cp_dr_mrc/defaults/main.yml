@@ -1,0 +1,54 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- Default variable values
+# =============================================================================
+# Manages MRC observer promotion failover and failback operations via
+# Confluent CLI (kafka-leader-election.sh), Consul HTTP API, and Admin
+# REST v3 API. UNCLEAN election promotes observers to leaders during
+# failover; PREFERRED election rebalances leadership during failback.
+# =============================================================================
+
+# Operation: failover or failback
+cp_dr_mrc_operation: failover
+
+# Kafka bootstrap server (used by kafka-topics.sh, kafka-leader-election.sh)
+cp_dr_mrc_bootstrap: "localhost:9092"
+
+# Optional command config file for Confluent CLI tools (authentication)
+cp_dr_mrc_command_config: ""
+
+# Rack assignments for MRC topology
+cp_dr_mrc_east_rack: "us-east"
+cp_dr_mrc_west_rack: "us-west"
+cp_dr_mrc_observer_rack: "us-central"
+
+# Target region for Consul flip during failover
+cp_dr_mrc_target_region: "west"
+
+# Consul HTTP API
+cp_dr_mrc_consul_url: "http://localhost:8500"
+cp_dr_mrc_consul_kv_key: "fsi/kafka/active-region"
+
+# Admin REST v3 (for topic writability validation)
+cp_dr_mrc_admin_rest_url: ""
+cp_dr_mrc_cluster_id: ""
+cp_dr_mrc_admin_rest_token: ""
+
+# Validation toggles
+cp_dr_mrc_validate_observers: true
+cp_dr_mrc_validate_writability: true
+
+# Directory for generated election JSON file
+cp_dr_mrc_election_json_dir: "/tmp"
+
+# Seconds to wait after leader election for propagation
+cp_dr_mrc_election_wait_seconds: 5
+
+# Output variable for downstream orchestration
+cp_dr_mrc_results:
+  operation: ""
+  election_type: ""
+  election_triggered: false
+  consul_flipped: false
+  validation_passed: false
+  audit_log: []

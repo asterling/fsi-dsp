@@ -1,0 +1,10 @@
+---
+- name: MRC DR Failover
+  hosts: kafka_broker[0]
+  gather_facts: false
+  vars:
+    cp_dr_mrc_operation: failover
+  tasks:
+    - name: Execute MRC DR failover
+      ansible.builtin.include_role:
+        name: cp_dr_mrc

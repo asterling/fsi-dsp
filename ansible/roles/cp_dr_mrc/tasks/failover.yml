@@ -1,0 +1,117 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- Failover sequence (UNCLEAN leader election)
+# =============================================================================
+# Promotes MRC observers to leaders via UNCLEAN leader election:
+#   1. List topics via kafka-topics.sh (build partition inventory)
+#   2. Describe topics to get partition counts
+#   3. Render unclean_election.json.j2 template
+#   4. Trigger UNCLEAN leader election via kafka-leader-election.sh
+#   5. Wait for election to propagate
+#   6. Flip Consul active-region to target
+# =============================================================================
+
+# --- Step 1: List topics via kafka-topics.sh ----------------------------------
+- name: "Step 1: List topics for leader election"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-topics.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      --list
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  register: _topic_list
+  when: not (ansible_check_mode | bool)
+  changed_when: false
+  failed_when: false
+
+# --- Step 1b: Describe topics to get partition counts -------------------------
+- name: "Step 1b: Describe topics for partition counts"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-topics.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      --describe
+      --topic {{ item }}
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  loop: >-
+    {{ _topic_list.stdout_lines | default([])
+       | reject('match', '^_') | list }}
+  register: _topic_describe
+  when: not (ansible_check_mode | bool)
+  changed_when: false
+  failed_when: false
+
+# --- Build partition list for election JSON -----------------------------------
+- name: Build election partition list from describe output
+  ansible.builtin.set_fact:
+    _election_partitions: >-
+      {{ _election_partitions | default([]) +
+         [{'topic': item.item, 'partition': part_num | int}]
+      }}
+  loop: "{{ _topic_describe.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item | default('unknown') }}"
+  vars:
+    part_lines: >-
+      {{ item.stdout_lines | default([])
+         | select('match', '.*Partition:.*') | list }}
+    part_num: "{{ part_lines | length - 1 if part_lines | length > 0 else 0 }}"
+  when:
+    - not (ansible_check_mode | bool)
+    - item.rc | default(1) == 0
+
+# --- Simplified: build partition 0 for each topic ----------------------------
+- name: Build election partitions (partition 0 per topic)
+  ansible.builtin.set_fact:
+    _election_partitions: >-
+      {{ _topic_list.stdout_lines | default([])
+         | reject('match', '^_') | list
+         | map('community.general.dict_kw', topic='__item__')
+         | list
+         | json_query('[].{topic: topic, partition: `0`}')
+         | default(_election_partitions | default([]))
+      }}
+  when:
+    - not (ansible_check_mode | bool)
+    - _election_partitions is not defined or _election_partitions | length == 0
+
+# --- Step 2: Render UNCLEAN election JSON template ----------------------------
+- name: "Step 2: Render UNCLEAN election JSON from template"
+  ansible.builtin.template:
+    src: unclean_election.json.j2
+    dest: "{{ cp_dr_mrc_election_json_dir }}/unclean_election.json"
+    mode: "0644"
+  when: not (ansible_check_mode | bool)
+
+# --- Step 3: Trigger UNCLEAN leader election ----------------------------------
+- name: "Step 3: Trigger UNCLEAN leader election via kafka-leader-election.sh"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-leader-election.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      --election-type UNCLEAN
+      --path-to-json-file {{ cp_dr_mrc_election_json_dir }}/unclean_election.json
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  register: _election_result
+  when: not (ansible_check_mode | bool)
+  changed_when: _election_result.rc == 0
+  failed_when: false
+
+- name: Set election triggered flag
+  ansible.builtin.set_fact:
+    _dr_election_triggered: true
+    _dr_election_type: "UNCLEAN"
+  when:
+    - _election_result is defined
+    - _election_result.rc | default(1) == 0
+
+# --- Step 4: Wait for election to propagate -----------------------------------
+- name: "Step 4: Wait for leader election to propagate"
+  ansible.builtin.pause:
+    seconds: "{{ cp_dr_mrc_election_wait_seconds }}"
+  when: not (ansible_check_mode | bool)
+
+# --- Step 5: Flip Consul active-region ----------------------------------------
+- name: "Step 5: Flip Consul active-region"
+  ansible.builtin.include_tasks:
+    file: consul_flip.yml

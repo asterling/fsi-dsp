@@ -1,0 +1,17 @@
+---
+- name: Verify MRC DR failover results
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check cp_dr_mrc_results fact was set
+      ansible.builtin.assert:
+        that:
+          - cp_dr_mrc_results is defined
+          - cp_dr_mrc_results.operation is defined
+          - cp_dr_mrc_results.election_type is defined
+          - cp_dr_mrc_results.election_triggered is defined
+          - cp_dr_mrc_results.consul_flipped is defined
+          - cp_dr_mrc_results.validation_passed is defined
+          - cp_dr_mrc_results.audit_log is defined
+        fail_msg: "cp_dr_mrc_results fact not properly set"
+        success_msg: "cp_dr_mrc_results fact is present and complete"

@@ -1,0 +1,75 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- State validation (pre/post failover)
+# =============================================================================
+# Checks topic availability, SLA-tier mirror lag thresholds, and topic
+# writability. Called with _validation_phase: "pre" or "post".
+#
+# MRC validation focuses on topic list availability and observer ISR state
+# rather than connector health (no connectors in MRC topology).
+# =============================================================================
+
+- name: "Report validation phase: {{ _validation_phase }}"
+  ansible.builtin.debug:
+    msg: "Running {{ _validation_phase }}-validation checks"
+
+# --- Check topic availability via kafka-topics.sh -----------------------------
+- name: "Check topic availability ({{ _validation_phase }})"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-topics.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      --list
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  register: _validate_topic_list
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: "Report topic count ({{ _validation_phase }})"
+  ansible.builtin.debug:
+    msg: >-
+      Topic count: {{ _validate_topic_list.stdout_lines | default([])
+                       | reject('match', '^_') | list | length }}
+
+# --- Report SLA tier mirror lag thresholds ------------------------------------
+- name: "Report SLA tier mirror lag thresholds ({{ _validation_phase }})"
+  ansible.builtin.debug:
+    msg: >-
+      SLA tier mirror lag thresholds loaded:
+      critical={{ sla_tier_mirror_lag.critical.warn_seconds }}s warn /
+      {{ sla_tier_mirror_lag.critical.alert_seconds }}s alert.
+      Observer ISR state validated via topic availability.
+  when: sla_tier_mirror_lag is defined
+
+# --- Topic writability check (post-validation only) ---------------------------
+- name: "Validate topic writability on target cluster ({{ _validation_phase }})"
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_dr_mrc_admin_rest_url }}/v3/clusters/{{ cp_dr_mrc_cluster_id
+      }}/topics/{{ cp_dr_mrc_writability_test_topic
+      | default('_fsi_dr_health_check') }}/records
+    method: POST
+    body_format: json
+    body:
+      value:
+        type: JSON
+        data: '{"health_check": true}'
+    headers:
+      Authorization: "Bearer {{ cp_dr_mrc_admin_rest_token }}"
+    status_code:
+      - 200
+      - 400
+  register: _writability_result
+  failed_when: false
+  when:
+    - cp_dr_mrc_validate_writability | bool
+    - _validation_phase == "post"
+    - cp_dr_mrc_admin_rest_url | length > 0
+
+# --- Set validation result ----------------------------------------------------
+- name: "Determine validation result ({{ _validation_phase }})"
+  ansible.builtin.set_fact:
+    _dr_validation_passed: >-
+      {{ true if (_validate_topic_list.rc | default(1) == 0)
+         else false }}

@@ -1,0 +1,120 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- Check mode (GET-only, no mutations)
+# =============================================================================
+# Reports what would happen during failover/failback by querying current state
+# and recording planned steps into _dr_audit_log. Uses only GET requests --
+# never PUT, POST, DELETE, or CLI commands.
+# =============================================================================
+
+# --- Initialize audit log ----------------------------------------------------
+- name: Initialize DR audit log
+  ansible.builtin.set_fact:
+    _dr_audit_log: []
+  changed_when: false
+
+# --- Check current Consul active-region --------------------------------------
+- name: Check current Consul active-region
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mrc_consul_url }}/v1/kv/{{ cp_dr_mrc_consul_kv_key }}?raw"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _audit_consul_region
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# --- Record planned failover steps (4 steps) ---------------------------------
+- name: Record planned failover step 1 -- List topics for election JSON
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 1
+      action: "List topics via kafka-topics.sh for election JSON generation"
+      current_state: "pending"
+      expected_result: "Topic list retrieved and filtered for election"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failover'
+
+- name: Record planned failover step 2 -- Trigger UNCLEAN leader election
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 2
+      action: "Trigger UNCLEAN leader election via kafka-leader-election.sh"
+      current_state: "pending"
+      expected_result: "Observers promoted to leaders for all topic partitions"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failover'
+
+- name: Record planned failover step 3 -- Flip Consul active-region
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 3
+      action: "Update Consul KV active-region to {{ cp_dr_mrc_target_region }}"
+      current_state: "{{ _audit_consul_region.content | default('unknown') }}"
+      expected_result: "Consul active-region == {{ cp_dr_mrc_target_region }}"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failover'
+
+- name: Record planned failover step 4 -- Post-failover validation
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 4
+      action: "Post-failover validation (topic availability, writability)"
+      current_state: "pending"
+      expected_result: "All validation checks pass on target cluster"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failover'
+
+# --- Record planned failback steps (3 steps) ---------------------------------
+- name: Record planned failback step 1 -- Check primary DC reachability
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 1
+      action: "Check primary DC reachability via kafka-broker-api-versions.sh"
+      current_state: "pending"
+      expected_result: "Primary DC responds to API version check"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failback'
+
+- name: Record planned failback step 2 -- Trigger PREFERRED leader election
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 2
+      action: "Trigger PREFERRED leader election with --all-topic-partitions"
+      current_state: "pending"
+      expected_result: "Leadership rebalanced to preferred replicas on primary DC"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failback'
+
+- name: Record planned failback step 3 -- Flip Consul back to primary
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 3
+      action: "Flip Consul active-region back to {{ cp_dr_mrc_east_rack }}"
+      current_state: "{{ _audit_consul_region.content | default('unknown') }}"
+      expected_result: "Consul active-region == {{ cp_dr_mrc_east_rack }}"
+  changed_when: false
+  when: cp_dr_mrc_operation == 'failback'
+
+# --- Display audit log -------------------------------------------------------
+- name: Display DR audit log
+  ansible.builtin.debug:
+    msg: "{{ _dr_audit_log }}"
+  changed_when: false

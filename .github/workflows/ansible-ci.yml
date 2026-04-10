@@ -54,6 +54,7 @@ jobs:
           - cp_observability
           - cfk_operator
           - cfk_topic
+          - cp_dr_mrc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

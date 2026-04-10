@@ -1,0 +1,88 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- Entry point
+# =============================================================================
+# Routes to check mode (GET-only audit) or action mode (failover/failback).
+# Collects results into cp_dr_mrc_results for downstream orchestration.
+# =============================================================================
+
+# --- Load SLA tier governance constants --------------------------------------
+- name: Load SLA tier governance constants
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/sla_tiers.yml"
+
+# --- Initialize result counters -----------------------------------------------
+- name: Initialize DR result counters
+  ansible.builtin.set_fact:
+    _dr_election_triggered: false
+    _dr_election_type: ""
+    _dr_consul_flipped: false
+    _dr_validation_passed: true
+    _dr_audit_log: []
+
+# --- Check mode: report planned changes without mutations ---------------------
+- name: Run check-mode DR audit report
+  ansible.builtin.include_tasks:
+    file: check.yml
+  when: ansible_check_mode | bool
+
+# --- Normal mode: pre-validation checks --------------------------------------
+- name: Run pre-validation checks
+  ansible.builtin.include_tasks:
+    file: validate_state.yml
+  vars:
+    _validation_phase: "pre"
+  when: not (ansible_check_mode | bool)
+
+# --- Normal mode: execute failover sequence -----------------------------------
+- name: Execute failover sequence
+  ansible.builtin.include_tasks:
+    file: failover.yml
+  when:
+    - not (ansible_check_mode | bool)
+    - cp_dr_mrc_operation == 'failover'
+
+# --- Normal mode: execute failback sequence -----------------------------------
+- name: Execute failback sequence
+  ansible.builtin.include_tasks:
+    file: failback.yml
+  when:
+    - not (ansible_check_mode | bool)
+    - cp_dr_mrc_operation == 'failback'
+
+# --- Normal mode: post-validation checks -------------------------------------
+- name: Run post-validation checks
+  ansible.builtin.include_tasks:
+    file: validate_state.yml
+  vars:
+    _validation_phase: "post"
+  when: not (ansible_check_mode | bool)
+
+# --- Build results summary ----------------------------------------------------
+- name: Set cp_dr_mrc_results output variable
+  ansible.builtin.set_fact:
+    cp_dr_mrc_results:
+      operation: "{{ cp_dr_mrc_operation }}"
+      election_type: "{{ _dr_election_type }}"
+      election_triggered: "{{ _dr_election_triggered | bool }}"
+      consul_flipped: "{{ _dr_consul_flipped | bool }}"
+      validation_passed: "{{ _dr_validation_passed | bool }}"
+      audit_log: "{{ _dr_audit_log }}"
+
+- name: Report DR results summary
+  ansible.builtin.debug:
+    msg: >-
+      cp_dr_mrc results: operation={{ cp_dr_mrc_results.operation }},
+      election_type={{ cp_dr_mrc_results.election_type }},
+      election_triggered={{ cp_dr_mrc_results.election_triggered }},
+      consul_flipped={{ cp_dr_mrc_results.consul_flipped }},
+      validation_passed={{ cp_dr_mrc_results.validation_passed }}
+
+- name: Fail if validation did not pass
+  ansible.builtin.fail:
+    msg: >-
+      DR {{ cp_dr_mrc_operation }} validation failed. Check observer ISR
+      state and topic writability.
+  when:
+    - not (ansible_check_mode | bool)
+    - not (cp_dr_mrc_results.validation_passed | bool)

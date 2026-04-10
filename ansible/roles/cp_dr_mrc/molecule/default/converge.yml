@@ -1,0 +1,15 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  check_mode: true
+  tasks:
+    - name: Apply cp_dr_mrc role in check mode
+      ansible.builtin.include_role:
+        name: cp_dr_mrc
+      vars:
+        cp_dr_mrc_operation: failover
+        cp_dr_mrc_bootstrap: "localhost:9092"
+        cp_dr_mrc_consul_url: "http://localhost:8500"
+        cp_dr_mrc_validate_observers: false
+        cp_dr_mrc_validate_writability: false

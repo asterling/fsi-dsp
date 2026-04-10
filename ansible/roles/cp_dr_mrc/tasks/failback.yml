@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# cp_dr_mrc role -- Failback sequence (PREFERRED leader election)
+# =============================================================================
+# Rebalances leadership back to primary DC via PREFERRED leader election:
+#   1. Check primary DC reachability
+#   2. Trigger PREFERRED leader election with --all-topic-partitions
+#   3. Flip Consul active-region back to primary
+# =============================================================================
+
+# --- Step 1: Check primary DC reachability ------------------------------------
+- name: "Step 1: Check primary DC reachability"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-broker-api-versions.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  register: _primary_check
+  when: not (ansible_check_mode | bool)
+  changed_when: false
+  failed_when: false
+
+- name: Fail if primary DC is not reachable
+  ansible.builtin.fail:
+    msg: >-
+      Primary DC is not reachable at {{ cp_dr_mrc_bootstrap }}.
+      Cannot proceed with failback until primary DC connectivity is restored.
+  when:
+    - not (ansible_check_mode | bool)
+    - _primary_check.rc | default(1) != 0
+
+# --- Step 2: Trigger PREFERRED leader election --------------------------------
+- name: "Step 2: Trigger PREFERRED leader election for failback"
+  ansible.builtin.command:
+    cmd: >-
+      kafka-leader-election.sh
+      --bootstrap-server {{ cp_dr_mrc_bootstrap }}
+      --election-type PREFERRED
+      --all-topic-partitions
+      {{ '--command-config ' ~ cp_dr_mrc_command_config if cp_dr_mrc_command_config | length > 0 else '' }}
+  register: _failback_election
+  when: not (ansible_check_mode | bool)
+  changed_when: _failback_election.rc == 0
+  failed_when: false
+
+- name: Set failback election triggered flag
+  ansible.builtin.set_fact:
+    _dr_election_triggered: true
+    _dr_election_type: "PREFERRED"
+  when:
+    - _failback_election is defined
+    - _failback_election.rc | default(1) == 0
+
+# --- Step 3: Flip Consul active-region back to primary ------------------------
+- name: "Step 3: Flip Consul active-region back to primary"
+  ansible.builtin.include_tasks:
+    file: consul_flip.yml
+  vars:
+    cp_dr_mrc_target_region: "{{ cp_dr_mrc_east_rack }}"
