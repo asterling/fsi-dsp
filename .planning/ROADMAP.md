@@ -290,7 +290,7 @@ Plans:
 
 Plans:
 - [x] 15-01-PLAN.md -- cp_dr_mrc role: MRC observer promotion via kafka-leader-election.sh, state validation, Consul flip, check mode audit
-- [ ] 15-02-PLAN.md -- DR drill playbook: full cycle orchestration with configurable backend and compliance report generation
+- [x] 15-02-PLAN.md -- DR drill playbook: full cycle orchestration with configurable backend and compliance report generation
 
 ## Progress
 
@@ -314,4 +314,4 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 3/3 | Complete    | 2026-04-09 |
 | 13. DR Automation Playbooks (MM2) | v2.0 | 2/2 | Complete    | 2026-04-10 |
 | 14. CFK on OpenShift Governance | v2.0 | 2/2 | Complete    | 2026-04-10 |
-| 15. MRC Failover and DR Drill | v2.0 | 1/2 | In Progress|  |
+| 15. MRC Failover and DR Drill | v2.0 | 2/2 | Complete   | 2026-04-10 |
