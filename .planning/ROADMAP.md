@@ -273,11 +273,11 @@ Plans:
   1. Operator runs the CFK playbook and the CFK operator is deployed on OpenShift via Helm with configurable chart version and namespace
   2. KafkaCluster, SchemaRegistry, and Connect custom resources are applied with readiness gates -- governance tasks do not begin until CRDs report ready
   3. KafkaTopic CRDs generated from CPTopic YAML definitions produce identical SLA-tier defaults (partitions, retention, compatibility) as the CP topic role
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 14-01: CFK deployment playbook -- kubernetes.core.helm operator install, CR application, readiness gates
-- [ ] 14-02: KafkaTopic CRD generation from CPTopic YAML with governance parity validation
+- [ ] 14-01-PLAN.md -- cfk_operator role: Helm deployment, CR readiness gates, deploy-cfk.yml playbook
+- [ ] 14-02-PLAN.md -- cfk_topic role: CPTopic-to-KafkaTopic CRD generation with governance parity
 
 ### Phase 15: MRC Failover and DR Drill
 **Goal**: Operators can execute MRC observer promotion for RPO=0 scenarios and run quarterly DR drills that produce compliance evidence reports -- building on proven MM2 playbooks from Phase 13
