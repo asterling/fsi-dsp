@@ -1,0 +1,215 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Failback sequence (7 steps)
+# =============================================================================
+# Reverses replication direction by fetching original MM2 connector configs,
+# deleting existing connectors, creating reversed ones with swapped source/
+# target aliases and bootstrap servers, validating data sync, and cutting
+# back to primary via Consul.
+#
+#   1. Fetch original MM2 connector configs (GET before delete -- pitfall 4)
+#   2. Delete existing MM2 connectors (source, checkpoint, heartbeat)
+#   3. Create reversed MM2 connectors with swapped aliases
+#   4. Wait for reversed connectors to reach RUNNING state
+#   5. Validate data sync (connector health on reversed connectors)
+#   6. Flip Consul active-region back to primary
+#   7. Resume application connectors + final validation (post in main.yml)
+# =============================================================================
+
+# --- Initialize failback counters -------------------------------------------
+- name: Initialize failback counters
+  ansible.builtin.set_fact:
+    _dr_connectors_deleted: 0
+    _dr_connectors_created: 0
+
+# --- Step 1: Fetch original MM2 connector configs (CRITICAL: GET before DELETE)
+- name: "Step 1: Fetch original config for MM2 connector {{ item }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}/config"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _mm2_original_configs
+  loop:
+    - "{{ cp_dr_mm2_source_connector }}"
+    - "{{ cp_dr_mm2_checkpoint_connector }}"
+    - "{{ cp_dr_mm2_heartbeat_connector }}"
+  loop_control:
+    label: "{{ item }}"
+  failed_when: false
+
+# --- Step 2: Delete existing MM2 connectors ----------------------------------
+- name: "Step 2: Delete MM2 connector {{ item }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}"
+    method: DELETE
+    status_code:
+      - 204
+      - 404
+  loop:
+    - "{{ cp_dr_mm2_source_connector }}"
+    - "{{ cp_dr_mm2_checkpoint_connector }}"
+    - "{{ cp_dr_mm2_heartbeat_connector }}"
+  loop_control:
+    label: "{{ item }}"
+  failed_when: false
+  register: _mm2_delete_results
+
+- name: Increment connectors deleted counter
+  ansible.builtin.set_fact:
+    _dr_connectors_deleted: >-
+      {{ _mm2_delete_results.results
+         | selectattr('status', 'defined')
+         | selectattr('status', 'equalto', 204)
+         | list | length }}
+
+# --- Step 3: Create reversed MM2 connectors ----------------------------------
+# Build reversed config for MirrorSourceConnector
+- name: Build reversed connector config for MirrorSourceConnector
+  ansible.builtin.set_fact:
+    _reversed_source_config:
+      name: "{{ cp_dr_mm2_source_connector | replace(cp_dr_mm2_source_alias ~ '-' ~ cp_dr_mm2_target_alias, cp_dr_mm2_target_alias ~ '-' ~ cp_dr_mm2_source_alias) }}"
+      config: >-
+        {{ _mm2_original_configs.results[0].json
+           | default({})
+           | combine({
+               'source.cluster.alias': cp_dr_mm2_target_alias,
+               'target.cluster.alias': cp_dr_mm2_source_alias,
+               'source.cluster.bootstrap.servers': (_mm2_original_configs.results[0].json['target.cluster.bootstrap.servers'] | default('')),
+               'target.cluster.bootstrap.servers': (_mm2_original_configs.results[0].json['source.cluster.bootstrap.servers'] | default(''))
+             })
+        }}
+  when: _mm2_original_configs.results[0].json is defined
+
+# Build reversed config for MirrorCheckpointConnector
+- name: Build reversed connector config for MirrorCheckpointConnector
+  ansible.builtin.set_fact:
+    _reversed_checkpoint_config:
+      name: "{{ cp_dr_mm2_checkpoint_connector | replace(cp_dr_mm2_source_alias ~ '-' ~ cp_dr_mm2_target_alias, cp_dr_mm2_target_alias ~ '-' ~ cp_dr_mm2_source_alias) }}"
+      config: >-
+        {{ _mm2_original_configs.results[1].json
+           | default({})
+           | combine({
+               'source.cluster.alias': cp_dr_mm2_target_alias,
+               'target.cluster.alias': cp_dr_mm2_source_alias,
+               'source.cluster.bootstrap.servers': (_mm2_original_configs.results[1].json['target.cluster.bootstrap.servers'] | default('')),
+               'target.cluster.bootstrap.servers': (_mm2_original_configs.results[1].json['source.cluster.bootstrap.servers'] | default(''))
+             })
+        }}
+  when: _mm2_original_configs.results[1].json is defined
+
+# Build reversed config for MirrorHeartbeatConnector
+- name: Build reversed connector config for MirrorHeartbeatConnector
+  ansible.builtin.set_fact:
+    _reversed_heartbeat_config:
+      name: "{{ cp_dr_mm2_heartbeat_connector | replace(cp_dr_mm2_source_alias ~ '-' ~ cp_dr_mm2_target_alias, cp_dr_mm2_target_alias ~ '-' ~ cp_dr_mm2_source_alias) }}"
+      config: >-
+        {{ _mm2_original_configs.results[2].json
+           | default({})
+           | combine({
+               'source.cluster.alias': cp_dr_mm2_target_alias,
+               'target.cluster.alias': cp_dr_mm2_source_alias,
+               'source.cluster.bootstrap.servers': (_mm2_original_configs.results[2].json['target.cluster.bootstrap.servers'] | default('')),
+               'target.cluster.bootstrap.servers': (_mm2_original_configs.results[2].json['source.cluster.bootstrap.servers'] | default(''))
+             })
+        }}
+  when: _mm2_original_configs.results[2].json is defined
+
+# POST reversed connectors to Connect REST API
+- name: "Step 3: Create reversed MM2 connector {{ item.name }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors"
+    method: POST
+    body_format: json
+    body: "{{ item }}"
+    status_code:
+      - 201
+      - 409
+  loop:
+    - "{{ _reversed_source_config | default({'name': 'skip', 'config': {}}) }}"
+    - "{{ _reversed_checkpoint_config | default({'name': 'skip', 'config': {}}) }}"
+    - "{{ _reversed_heartbeat_config | default({'name': 'skip', 'config': {}}) }}"
+  loop_control:
+    label: "{{ item.name }}"
+  failed_when: false
+  register: _mm2_create_results
+  when: item.name != 'skip'
+
+- name: Increment connectors created counter
+  ansible.builtin.set_fact:
+    _dr_connectors_created: >-
+      {{ _mm2_create_results.results
+         | default([])
+         | selectattr('status', 'defined')
+         | selectattr('status', 'in', [201, 409])
+         | list | length }}
+
+# --- Step 4: Wait for reversed connectors to reach RUNNING state ------------
+- name: "Step 4: Wait for reversed connector {{ item }} to reach RUNNING state"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _reversed_connector_status
+  retries: "{{ cp_dr_mm2_resume_retries }}"
+  delay: "{{ cp_dr_mm2_resume_delay }}"
+  until: >-
+    _reversed_connector_status.json is defined
+    and _reversed_connector_status.json.connector.state == 'RUNNING'
+  loop:
+    - "{{ _reversed_source_config.name | default('skip') }}"
+    - "{{ _reversed_checkpoint_config.name | default('skip') }}"
+    - "{{ _reversed_heartbeat_config.name | default('skip') }}"
+  loop_control:
+    label: "{{ item }}"
+  failed_when: false
+  when: item != 'skip'
+
+# --- Step 5: Validate data sync via reversed connector health check ----------
+- name: "Step 5: Validate reversed connector health for {{ item }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  loop:
+    - "{{ _reversed_source_config.name | default('skip') }}"
+    - "{{ _reversed_checkpoint_config.name | default('skip') }}"
+    - "{{ _reversed_heartbeat_config.name | default('skip') }}"
+  loop_control:
+    label: "{{ item }}"
+  register: _reversed_health_results
+  failed_when: false
+  when: item != 'skip'
+
+- name: Report reversed connector health status
+  ansible.builtin.debug:
+    msg: >-
+      Reversed connector health:
+      {{ _reversed_health_results.results
+         | default([])
+         | selectattr('json', 'defined')
+         | map(attribute='json.connector.state')
+         | list }}
+
+# --- Step 6: Flip Consul active-region back to primary ----------------------
+- name: "Step 6: Flip Consul active-region back to primary"
+  ansible.builtin.include_tasks:
+    file: consul_flip.yml
+  vars:
+    cp_dr_mm2_target_region: "{{ cp_dr_mm2_source_alias }}"
+
+# --- Step 7: Resume application connectors -----------------------------------
+- name: "Step 7: Resume application connector {{ item }}"
+  ansible.builtin.include_tasks:
+    file: connector_resume.yml
+  vars:
+    _resume_connect_url: "{{ cp_dr_mm2_app_connect_url }}"
+    _resume_connector_name: "{{ item }}"
+  loop: "{{ cp_dr_mm2_app_connectors | default([]) }}"
+
+# Step 7 continued: Final validation is handled by post-validation in main.yml

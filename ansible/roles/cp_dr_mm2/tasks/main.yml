@@ -16,6 +16,8 @@
   ansible.builtin.set_fact:
     _dr_connectors_paused: 0
     _dr_connectors_resumed: 0
+    _dr_connectors_deleted: 0
+    _dr_connectors_created: 0
     _dr_consul_flipped: false
     _dr_validation_passed: true
     _dr_audit_log: []
@@ -65,6 +67,8 @@
       operation: "{{ cp_dr_mm2_operation }}"
       connectors_paused: "{{ _dr_connectors_paused | int }}"
       connectors_resumed: "{{ _dr_connectors_resumed | int }}"
+      connectors_deleted: "{{ _dr_connectors_deleted | int }}"
+      connectors_created: "{{ _dr_connectors_created | int }}"
       consul_flipped: "{{ _dr_consul_flipped | bool }}"
       validation_passed: "{{ _dr_validation_passed | bool }}"
       audit_log: "{{ _dr_audit_log }}"
@@ -75,6 +79,8 @@
       cp_dr_mm2 results: operation={{ cp_dr_mm2_results.operation }},
       connectors_paused={{ cp_dr_mm2_results.connectors_paused }},
       connectors_resumed={{ cp_dr_mm2_results.connectors_resumed }},
+      connectors_deleted={{ cp_dr_mm2_results.connectors_deleted }},
+      connectors_created={{ cp_dr_mm2_results.connectors_created }},
       consul_flipped={{ cp_dr_mm2_results.consul_flipped }},
       validation_passed={{ cp_dr_mm2_results.validation_passed }}
 

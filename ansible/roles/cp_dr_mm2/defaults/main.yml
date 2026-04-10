@@ -56,6 +56,8 @@ cp_dr_mm2_results:
   operation: ""
   connectors_paused: 0
   connectors_resumed: 0
+  connectors_deleted: 0
+  connectors_created: 0
   consul_flipped: false
   validation_passed: false
   audit_log: []
