@@ -1,0 +1,53 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Consul KV active-region flip
+# =============================================================================
+# Reads current region, updates to target, and verifies the update.
+# All Consul interactions use ansible.builtin.uri (project convention).
+# Mutations are guarded by check_mode condition.
+# =============================================================================
+
+# --- Read current active region -----------------------------------------------
+- name: Read current active region from Consul
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_consul_url }}/v1/kv/{{ cp_dr_mm2_consul_kv_key }}?raw"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _consul_current_region
+  check_mode: false
+  changed_when: false
+
+- name: Report current active region
+  ansible.builtin.debug:
+    msg: "Current active region: {{ _consul_current_region.content | default('not set') }}"
+
+# --- Update active region to target ------------------------------------------
+- name: Update Consul active-region to target
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_consul_url }}/v1/kv/{{ cp_dr_mm2_consul_kv_key }}"
+    method: PUT
+    body: "{{ cp_dr_mm2_target_region }}"
+    status_code:
+      - 200
+  register: _consul_flip_result
+  when: not (ansible_check_mode | bool)
+
+# --- Verify update ------------------------------------------------------------
+- name: Verify Consul active-region after flip
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_consul_url }}/v1/kv/{{ cp_dr_mm2_consul_kv_key }}?raw"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _consul_verify
+  failed_when: _consul_verify.content != cp_dr_mm2_target_region
+  when: not (ansible_check_mode | bool)
+
+- name: Set Consul flipped flag
+  ansible.builtin.set_fact:
+    _dr_consul_flipped: true
+  when: not (ansible_check_mode | bool)

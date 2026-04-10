@@ -1,0 +1,40 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Resume a single connector with polling
+# =============================================================================
+# Expects variables:
+#   _resume_connector_name: name of the connector to resume
+#   _resume_connect_url: Connect REST API base URL
+# =============================================================================
+
+- name: "Resume connector {{ _resume_connector_name }}"
+  ansible.builtin.uri:
+    url: "{{ _resume_connect_url }}/connectors/{{ _resume_connector_name }}/resume"
+    method: PUT
+    status_code:
+      - 200
+      - 202
+  failed_when: false
+  register: _resume_result
+
+- name: "Wait for connector {{ _resume_connector_name }} to reach RUNNING state"
+  ansible.builtin.uri:
+    url: "{{ _resume_connect_url }}/connectors/{{ _resume_connector_name }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _resume_status
+  retries: "{{ cp_dr_mm2_resume_retries }}"
+  delay: "{{ cp_dr_mm2_resume_delay }}"
+  until: >-
+    _resume_status.json is defined
+    and _resume_status.json.connector.state == 'RUNNING'
+  failed_when: false
+
+- name: "Increment resumed counter for {{ _resume_connector_name }}"
+  ansible.builtin.set_fact:
+    _dr_connectors_resumed: "{{ _dr_connectors_resumed | int + 1 }}"
+  when: >-
+    _resume_status.json is defined
+    and _resume_status.json.connector.state == 'RUNNING'

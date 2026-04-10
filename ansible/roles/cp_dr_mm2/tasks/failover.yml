@@ -1,0 +1,59 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Failover sequence (6 steps)
+# =============================================================================
+# Matches the 6-step failover from fsi-dr.sh mm2_failover_mirrors():
+#   1. Pause application connectors on source cluster
+#   2. Stop MM2 connectors (source, checkpoint, heartbeat)
+#   3. Flip Consul active-region to target
+#   4. Verify Consul update (done inside consul_flip.yml)
+#   5. Resume application connectors on target cluster
+#   6. Final validation (done in main.yml post-validation)
+# =============================================================================
+
+# --- Step 1: Pause application connectors ------------------------------------
+- name: "Step 1: Pause application connector {{ item }}"
+  ansible.builtin.include_tasks:
+    file: connector_pause.yml
+  vars:
+    _pause_connect_url: "{{ cp_dr_mm2_app_connect_url }}"
+    _pause_connector_name: "{{ item }}"
+  loop: "{{ cp_dr_mm2_app_connectors | default([]) }}"
+
+# --- Step 2: Stop MM2 connectors (pause source, checkpoint, heartbeat) -------
+- name: "Step 2: Pause MM2 source connector {{ cp_dr_mm2_source_connector }}"
+  ansible.builtin.include_tasks:
+    file: connector_pause.yml
+  vars:
+    _pause_connect_url: "{{ cp_dr_mm2_connect_url }}"
+    _pause_connector_name: "{{ cp_dr_mm2_source_connector }}"
+
+- name: "Step 2: Pause MM2 checkpoint connector {{ cp_dr_mm2_checkpoint_connector }}"
+  ansible.builtin.include_tasks:
+    file: connector_pause.yml
+  vars:
+    _pause_connect_url: "{{ cp_dr_mm2_connect_url }}"
+    _pause_connector_name: "{{ cp_dr_mm2_checkpoint_connector }}"
+
+- name: "Step 2: Pause MM2 heartbeat connector {{ cp_dr_mm2_heartbeat_connector }}"
+  ansible.builtin.include_tasks:
+    file: connector_pause.yml
+  vars:
+    _pause_connect_url: "{{ cp_dr_mm2_connect_url }}"
+    _pause_connector_name: "{{ cp_dr_mm2_heartbeat_connector }}"
+
+# --- Step 3 + 4: Flip and verify Consul active-region -----------------------
+- name: "Step 3: Flip Consul active-region"
+  ansible.builtin.include_tasks:
+    file: consul_flip.yml
+
+# --- Step 5: Resume application connectors on target -------------------------
+- name: "Step 5: Resume application connector {{ item }}"
+  ansible.builtin.include_tasks:
+    file: connector_resume.yml
+  vars:
+    _resume_connect_url: "{{ cp_dr_mm2_target_connect_url | default(cp_dr_mm2_app_connect_url) }}"
+    _resume_connector_name: "{{ item }}"
+  loop: "{{ cp_dr_mm2_app_connectors | default([]) }}"
+
+# Step 6: Final validation is handled by post-validation in main.yml

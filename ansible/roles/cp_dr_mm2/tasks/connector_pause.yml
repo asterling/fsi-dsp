@@ -1,0 +1,40 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Pause a single connector with polling
+# =============================================================================
+# Expects variables:
+#   _pause_connector_name: name of the connector to pause
+#   _pause_connect_url: Connect REST API base URL
+# =============================================================================
+
+- name: "Pause connector {{ _pause_connector_name }}"
+  ansible.builtin.uri:
+    url: "{{ _pause_connect_url }}/connectors/{{ _pause_connector_name }}/pause"
+    method: PUT
+    status_code:
+      - 200
+      - 202
+  failed_when: false
+  register: _pause_result
+
+- name: "Wait for connector {{ _pause_connector_name }} to reach PAUSED state"
+  ansible.builtin.uri:
+    url: "{{ _pause_connect_url }}/connectors/{{ _pause_connector_name }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+  register: _pause_status
+  retries: "{{ cp_dr_mm2_pause_retries }}"
+  delay: "{{ cp_dr_mm2_pause_delay }}"
+  until: >-
+    _pause_status.json is defined
+    and _pause_status.json.connector.state == 'PAUSED'
+  failed_when: false
+
+- name: "Increment paused counter for {{ _pause_connector_name }}"
+  ansible.builtin.set_fact:
+    _dr_connectors_paused: "{{ _dr_connectors_paused | int + 1 }}"
+  when: >-
+    _pause_status.json is defined
+    and _pause_status.json.connector.state == 'PAUSED'

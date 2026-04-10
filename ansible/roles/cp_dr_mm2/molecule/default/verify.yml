@@ -1,0 +1,24 @@
+---
+- name: Verify DR failover results
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check cp_dr_mm2_results fact was set
+      ansible.builtin.assert:
+        that:
+          - cp_dr_mm2_results is defined
+          - cp_dr_mm2_results.operation is defined
+          - cp_dr_mm2_results.connectors_paused is defined
+          - cp_dr_mm2_results.connectors_resumed is defined
+          - cp_dr_mm2_results.consul_flipped is defined
+          - cp_dr_mm2_results.validation_passed is defined
+          - cp_dr_mm2_results.audit_log is defined
+        fail_msg: "cp_dr_mm2_results fact not properly set"
+        success_msg: "cp_dr_mm2_results fact is present and complete"
+
+    - name: Verify operation was failover
+      ansible.builtin.assert:
+        that:
+          - cp_dr_mm2_results.operation == 'failover'
+        fail_msg: "Expected operation 'failover'"
+        success_msg: "Operation correctly set to failover"

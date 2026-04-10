@@ -1,0 +1,10 @@
+---
+- name: MM2 DR Failover
+  hosts: kafka_connect[0]
+  gather_facts: false
+  vars:
+    cp_dr_mm2_operation: failover
+  tasks:
+    - name: Execute MM2 DR failover
+      ansible.builtin.include_role:
+        name: cp_dr_mm2

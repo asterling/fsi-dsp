@@ -1,0 +1,58 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Start mock Connect REST API server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/connect
+        python3 -m http.server 18083 &
+        echo $! > /tmp/mock_connect_rest.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
+
+    - name: Start mock Consul HTTP API server in background
+      ansible.builtin.shell: |
+        cd tests/ansible/fixtures/mock_responses/consul
+        python3 -m http.server 18500 &
+        echo $! > /tmp/mock_consul_rest.pid
+      args:
+        chdir: "{{ playbook_dir }}/../../../.."
+      changed_when: true
+
+    - name: Wait for mock Connect server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18083
+        timeout: 10
+
+    - name: Wait for mock Consul server to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 18500
+        timeout: 10
+
+    - name: Apply cp_dr_mm2 role with mock APIs
+      ansible.builtin.include_role:
+        name: cp_dr_mm2
+      vars:
+        cp_dr_mm2_connect_url: "http://localhost:18083"
+        cp_dr_mm2_app_connect_url: "http://localhost:18083"
+        cp_dr_mm2_consul_url: "http://localhost:18500"
+        cp_dr_mm2_validate_health: false
+        cp_dr_mm2_validate_writability: false
+        cp_dr_mm2_operation: failover
+
+  post_tasks:
+    - name: Stop mock Connect server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_connect_rest.pid) 2>/dev/null || true
+      changed_when: false
+      ignore_errors: true  # noqa: ignore-errors
+
+    - name: Stop mock Consul server
+      ansible.builtin.shell: |
+        kill $(cat /tmp/mock_consul_rest.pid) 2>/dev/null || true
+      changed_when: false
+      ignore_errors: true  # noqa: ignore-errors

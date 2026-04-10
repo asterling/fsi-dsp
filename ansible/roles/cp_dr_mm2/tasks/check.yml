@@ -1,0 +1,224 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Check mode (GET-only, no mutations)
+# =============================================================================
+# Reports what would happen during failover/failback by querying current state
+# and recording planned steps into _dr_audit_log. Uses only GET requests --
+# never PUT, POST, or DELETE.
+# =============================================================================
+
+# --- Initialize audit log ----------------------------------------------------
+- name: Initialize DR audit log
+  ansible.builtin.set_fact:
+    _dr_audit_log: []
+  changed_when: false
+
+# --- Step 1: Check MM2 connector states --------------------------------------
+- name: "Check MM2 connector states for {{ item }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  loop:
+    - "{{ cp_dr_mm2_source_connector }}"
+    - "{{ cp_dr_mm2_checkpoint_connector }}"
+    - "{{ cp_dr_mm2_heartbeat_connector }}"
+  register: _audit_mm2_states
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# --- Step 2: Check application connector states (if configured) ---------------
+- name: Check application connector list on source cluster
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_app_connect_url }}/connectors"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _audit_app_connectors
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# --- Step 3: Check current Consul active-region ------------------------------
+- name: Check current Consul active-region
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_consul_url }}/v1/kv/{{ cp_dr_mm2_consul_kv_key }}?raw"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _audit_consul_region
+  check_mode: false
+  changed_when: false
+  failed_when: false
+
+# --- Record planned failover steps -------------------------------------------
+- name: Record planned failover step 1 -- Pause application connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 1
+      action: "Pause application connectors on source cluster"
+      current_state: "{{ _audit_app_connectors.json | default('unknown') }}"
+      expected_result: "All application connectors PAUSED"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+- name: Record planned failover step 2 -- Stop MM2 connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 2
+      action: "Pause MM2 connectors (source, checkpoint, heartbeat)"
+      current_state: "{{ _audit_mm2_states.results | default([]) | map(attribute='json', default='unknown') | list }}"
+      expected_result: "All MM2 connectors PAUSED"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+- name: Record planned failover step 3 -- Flip Consul active-region
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 3
+      action: "Update Consul KV active-region to {{ cp_dr_mm2_target_region }}"
+      current_state: "{{ _audit_consul_region.content | default('unknown') }}"
+      expected_result: "Consul active-region == {{ cp_dr_mm2_target_region }}"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+- name: Record planned failover step 4 -- Verify Consul update
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 4
+      action: "Verify Consul KV active-region updated"
+      current_state: "pending"
+      expected_result: "GET returns {{ cp_dr_mm2_target_region }}"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+- name: Record planned failover step 5 -- Resume application connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 5
+      action: "Resume application connectors on target cluster"
+      current_state: "pending"
+      expected_result: "All application connectors RUNNING on target"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+- name: Record planned failover step 6 -- Final validation
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 6
+      action: "Post-failover validation (connector health, topic writability)"
+      current_state: "pending"
+      expected_result: "All health checks pass on target cluster"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failover'
+
+# --- Record planned failback steps -------------------------------------------
+- name: Record planned failback step 1 -- Fetch original MM2 config
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 1
+      action: "Fetch original MM2 connector configurations"
+      current_state: "{{ _audit_mm2_states.results | default([]) | map(attribute='json', default='unknown') | list }}"
+      expected_result: "Connector configs stored for reversal"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 2 -- Delete MM2 connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 2
+      action: "Delete existing MM2 connectors"
+      current_state: "{{ _audit_mm2_states.results | default([]) | map(attribute='json', default='unknown') | list }}"
+      expected_result: "All MM2 connectors deleted"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 3 -- Create reversed MM2 connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 3
+      action: "Create reversed MM2 connectors (swapped source/target)"
+      current_state: "pending"
+      expected_result: "Reversed MM2 connectors created"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 4 -- Wait for reversed connectors
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 4
+      action: "Wait for reversed connectors to reach RUNNING state"
+      current_state: "pending"
+      expected_result: "All reversed MM2 connectors RUNNING"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 5 -- Validate data sync
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 5
+      action: "Validate data sync via connector health check"
+      current_state: "pending"
+      expected_result: "Connector health checks pass"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 6 -- Flip Consul back to primary
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 6
+      action: "Flip Consul active-region back to {{ cp_dr_mm2_source_alias }}"
+      current_state: "{{ _audit_consul_region.content | default('unknown') }}"
+      expected_result: "Consul active-region == {{ cp_dr_mm2_source_alias }}"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+- name: Record planned failback step 7 -- Final validation
+  ansible.builtin.set_fact:
+    _dr_audit_log: "{{ _dr_audit_log + [_step] }}"
+  vars:
+    _step:
+      step: 7
+      action: "Post-failback validation (connector health, topic writability)"
+      current_state: "pending"
+      expected_result: "All health checks pass on primary cluster"
+  changed_when: false
+  when: cp_dr_mm2_operation == 'failback'
+
+# --- Display audit log -------------------------------------------------------
+- name: Display DR audit log
+  ansible.builtin.debug:
+    msg: "{{ _dr_audit_log }}"
+  changed_when: false

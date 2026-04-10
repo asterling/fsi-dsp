@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: cp_dr_mm2
+  author: fsi-c4e
+  description: MM2 DR failover and failback automation with audit-ready dry-run
+  license: Apache-2.0
+  min_ansible_version: "2.15"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+  galaxy_tags:
+    - kafka
+    - dr
+    - mirrormaker2
+    - confluent
+dependencies: []

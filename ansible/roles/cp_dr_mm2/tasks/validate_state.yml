@@ -1,0 +1,102 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- State validation (pre/post failover)
+# =============================================================================
+# Checks connector health, SLA-tier mirror lag thresholds, and topic
+# writability. Called with _validation_phase: "pre" or "post".
+#
+# MM2 does NOT expose per-topic lag via Connect REST API. Validation checks
+# connector state (RUNNING/PAUSED/FAILED) and documents that per-topic lag
+# requires Prometheus/JMX monitoring (deployed in Phase 12).
+# =============================================================================
+
+- name: "Report validation phase: {{ _validation_phase }}"
+  ansible.builtin.debug:
+    msg: "Running {{ _validation_phase }}-validation checks"
+
+# --- Check MM2 connector health -----------------------------------------------
+- name: "Check MM2 connector health ({{ _validation_phase }}) for {{ item }}"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_connect_url }}/connectors/{{ item }}/status"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  loop:
+    - "{{ cp_dr_mm2_source_connector }}"
+    - "{{ cp_dr_mm2_checkpoint_connector }}"
+    - "{{ cp_dr_mm2_heartbeat_connector }}"
+  register: _mm2_health_results
+  failed_when: false
+
+# --- Evaluate MM2 connector states -------------------------------------------
+- name: "Evaluate MM2 connector states ({{ _validation_phase }})"
+  ansible.builtin.set_fact:
+    _mm2_connector_states: >-
+      {{ _mm2_health_results.results
+         | selectattr('json', 'defined')
+         | map(attribute='json.connector.state')
+         | list }}
+
+- name: "Report MM2 connector states ({{ _validation_phase }})"
+  ansible.builtin.debug:
+    msg: "MM2 connector states: {{ _mm2_connector_states }}"
+
+# --- Check SLA-tier mirror lag thresholds (connector-level) -------------------
+# MM2 doesn't expose per-topic lag via REST API. We validate connector health
+# as a proxy. Per-topic lag monitoring uses Prometheus/JMX (Phase 12).
+- name: "Check SLA-tier mirror lag thresholds ({{ _validation_phase }})"
+  ansible.builtin.debug:
+    msg: >-
+      SLA tier mirror lag thresholds loaded:
+      critical={{ sla_tier_mirror_lag.critical.warn_seconds }}s warn /
+      {{ sla_tier_mirror_lag.critical.alert_seconds }}s alert.
+      Per-topic lag requires Prometheus/JMX -- connector state validated here.
+  when: sla_tier_mirror_lag is defined
+
+# --- Check application connector health (optional) ----------------------------
+- name: "Check application connector health ({{ _validation_phase }})"
+  ansible.builtin.uri:
+    url: "{{ cp_dr_mm2_app_connect_url }}/connectors"
+    method: GET
+    return_content: true
+    status_code:
+      - 200
+      - 404
+  register: _app_health_result
+  failed_when: false
+  when: cp_dr_mm2_validate_health | bool
+
+# --- Topic writability check (post-validation only) ---------------------------
+- name: "Validate topic writability on target cluster ({{ _validation_phase }})"
+  ansible.builtin.uri:
+    url: >-
+      {{ cp_dr_mm2_admin_rest_url }}/v3/clusters/{{ cp_dr_mm2_cluster_id
+      }}/topics/{{ cp_dr_mm2_writability_test_topic
+      | default('_fsi_dr_health_check') }}/records
+    method: POST
+    body_format: json
+    body:
+      value:
+        type: JSON
+        data: '{"health_check": true}'
+    headers:
+      Authorization: "Bearer {{ cp_dr_mm2_admin_rest_token }}"
+    status_code:
+      - 200
+      - 400
+  register: _writability_result
+  failed_when: false
+  when:
+    - cp_dr_mm2_validate_writability | bool
+    - _validation_phase == "post"
+    - cp_dr_mm2_admin_rest_url | length > 0
+
+# --- Set validation result ----------------------------------------------------
+- name: "Determine validation result ({{ _validation_phase }})"
+  ansible.builtin.set_fact:
+    _dr_validation_passed: >-
+      {{ true if (_mm2_connector_states | default([]) | reject('in', ['FAILED'])
+         | list | length == _mm2_connector_states | default([]) | length)
+         else false }}

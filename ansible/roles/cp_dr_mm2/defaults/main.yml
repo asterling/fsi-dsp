@@ -1,0 +1,61 @@
+---
+# =============================================================================
+# cp_dr_mm2 role -- Default variable values
+# =============================================================================
+# Manages MM2 DR failover and failback operations via Connect REST API,
+# Consul HTTP API, and Admin REST v3 API. Connector definitions and
+# credentials come from inventory group_vars, Vault lookup, or --extra-vars.
+# =============================================================================
+
+# Operation: failover or failback
+cp_dr_mm2_operation: failover
+
+# Connect REST API (MM2 dedicated cluster)
+cp_dr_mm2_connect_url: "http://localhost:8083"
+
+# MM2 connector names (must match deployed connector names)
+cp_dr_mm2_source_connector: "mm2-source-east-west"
+cp_dr_mm2_checkpoint_connector: "mm2-checkpoint-east-west"
+cp_dr_mm2_heartbeat_connector: "mm2-heartbeat-east-west"
+
+# Cluster aliases (used for reversed connector naming during failback)
+cp_dr_mm2_source_alias: "east"
+cp_dr_mm2_target_alias: "west"
+
+# Consul HTTP API
+cp_dr_mm2_consul_url: "http://localhost:8500"
+cp_dr_mm2_consul_kv_key: "fsi/kafka/active-region"
+cp_dr_mm2_target_region: "west"
+
+# Admin REST v3 (for topic writability validation)
+cp_dr_mm2_admin_rest_url: ""
+cp_dr_mm2_cluster_id: ""
+cp_dr_mm2_admin_rest_token: ""
+
+# Application connectors -- Connect REST URL for business connectors
+# (may differ from MM2 cluster)
+cp_dr_mm2_app_connect_url: "http://localhost:8083"
+
+# Polling configuration
+cp_dr_mm2_pause_retries: 15
+cp_dr_mm2_pause_delay: 2
+cp_dr_mm2_resume_retries: 15
+cp_dr_mm2_resume_delay: 2
+
+# Validation toggles
+cp_dr_mm2_validate_health: true
+cp_dr_mm2_validate_writability: true
+
+# SLA tier mirror lag thresholds (seconds) -- used for pre-failover warning
+# NOTE: Loaded from sla_tiers.yml at runtime; these are fallback defaults
+cp_dr_mm2_lag_warn_default: 300
+cp_dr_mm2_lag_alert_default: 900
+
+# Output variable for downstream orchestration
+cp_dr_mm2_results:
+  operation: ""
+  connectors_paused: 0
+  connectors_resumed: 0
+  consul_flipped: false
+  validation_passed: false
+  audit_log: []

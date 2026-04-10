@@ -35,3 +35,26 @@ sla_tier_names:
   - standard
   - best-effort
   - compliance
+
+# =============================================================================
+# Mirror Lag Thresholds -- used by cp_dr_mm2 role for pre-failover warnings
+# =============================================================================
+# Maps SLA tiers to acceptable mirror replication lag in seconds.
+# Derived from fsi-dr.sh _tier_warn_threshold / _tier_alert_threshold functions.
+# NOTE: These are DR-specific thresholds, NOT parity-tested with Terraform
+# (Terraform does not manage MM2 mirror lag -- CP/CFK only).
+# =============================================================================
+
+sla_tier_mirror_lag:
+  critical:
+    warn_seconds: 30
+    alert_seconds: 60
+  standard:
+    warn_seconds: 300
+    alert_seconds: 900
+  best-effort:
+    warn_seconds: 3600
+    alert_seconds: 14400
+  compliance:
+    warn_seconds: 10
+    alert_seconds: 30
