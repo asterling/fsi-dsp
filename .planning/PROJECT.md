@@ -63,9 +63,9 @@ Any FSI team can stand up a fully governed, observable, DR-ready Kafka/Flink/SR 
 
 **Ansible DR Automation:**
 - [x] Failover/failback playbooks for CP (MM2 backend) with state validation — Phase 13
-- [ ] MRC failover/failback playbooks (observer promotion) via Ansible
+- [x] MRC failover/failback playbooks (observer promotion) via Ansible — Phase 15
 - [x] Dry-run mode and rollback capability in Ansible DR playbooks — Phase 13
-- [ ] DR drill automation playbook (failover → validate → failback → report)
+- [x] DR drill automation playbook (failover → validate → failback → report) — Phase 15
 
 **Ansible CI/CD:**
 - [ ] ansible-lint and molecule test framework for all roles
@@ -150,4 +150,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-10 after Phase 13 complete — MM2 DR automation playbooks (failover/failback) with dry-run check mode, SLA-tier state validation, Consul integration, and audit-ready output.*
+*Last updated: 2026-04-10 after Phase 15 complete — MRC observer promotion DR role and quarterly DR drill playbook with compliance report generation. All v2.0 phases complete.*
