@@ -52,6 +52,8 @@ jobs:
           - cp_rbac
           - cp_connect
           - cp_observability
+          - cfk_operator
+          - cfk_topic
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
