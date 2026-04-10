@@ -286,11 +286,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. Operator runs the MRC failover playbook and the observer replica is promoted to leader via Confluent CLI for RPO=0 scenarios
   2. Operator runs the DR drill playbook and it executes the full cycle (failover, validate, failback, validate) and generates a timestamped compliance report suitable for regulatory submission
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 15-01: cp_dr_mrc role -- observer promotion via Confluent CLI, state validation
-- [ ] 15-02: DR drill playbook -- full cycle orchestration and compliance report generation
+- [ ] 15-01-PLAN.md -- cp_dr_mrc role: MRC observer promotion via kafka-leader-election.sh, state validation, Consul flip, check mode audit
+- [ ] 15-02-PLAN.md -- DR drill playbook: full cycle orchestration with configurable backend and compliance report generation
 
 ## Progress
 
