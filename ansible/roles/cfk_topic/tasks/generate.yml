@@ -1,0 +1,36 @@
+---
+# =============================================================================
+# cfk_topic | Apply KafkaTopic CRD for a single topic
+# =============================================================================
+# Generates and applies a KafkaTopic CRD to the target namespace.
+# CRITICAL: All config values use | string filter -- CFK requires string-typed
+# configs in KafkaTopic CRDs (Research Pitfall 2).
+# CRITICAL: namespace is always set per Research Pitfall 3.
+# =============================================================================
+
+- name: "Apply KafkaTopic CRD for {{ topic_item.metadata.name }}"
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: "{{ cfk_topic_api_version }}"
+      kind: KafkaTopic
+      metadata:
+        name: "{{ topic_item.metadata.name }}"
+        namespace: "{{ cfk_topic_namespace }}"
+        labels: "{{ topic_item.metadata.labels | default({}) }}"
+      spec:
+        replicas: "{{ cfk_replication_factor }}"
+        partitionCount: "{{ _topic_partitions | int }}"
+        kafkaClusterRef:
+          name: "{{ cfk_kafka_cluster_name }}"
+        configs:
+          cleanup.policy: "{{ _topic_cleanup_policy | string }}"
+          retention.ms: "{{ _topic_retention_ms | string }}"
+          min.insync.replicas: "{{ _topic_min_isr | string }}"
+  register: _cfk_topic_result
+
+- name: "Report KafkaTopic result for {{ topic_item.metadata.name }}"
+  ansible.builtin.debug:
+    msg: >-
+      KafkaTopic {{ topic_item.metadata.name }} in namespace {{ cfk_topic_namespace }}:
+      changed={{ _cfk_topic_result.changed | default(false) }}

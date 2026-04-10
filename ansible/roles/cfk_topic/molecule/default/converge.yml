@@ -1,0 +1,28 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Apply cfk_topic role with inline topics
+      ansible.builtin.include_role:
+        name: cfk_topic
+      vars:
+        cfk_topic_namespace: confluent
+        cfk_kafka_cluster_name: kafka
+        cfk_topics:
+          - kind: CPTopic
+            metadata:
+              name: corebanking.transactions.v1.account-transaction
+              labels:
+                fsi.sla-tier: critical
+            spec:
+              partitionCount: 12
+              configs: {}
+          - kind: CPTopic
+            metadata:
+              name: fraud.detection.v1.alert-signal
+              labels:
+                fsi.sla-tier: standard
+            spec:
+              partitionCount: 6
+              configs: {}

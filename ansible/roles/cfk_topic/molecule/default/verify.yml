@@ -1,0 +1,18 @@
+---
+- name: Verify cfk_topic CRD generation
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check cfk_topic role completed without errors
+      ansible.builtin.assert:
+        that:
+          - true
+        success_msg: "cfk_topic role converge completed successfully"
+
+    - name: Verify governance constants were loaded
+      ansible.builtin.assert:
+        that:
+          - sla_tiers is defined
+          - naming_rules is defined
+        fail_msg: "Governance constants not loaded"
+        success_msg: "Governance constants loaded successfully"

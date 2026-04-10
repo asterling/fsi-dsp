@@ -1,0 +1,61 @@
+---
+# =============================================================================
+# cfk_topic | Pre-flight governance validation for a single topic
+# =============================================================================
+# Receives topic_item from loop. Validates name, derives SLA tier config,
+# applies spec overrides, and sets internal variables for CRD generation.
+# Governance logic mirrors cp_topic/tasks/validate.yml exactly to ensure
+# parity across deployment models (CP REST vs CFK CRD).
+# =============================================================================
+
+# --- Extract SLA tier --------------------------------------------------------
+- name: "Extract SLA tier for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_sla_tier: "{{ topic_item.metadata.labels['fsi.sla-tier'] | default('standard') }}"
+
+# --- Validate topic name -----------------------------------------------------
+- name: "Validate topic name governance for {{ topic_item.metadata.name }}"
+  ansible.builtin.assert:
+    that:
+      - topic_item.metadata.name | fsi_validate_topic_name
+    fail_msg: "Topic name '{{ topic_item.metadata.name }}' fails governance naming validation"
+    quiet: true
+
+# --- Derive SLA tier defaults ------------------------------------------------
+- name: "Derive config from SLA tier for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_partitions: "{{ _topic_sla_tier | fsi_sla_lookup('partitions') }}"
+    _topic_retention_ms: "{{ _topic_sla_tier | fsi_sla_lookup('retention_ms') }}"
+    _topic_min_isr: "{{ sla_tiers[_topic_sla_tier].min_insync_replicas }}"
+    _topic_cleanup_policy: "delete"
+
+# --- Apply spec overrides (explicit override per research pitfall 8) ---------
+- name: "Apply partitionCount override for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_partitions: "{{ topic_item.spec.partitionCount }}"
+  when:
+    - topic_item.spec.partitionCount is defined
+    - (topic_item.spec.partitionCount | int) != (_topic_sla_tier | fsi_sla_lookup('partitions') | int)
+
+- name: "Apply retention.ms override for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_retention_ms: "{{ topic_item.spec.configs['retention.ms'] }}"
+  when:
+    - topic_item.spec.configs is defined
+    - topic_item.spec.configs['retention.ms'] is defined
+    - (topic_item.spec.configs['retention.ms'] | int) != (_topic_sla_tier | fsi_sla_lookup('retention_ms') | int)
+
+- name: "Apply min.insync.replicas override for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_min_isr: "{{ topic_item.spec.configs['min.insync.replicas'] }}"
+  when:
+    - topic_item.spec.configs is defined
+    - topic_item.spec.configs['min.insync.replicas'] is defined
+    - (topic_item.spec.configs['min.insync.replicas'] | int) != (sla_tiers[_topic_sla_tier].min_insync_replicas | int)
+
+- name: "Apply cleanup.policy override for {{ topic_item.metadata.name }}"
+  ansible.builtin.set_fact:
+    _topic_cleanup_policy: "{{ topic_item.spec.configs['cleanup.policy'] }}"
+  when:
+    - topic_item.spec.configs is defined
+    - topic_item.spec.configs['cleanup.policy'] is defined

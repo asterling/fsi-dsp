@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# cfk_topic | Check-mode audit for a single topic
+# =============================================================================
+# Shows what KafkaTopic CRD would be generated for each topic without
+# applying changes. Queries existing CRDs via k8s_info for comparison.
+# =============================================================================
+
+# --- Run validation to derive computed values --------------------------------
+- name: "Validate topic {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: validate.yml
+
+# --- Show computed CRD definition --------------------------------------------
+- name: "Show computed KafkaTopic CRD for {{ topic_item.metadata.name }}"
+  ansible.builtin.debug:
+    msg:
+      apiVersion: "{{ cfk_topic_api_version }}"
+      kind: KafkaTopic
+      metadata:
+        name: "{{ topic_item.metadata.name }}"
+        namespace: "{{ cfk_topic_namespace }}"
+        labels: "{{ topic_item.metadata.labels | default({}) }}"
+      spec:
+        replicas: "{{ cfk_replication_factor }}"
+        partitionCount: "{{ _topic_partitions | int }}"
+        kafkaClusterRef:
+          name: "{{ cfk_kafka_cluster_name }}"
+        configs:
+          cleanup.policy: "{{ _topic_cleanup_policy | string }}"
+          retention.ms: "{{ _topic_retention_ms | string }}"
+          min.insync.replicas: "{{ _topic_min_isr | string }}"
+  changed_when: false
+
+# --- Query existing KafkaTopic CRD if present --------------------------------
+- name: "Query existing KafkaTopic CRD for {{ topic_item.metadata.name }}"
+  kubernetes.core.k8s_info:
+    api_version: "{{ cfk_topic_api_version }}"
+    kind: KafkaTopic
+    name: "{{ topic_item.metadata.name }}"
+    namespace: "{{ cfk_topic_namespace }}"
+  register: _cfk_existing_topic
+  check_mode: false
+  ignore_errors: true  # noqa: ignore-errors
+
+- name: "Report existing CRD status for {{ topic_item.metadata.name }}"
+  ansible.builtin.debug:
+    msg: >-
+      Existing KafkaTopic {{ topic_item.metadata.name }}:
+      {{ (_cfk_existing_topic.resources | default([]) | length > 0)
+         | ternary('FOUND', 'NOT FOUND') }}
+  changed_when: false

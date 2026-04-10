@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# cfk_topic | Process a single topic (normal mode dispatcher)
+# =============================================================================
+# Validates the topic governance rules, then generates and applies the
+# KafkaTopic CRD. Mirrors cp_topic/tasks/process_one.yml pattern.
+# =============================================================================
+
+- name: "Validate topic {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: validate.yml
+
+- name: "Generate CRD for {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: generate.yml

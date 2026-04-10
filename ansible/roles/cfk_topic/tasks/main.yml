@@ -1,0 +1,60 @@
+---
+# =============================================================================
+# cfk_topic role -- Entry point
+# =============================================================================
+# Loads governance constants, discovers topics from directory or inline list,
+# validates each topic, and generates KafkaTopic CRDs. In check mode, shows
+# what CRDs would be applied without mutating the cluster.
+# =============================================================================
+
+# --- Load governance constants -----------------------------------------------
+- name: Load SLA tier governance constants
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/sla_tiers.yml"
+
+- name: Load topic naming governance rules
+  ansible.builtin.include_vars:
+    file: "{{ role_path }}/../../vars/naming_rules.yml"
+
+# --- Discover topics ---------------------------------------------------------
+- name: Discover CPTopic YAML files from directory
+  ansible.builtin.find:
+    paths: "{{ cfk_topics_dir }}"
+    patterns: "*.yml"
+    file_type: file
+  register: _cfk_topic_files
+  when: cfk_topics_dir | length > 0
+
+- name: Load CPTopic YAML files
+  ansible.builtin.slurp:
+    src: "{{ item.path }}"
+  loop: "{{ _cfk_topic_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  register: _cfk_topic_slurped
+  when: cfk_topics_dir | length > 0
+
+- name: Parse CPTopic YAML content
+  ansible.builtin.set_fact:
+    _cfk_topics_from_dir: >-
+      {{ _cfk_topics_from_dir | default([]) +
+         [item.content | b64decode | from_yaml] }}
+  loop: "{{ _cfk_topic_slurped.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.path | default('inline') | basename }}"
+  when:
+    - cfk_topics_dir | length > 0
+    - (item.content | b64decode | from_yaml).kind | default('') == 'CPTopic'
+
+- name: Build combined topic list
+  ansible.builtin.set_fact:
+    _cfk_all_topics: "{{ (_cfk_topics_from_dir | default([])) + (cfk_topics | default([])) }}"
+
+# --- Process each topic ------------------------------------------------------
+- name: "Process topic {{ topic_item.metadata.name }}"
+  ansible.builtin.include_tasks:
+    file: "{{ (ansible_check_mode | bool) | ternary('check.yml', 'process_one.yml') }}"
+  loop: "{{ _cfk_all_topics }}"
+  loop_control:
+    loop_var: topic_item
+    label: "{{ topic_item.metadata.name }}"

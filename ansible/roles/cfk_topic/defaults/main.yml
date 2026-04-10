@@ -1,0 +1,23 @@
+---
+# =============================================================================
+# cfk_topic role -- Default variable values
+# =============================================================================
+# CFK-specific defaults for KafkaTopic CRD generation from CPTopic YAML.
+# Variable names use snake_case per ansible-lint var_naming_pattern.
+# =============================================================================
+
+# Kubernetes namespace where KafkaTopic CRDs are applied
+cfk_topic_namespace: confluent
+
+# Name of the CFK Kafka cluster resource (kafkaClusterRef)
+cfk_kafka_cluster_name: kafka
+
+# Replication factor for generated KafkaTopic CRDs
+cfk_replication_factor: 3
+
+# Topic input: directory path (glob *.yml) or inline list
+cfk_topics_dir: ""
+cfk_topics: []
+
+# CFK KafkaTopic CRD API version
+cfk_topic_api_version: "platform.confluent.io/v1beta1"
