@@ -294,7 +294,7 @@ Plans:
 - [x] 15-02-PLAN.md -- DR drill playbook: full cycle orchestration with configurable backend and compliance report generation
 
 ### Phase 16: mTLS Role Absorption and Generalization
-**Goal**: Absorb 5 standalone Linux_One/ansible-mtls/ roles into single cp_mtls composite role conforming to main layer conventions
+**Goal**: Absorb 5 standalone LinuxOne/ansible-mtls/ roles into single cp_mtls composite role conforming to main layer conventions
 **Depends on**: Phase 15 (v2.0 complete)
 **Plans**: 3 plans
 
@@ -330,8 +330,8 @@ Plans:
 - [x] 19-01-PLAN.md -- cp_mtls PKCS#11 mode and CEX tasks
 - [x] 19-02-PLAN.md -- CEX documentation and verification
 
-### Phase 20: CI/CD, Cleanup, and Linux_One Deprecation
-**Goal**: CI covers all new content, Linux_One deprecated, repo README updated
+### Phase 20: CI/CD, Cleanup, and LinuxOne Deprecation
+**Goal**: CI covers all new content, LinuxOne deprecated, repo README updated
 **Depends on**: Phases 16-19
 **Plans**: 2 plans
 

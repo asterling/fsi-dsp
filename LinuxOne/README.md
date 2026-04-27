@@ -1,4 +1,4 @@
-# Linux_One (Deprecated)
+# LinuxOne (Deprecated)
 
 > **This directory is deprecated.** All content has been absorbed into the main platform.
 
@@ -17,7 +17,7 @@
 ## Key Changes
 
 - 5 standalone roles consolidated into single `cp_mtls` composite role
-- Fidelity branding generalized (`Fidelity` -> configurable `cp_mtls_ca_org`)
+- Client branding generalized (configurable via `cp_mtls_ca_org`)
 - `community.crypto >= 2.15.0` added to `ansible/requirements.yml`
 - PKCS#11/CEX HSM support added as optional mode (`cp_mtls_keystore_backend: pkcs11`)
 - Molecule tests and CI integration added

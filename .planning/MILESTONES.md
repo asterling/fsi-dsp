@@ -6,7 +6,7 @@
 
 **Key accomplishments:**
 
-- 5 standalone Linux_One/ansible-mtls roles absorbed into single cp_mtls composite role with generalized branding, FQCN compliance, and molecule tests
+- 5 standalone LinuxOne/ansible-mtls roles absorbed into single cp_mtls composite role with generalized branding, FQCN compliance, and molecule tests
 - community.crypto >= 2.15.0 added to Ansible collection dependencies for cryptographic operations
 - LinuxONE scenario directories: cp-rhel-linuxone (full mTLS + inventory + playbooks) and cfk-openshift-linuxone (s390x node affinity, multi-arch images)
 - IBM Semeru 17 as default JDK for s390x with PKCS12 keystores and FIPS-aware MAC algorithm flags
@@ -15,7 +15,7 @@
 - Four documentation deliverables from .docx conversion: mTLS guide, troubleshooting guide (Usual Suspects + per-component TLS debug), FIPS guide, CEX/PKCS#11 guide
 - Optional CEX/PKCS#11 HSM support via cp_mtls_keystore_backend toggle with CCA/EP11 mode detection
 - cp_mtls added to molecule CI matrix and ansible-ci.yml path triggers extended for new scenarios
-- Linux_One directory deprecated with forwarding README; top-level README updated with LinuxONE as 7th and 8th deployment models
+- LinuxOne directory deprecated with forwarding README; top-level README updated with LinuxONE as 7th and 8th deployment models
 
 ---
 
