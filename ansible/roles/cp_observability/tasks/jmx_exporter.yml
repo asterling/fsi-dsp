@@ -6,7 +6,7 @@
 # Connect nodes using Jinja2 templates. Each component gets a tailored config
 # with the correct JMX port and metric rules.
 #
-# Templates are derived from observability/grafana/jmx-exporter-stub.yaml
+# Templates are derived from observability/grafana/jmx-exporter-config.yaml
 # with component-specific MBean patterns for each CP service.
 # =============================================================================
 

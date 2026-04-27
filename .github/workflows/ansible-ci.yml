@@ -16,6 +16,8 @@ on:
     paths:
       - 'ansible/**'
       - 'tests/ansible/**'
+      - 'scenarios/cp-rhel-linuxone/**'
+      - 'scenarios/cfk-openshift-linuxone/**'
 
 jobs:
   lint:
@@ -56,6 +58,7 @@ jobs:
           - cfk_topic
           - cp_dr_mm2
           - cp_dr_mrc
+          - cp_mtls
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

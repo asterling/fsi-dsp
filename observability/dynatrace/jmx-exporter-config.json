@@ -2,7 +2,7 @@
   "name": "FSI Kafka JMX",
   "type": "JMX",
   "hostPort": "{{JMX_EXPORTER_HOST}}:9101",
-  "note": "Stub -- wired in Phase 8 (CFK) and Phase 9 (CP). Configure as a Dynatrace JMX extension or OneAgent JMX plugin to collect Kafka broker metrics from CFK/CP deployments.",
+  "note": "Reference configuration for Dynatrace JMX extension or OneAgent JMX plugin to collect Kafka broker metrics from CFK/CP deployments.",
   "metrics": [
     {
       "objectName": "kafka.server:type=ReplicaManager,name=UnderReplicatedPartitions",

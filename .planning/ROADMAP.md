@@ -3,7 +3,8 @@
 ## Milestones
 
 - **v1.0 Terraform + Shell Foundation** - Phases 1-9 (complete)
-- **v2.0 Ansible Based Automation** - Phases 10-15 (in progress)
+- **v2.0 Ansible Based Automation** - Phases 10-15 (complete)
+- **v3.0 LinuxONE / s390x Integration** - Phases 16-20 (complete)
 
 ## Overview
 
@@ -292,6 +293,52 @@ Plans:
 - [x] 15-01-PLAN.md -- cp_dr_mrc role: MRC observer promotion via kafka-leader-election.sh, state validation, Consul flip, check mode audit
 - [x] 15-02-PLAN.md -- DR drill playbook: full cycle orchestration with configurable backend and compliance report generation
 
+### Phase 16: mTLS Role Absorption and Generalization
+**Goal**: Absorb 5 standalone Linux_One/ansible-mtls/ roles into single cp_mtls composite role conforming to main layer conventions
+**Depends on**: Phase 15 (v2.0 complete)
+**Plans**: 3 plans
+
+Plans:
+- [x] 16-01-PLAN.md -- Role absorption and generalization (cp_mtls with task includes)
+- [x] 16-02-PLAN.md -- Molecule tests and CI integration
+- [x] 16-03-PLAN.md -- site.yml integration and playbooks
+
+### Phase 17: LinuxONE Scenario Directories
+**Goal**: Self-contained scenario directories for CP-on-RHEL-on-L1 and CFK-on-OCP-on-RHEL-on-L1
+**Depends on**: Phase 16
+**Plans**: 2 plans
+
+Plans:
+- [x] 17-01-PLAN.md -- cp-rhel-linuxone scenario directory
+- [x] 17-02-PLAN.md -- cfk-openshift-linuxone scenario directory
+
+### Phase 18: FIPS Validation, Platform Documentation, and Debug Guides
+**Goal**: FIPS validation works on s390x, platform gotchas and per-component debug guides captured
+**Depends on**: Phase 17
+**Plans**: 2 plans
+
+Plans:
+- [x] 18-01-PLAN.md -- FIPS validation extension for s390x
+- [x] 18-02-PLAN.md -- ADR-009 and all documentation (mTLS guide, troubleshooting, FIPS guide)
+
+### Phase 19: CEX / PKCS#11 Hardware Security Module Support
+**Goal**: Optional CEX card support for HSM-backed private keys
+**Depends on**: Phase 16
+**Plans**: 2 plans
+
+Plans:
+- [x] 19-01-PLAN.md -- cp_mtls PKCS#11 mode and CEX tasks
+- [x] 19-02-PLAN.md -- CEX documentation and verification
+
+### Phase 20: CI/CD, Cleanup, and Linux_One Deprecation
+**Goal**: CI covers all new content, Linux_One deprecated, repo README updated
+**Depends on**: Phases 16-19
+**Plans**: 2 plans
+
+Plans:
+- [x] 20-01-PLAN.md -- CI matrix extension and cleanup
+- [x] 20-02-PLAN.md -- README updates and planning artifacts
+
 ## Progress
 
 **Execution Order:**
@@ -314,4 +361,9 @@ Note: Phase 13 (DR) depends on Phase 11, not Phase 12. Phase 14 (CFK) depends on
 | 12. Orchestration Pipeline, Observability, and CI/CD | v2.0 | 3/3 | Complete    | 2026-04-09 |
 | 13. DR Automation Playbooks (MM2) | v2.0 | 2/2 | Complete    | 2026-04-10 |
 | 14. CFK on OpenShift Governance | v2.0 | 2/2 | Complete    | 2026-04-10 |
-| 15. MRC Failover and DR Drill | v2.0 | 2/2 | Complete   | 2026-04-10 |
+| 15. MRC Failover and DR Drill | v2.0 | 2/2 | Complete    | 2026-04-10 |
+| 16. mTLS Role Absorption | v3.0 | 3/3 | Complete    | 2026-04-27 |
+| 17. LinuxONE Scenario Directories | v3.0 | 2/2 | Complete    | 2026-04-27 |
+| 18. FIPS and Documentation | v3.0 | 2/2 | Complete    | 2026-04-27 |
+| 19. CEX / PKCS#11 HSM | v3.0 | 2/2 | Complete    | 2026-04-27 |
+| 20. CI/CD and Cleanup | v3.0 | 2/2 | Complete    | 2026-04-27 |

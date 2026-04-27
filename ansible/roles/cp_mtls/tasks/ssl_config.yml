@@ -1,0 +1,32 @@
+---
+# =============================================================================
+# cp_mtls -- SSL config injection (runs on each kafka_broker host)
+# =============================================================================
+# Inserts / updates the SSL block in server.properties using blockinfile.
+# Uses a stable marker so re-runs update the block in place without
+# clobbering the rest of the config.
+# =============================================================================
+
+- name: Render SSL block into server.properties
+  ansible.builtin.blockinfile:
+    path: "{{ cp_mtls_server_properties }}"
+    marker: "# {mark} ANSIBLE MANAGED mTLS BLOCK"
+    block: "{{ lookup('template', 'ssl-block.properties.j2') }}"
+    owner: "{{ cp_mtls_ssl_owner }}"
+    group: "{{ cp_mtls_ssl_group }}"
+    mode: '0640'
+    backup: true
+  notify: Restart Kafka broker
+
+- name: Ensure keystore and truststore referenced in config exist
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  register: _mtls_ssl_files
+  loop:
+    - "{{ cp_mtls_ssl_dir }}/{{ inventory_hostname_short }}.keystore.p12"
+    - "{{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}"
+  failed_when: not _mtls_ssl_files.stat.exists
+
+- name: Increment SSL config counter
+  ansible.builtin.set_fact:
+    _mtls_ssl_configs: "{{ _mtls_ssl_configs | int + 1 }}"

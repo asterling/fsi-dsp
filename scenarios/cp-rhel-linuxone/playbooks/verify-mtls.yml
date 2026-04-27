@@ -1,0 +1,95 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE -- mTLS verification playbook
+# =============================================================================
+# Non-mutating verification: openssl s_client against each broker.
+#
+# Usage:
+#   ansible-playbook playbooks/verify-mtls.yml --ask-vault-pass
+# =============================================================================
+
+- name: Verify broker TLS (server auth)
+  hosts: kafka_brokers
+  gather_facts: false
+  tasks:
+    - name: Test TLS handshake to broker
+      ansible.builtin.command:
+        cmd: >
+          openssl s_client
+          -connect {{ inventory_hostname }}:{{ cp_mtls_listener_port | default(9093) }}
+          -CAfile {{ cp_mtls_ssl_dir | default('/etc/kafka/ssl') }}/ca-cert.pem
+          -verify_return_error
+          -brief
+        stdin: ""
+      register: _verify_tls
+      changed_when: false
+      failed_when: "'Verification: OK' not in _verify_tls.stderr"
+
+    - name: Report TLS verification result
+      ansible.builtin.debug:
+        msg: "TLS handshake to {{ inventory_hostname }}: OK"
+
+- name: Verify mTLS (client cert auth)
+  hosts: kafka_clients
+  gather_facts: false
+  vars:
+    _first_broker: "{{ groups['kafka_brokers'][0] }}"
+  tasks:
+    - name: Extract client key from PKCS12 for openssl test
+      ansible.builtin.command:
+        cmd: >
+          openssl pkcs12
+          -in {{ cp_mtls_ssl_dir | default('/etc/kafka/ssl') }}/{{ client_cn }}.keystore.p12
+          -nocerts -nodes
+          -passin pass:{{ cp_mtls_keystore_password }}
+      register: _client_key
+      changed_when: false
+      no_log: true
+
+    - name: Extract client cert from PKCS12
+      ansible.builtin.command:
+        cmd: >
+          openssl pkcs12
+          -in {{ cp_mtls_ssl_dir | default('/etc/kafka/ssl') }}/{{ client_cn }}.keystore.p12
+          -clcerts -nokeys
+          -passin pass:{{ cp_mtls_keystore_password }}
+      register: _client_cert
+      changed_when: false
+      no_log: true
+
+    - name: Write temp key and cert for mTLS test
+      ansible.builtin.copy:
+        content: "{{ item.content }}"
+        dest: "/tmp/mtls-test-{{ item.name }}"
+        mode: '0400'
+      loop:
+        - { name: "key.pem", content: "{{ _client_key.stdout }}" }
+        - { name: "cert.pem", content: "{{ _client_cert.stdout }}" }
+      no_log: true
+
+    - name: Test mTLS handshake to first broker
+      ansible.builtin.command:
+        cmd: >
+          openssl s_client
+          -connect {{ _first_broker }}:{{ cp_mtls_listener_port | default(9093) }}
+          -CAfile {{ cp_mtls_ssl_dir | default('/etc/kafka/ssl') }}/ca-cert.pem
+          -cert /tmp/mtls-test-cert.pem
+          -key /tmp/mtls-test-key.pem
+          -verify_return_error
+          -brief
+        stdin: ""
+      register: _verify_mtls
+      changed_when: false
+      failed_when: "'Verification: OK' not in _verify_mtls.stderr"
+
+    - name: Clean up temp files
+      ansible.builtin.file:
+        path: "/tmp/mtls-test-{{ item }}"
+        state: absent
+      loop:
+        - key.pem
+        - cert.pem
+
+    - name: Report mTLS verification result
+      ansible.builtin.debug:
+        msg: "mTLS handshake {{ client_cn }} -> {{ _first_broker }}: OK"

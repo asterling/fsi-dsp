@@ -1,8 +1,8 @@
 # =============================================================================
-# FSI Kafka Platform -- Instana JMX Sensor Stub
+# FSI Kafka Platform -- Instana JMX Sensor Configuration
 # =============================================================================
-# Instana JMX sensor stub for CFK/CP deployments.
-# Wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+# Reference configuration for JMX metric collection in CFK/CP deployments.
+# Instana auto-discovers JMX MBeans via its Java agent.
 #
 # Instana auto-discovers JMX MBeans via its Java agent. This config defines
 # which MBeans to monitor explicitly for Kafka broker health metrics.

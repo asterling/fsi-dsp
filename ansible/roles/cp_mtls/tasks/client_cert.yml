@@ -1,0 +1,131 @@
+---
+# =============================================================================
+# cp_mtls -- Client cert provisioning (runs on each kafka_clients host)
+# =============================================================================
+# Same flow as broker certs, but:
+#  - CN comes from `client_cn` host var (becomes the Kafka principal)
+#  - EKU is clientAuth only (clients don't serve TLS)
+#  - No IP SAN needed (clients connect outbound)
+#  - Keystore bundle fetched back to controller for out-of-band distribution
+# =============================================================================
+
+- name: Ensure SSL directory on client
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ssl_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Generate client private key on client
+  community.crypto.openssl_privatekey:
+    path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.key.pem"
+    size: "{{ cp_mtls_cert_key_size }}"
+    type: RSA
+    owner: root
+    group: root
+    mode: '0400'
+
+- name: Generate client CSR on client (clientAuth EKU)
+  community.crypto.openssl_csr:
+    path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.csr"
+    privatekey_path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.key.pem"
+    common_name: "{{ client_cn }}"
+    organization_name: "{{ cp_mtls_ca_org }}"
+    organizational_unit_name: Apps
+    country_name: "{{ cp_mtls_ca_country }}"
+    state_or_province_name: "{{ cp_mtls_ca_state }}"
+    locality_name: "{{ cp_mtls_ca_locality }}"
+    extended_key_usage:
+      - clientAuth
+    extended_key_usage_critical: false
+    key_usage:
+      - digitalSignature
+      - keyEncipherment
+    key_usage_critical: true
+    digest: "{{ cp_mtls_cert_digest }}"
+
+- name: Fetch client CSR to controller
+  ansible.builtin.fetch:
+    src: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.csr"
+    dest: "{{ cp_mtls_ctrl_csr_dir }}/{{ client_cn }}.csr"
+    flat: true
+
+- name: Ship client CSR to CA host
+  ansible.builtin.copy:
+    src: "{{ cp_mtls_ctrl_csr_dir }}/{{ client_cn }}.csr"
+    dest: "{{ cp_mtls_ca_dir }}/signed/{{ client_cn }}.csr"
+    owner: root
+    group: root
+    mode: '0400'
+  delegate_to: "{{ groups['cert_authority'][0] }}"
+
+- name: Sign client CSR on CA host
+  community.crypto.x509_certificate:
+    path: "{{ cp_mtls_ca_dir }}/signed/{{ client_cn }}-cert.pem"
+    csr_path: "{{ cp_mtls_ca_dir }}/signed/{{ client_cn }}.csr"
+    ownca_path: "{{ cp_mtls_ca_dir }}/ca-cert.pem"
+    ownca_privatekey_path: "{{ cp_mtls_ca_dir }}/ca-key.pem"
+    ownca_privatekey_passphrase: "{{ cp_mtls_ca_passphrase }}"
+    ownca_not_after: "+{{ cp_mtls_cert_validity_days }}d"
+    ownca_digest: "{{ cp_mtls_cert_digest }}"
+    provider: ownca
+    owner: root
+    group: root
+    mode: '0444'
+  delegate_to: "{{ groups['cert_authority'][0] }}"
+
+- name: Fetch signed client cert to controller
+  ansible.builtin.fetch:
+    src: "{{ cp_mtls_ca_dir }}/signed/{{ client_cn }}-cert.pem"
+    dest: "{{ cp_mtls_ctrl_signed_dir }}/{{ client_cn }}-cert.pem"
+    flat: true
+  delegate_to: "{{ groups['cert_authority'][0] }}"
+
+- name: Ship signed cert and CA cert to client
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0444'
+  loop:
+    - src: "{{ cp_mtls_ctrl_signed_dir }}/{{ client_cn }}-cert.pem"
+      dest: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}-cert.pem"
+    - src: "{{ cp_mtls_ctrl_ca_cert }}"
+      dest: "{{ cp_mtls_ssl_dir }}/ca-cert.pem"
+
+- name: Assemble client PKCS12 keystore on client
+  community.crypto.openssl_pkcs12:
+    path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.keystore.p12"
+    friendly_name: "{{ client_cn }}"
+    privatekey_path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.key.pem"
+    certificate_path: "{{ cp_mtls_ssl_dir }}/{{ client_cn }}-cert.pem"
+    other_certificates:
+      - "{{ cp_mtls_ssl_dir }}/ca-cert.pem"
+    passphrase: "{{ cp_mtls_keystore_password }}"
+    state: present
+    owner: root
+    group: root
+    mode: '0400'
+
+- name: Ensure per-client staging dir exists on controller
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ctrl_client_dir }}/{{ client_cn }}"
+    state: directory
+    mode: '0700'
+  delegate_to: localhost
+  become: false
+
+- name: Fetch client keystore bundle back to controller for distribution
+  ansible.builtin.fetch:
+    src: "{{ item }}"
+    dest: "{{ cp_mtls_ctrl_client_dir }}/{{ client_cn }}/{{ item | basename }}"
+    flat: true
+  loop:
+    - "{{ cp_mtls_ssl_dir }}/{{ client_cn }}.keystore.p12"
+    - "{{ cp_mtls_ssl_dir }}/ca-cert.pem"
+
+- name: Increment client cert counter
+  ansible.builtin.set_fact:
+    _mtls_client_certs: "{{ _mtls_client_certs | int + 1 }}"

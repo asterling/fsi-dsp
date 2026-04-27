@@ -12,8 +12,10 @@ A universal, automation-first platform for standing up governed Kafka, Flink, an
 | **CFK on OpenShift** | `scenarios/cfk-openshift/` | Helm / CFK Operator |
 | **CP on RHEL** | `scenarios/cp-rhel/` | Ansible / systemd |
 | **Private Cloud** | `scenarios/private-cloud/` | Terraform |
+| **CP on RHEL on LinuxONE** | `scenarios/cp-rhel-linuxone/` | Ansible / systemd |
+| **CFK on OpenShift on LinuxONE** | `scenarios/cfk-openshift-linuxone/` | Helm / CFK Operator |
 
-All six scenarios enforce identical governance: topic naming, schema compatibility, RBAC patterns, and SLA-tier defaults.
+All eight scenarios enforce identical governance: topic naming, schema compatibility, RBAC patterns, and SLA-tier defaults.
 
 ## Quick Start
 
@@ -115,7 +117,7 @@ Plus: Kafka Connect JDBC configs (East/West), Docker Compose local dev (Kafka + 
 
 ### Ansible Automation (`ansible/`)
 
-Nine roles providing full lifecycle management for Confluent Platform and CFK deployments:
+Ten roles providing full lifecycle management for Confluent Platform and CFK deployments:
 
 | Role | Purpose |
 |------|---------|
@@ -128,6 +130,7 @@ Nine roles providing full lifecycle management for Confluent Platform and CFK de
 | `cp_dr_mrc` | MRC observer promotion for RPO=0 scenarios |
 | `cfk_operator` | CFK Helm deployment with CR readiness gates |
 | `cfk_topic` | KafkaTopic CRD generation from CPTopic YAML with governance parity |
+| `cp_mtls` | mTLS certificate provisioning (CA, broker/client keystores, truststores) |
 
 All roles support `--check` mode for audit-ready dry runs. Orchestrated by `site.yml` with tag-isolated selective execution.
 
@@ -149,6 +152,8 @@ scenarios/
   cfk-openshift/             # CFK on OpenShift (Helm values, CRDs, Flink operator)
   cp-rhel/                   # Confluent Platform on RHEL (Ansible, systemd)
   private-cloud/             # Confluent Private Cloud (Terraform)
+  cp-rhel-linuxone/          # CP on RHEL on LinuxONE s390x (Ansible)
+  cfk-openshift-linuxone/    # CFK on OpenShift on LinuxONE s390x (Helm)
 modules/
   topic/                     # Shared governance module (topic + schema + RBAC + DR)
   flink/                     # CC Flink compute pool module
@@ -212,6 +217,10 @@ tests/
 - **[Cloud Providers](docs/cloud-providers.md)** — AWS vs Azure vs GCP differences
 - **[Compliance Guide](docs/compliance-guide.md)** — FSI regulatory requirements and DR drill compliance reporting
 - **[Credential Rotation](docs/rotation-runbook.md)** — Zero-downtime rotation procedures
+- **[LinuxONE mTLS Guide](docs/linuxone-mtls-guide.md)** -- Certificate provisioning on s390x
+- **[LinuxONE Troubleshooting](docs/linuxone-troubleshooting.md)** -- s390x TLS debug guide
+- **[LinuxONE FIPS](docs/linuxone-fips-guide.md)** -- s390x FIPS validation
+- **[LinuxONE CEX/HSM](docs/linuxone-cex-guide.md)** -- Hardware security module guide
 - **[ADRs](docs/adr/)** — Architecture Decision Records
 
 ## License

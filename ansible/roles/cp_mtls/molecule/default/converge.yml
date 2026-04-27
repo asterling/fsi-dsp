@@ -1,0 +1,56 @@
+---
+# =============================================================================
+# cp_mtls molecule converge -- software key mode
+# =============================================================================
+# Runs the role in check mode against localhost since mTLS provisioning
+# requires multi-host delegation (cert_authority, kafka_brokers, kafka_clients)
+# that cannot be fully exercised in a single-host CI environment.
+#
+# The assertions verify:
+#   - Role loads without errors
+#   - Default variables are set correctly
+#   - Prerequisite assertion fires when credentials are missing
+# =============================================================================
+
+- name: Converge -- test prerequisite assertion
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Attempt cp_mtls with empty credentials (expect failure)
+      ansible.builtin.include_role:
+        name: cp_mtls
+      vars:
+        cp_mtls_ca_passphrase: ""
+        cp_mtls_keystore_password: ""
+        cp_mtls_truststore_password: ""
+      ignore_errors: true  # noqa: ignore-errors
+      register: _mtls_no_creds
+
+    - name: Assert prerequisite check fires
+      ansible.builtin.assert:
+        that:
+          - _mtls_no_creds is failed
+        fail_msg: "cp_mtls should fail when credentials are empty"
+        success_msg: "cp_mtls correctly rejects empty credentials"
+
+- name: Converge -- test with mock credentials (check mode)
+  hosts: all
+  gather_facts: true
+  check_mode: true
+  vars:
+    cp_mtls_ca_passphrase: "test-ca-passphrase"
+    cp_mtls_keystore_password: "test-keystore-password"
+    cp_mtls_truststore_password: "test-truststore-password"
+  tasks:
+    - name: Apply cp_mtls role in check mode
+      ansible.builtin.include_role:
+        name: cp_mtls
+      register: _mtls_check
+
+    - name: Verify results variable is set
+      ansible.builtin.assert:
+        that:
+          - cp_mtls_results is defined
+          - cp_mtls_results.failed | int == 0
+        fail_msg: "cp_mtls_results not properly initialized"
+        success_msg: "cp_mtls results variable properly set"

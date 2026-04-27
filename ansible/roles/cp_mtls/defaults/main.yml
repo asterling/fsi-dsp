@@ -1,0 +1,77 @@
+---
+# =============================================================================
+# cp_mtls role -- Default variable values
+# =============================================================================
+# Provisions a self-signed mTLS certificate chain for Confluent Platform:
+#   CA key/cert -> broker keystores -> client keystores -> truststores -> SSL config
+#
+# All credential variables default to empty and are populated at runtime via
+# inventory group_vars, Vault lookup, or --extra-vars.
+# =============================================================================
+
+# --- CA configuration --------------------------------------------------------
+cp_mtls_ca_dir: /etc/pki/kafka-ca
+cp_mtls_ca_country: US
+cp_mtls_ca_state: MA
+cp_mtls_ca_locality: Boston
+cp_mtls_ca_org: FSI
+cp_mtls_ca_ou: Platform
+cp_mtls_ca_common_name: FSI-Kafka-Root-CA
+cp_mtls_ca_validity_days: 3650
+
+# --- Leaf cert settings (brokers + clients) ----------------------------------
+cp_mtls_cert_validity_days: 825
+cp_mtls_cert_key_size: 2048
+cp_mtls_cert_digest: sha256
+
+# --- On-host cert paths + ownership -----------------------------------------
+cp_mtls_ssl_dir: /etc/kafka/ssl
+cp_mtls_ssl_owner: cp-kafka
+cp_mtls_ssl_group: confluent
+
+# --- Controller-side staging dirs --------------------------------------------
+cp_mtls_ctrl_csr_dir: "{{ playbook_dir }}/files/csrs"
+cp_mtls_ctrl_signed_dir: "{{ playbook_dir }}/files/signed"
+cp_mtls_ctrl_ca_cert: "{{ playbook_dir }}/files/ca-cert.pem"
+cp_mtls_ctrl_client_dir: "{{ playbook_dir }}/files/clients"
+
+# --- Truststore --------------------------------------------------------------
+cp_mtls_truststore_filename: kafka.truststore.p12
+
+# --- Listener settings -------------------------------------------------------
+cp_mtls_listener_port: 9093
+cp_mtls_listener_name: SSL
+cp_mtls_domain: kafka.fsi.internal
+cp_mtls_server_properties: /etc/kafka/server.properties
+cp_mtls_service_name: confluent-kafka
+
+# --- TLS protocol/cipher pinning + auth config -------------------------------
+cp_mtls_ssl_enabled_protocols: "TLSv1.3,TLSv1.2"
+cp_mtls_ssl_protocol: "TLSv1.3"
+cp_mtls_ssl_client_auth: required
+cp_mtls_ssl_endpoint_identification: HTTPS
+cp_mtls_ssl_principal_mapping: "RULE:^CN=([^,]+).*$/$1/,DEFAULT"
+cp_mtls_ssl_keystore_type: PKCS12
+cp_mtls_ssl_truststore_type: PKCS12
+
+# Leave empty to use JDK defaults; pin explicitly for cross-arch (x86/s390x)
+cp_mtls_ssl_cipher_suites: ""
+
+# --- Keystore backend (software or pkcs11 for CEX HSM) ----------------------
+cp_mtls_keystore_backend: software
+
+# --- Vault references --------------------------------------------------------
+# Override these from group_vars/vault.yml (encrypted with ansible-vault)
+cp_mtls_ca_passphrase: ""
+cp_mtls_keystore_password: ""
+cp_mtls_truststore_password: ""
+
+# --- Output variable for downstream orchestration ----------------------------
+cp_mtls_results:
+  ca_generated: false
+  broker_certs: 0
+  client_certs: 0
+  truststores: 0
+  ssl_configs: 0
+  failed: 0
+  errors: []

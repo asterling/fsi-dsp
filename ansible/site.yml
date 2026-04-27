@@ -85,7 +85,21 @@
       ansible.builtin.include_role:
         name: cp_observability
 
-# --- Play 5: Deploy CFK on OpenShift ------------------------------------------
+# --- Play 5: Provision mTLS certificates (optional) --------------------------
+- name: Provision mTLS certificates
+  hosts: cert_authority:kafka_broker:kafka_clients
+  gather_facts: true
+  tags:
+    - mtls
+  tasks:
+    - name: Provision mTLS via cp_mtls role
+      ansible.builtin.include_role:
+        name: cp_mtls
+      tags:
+        - mtls
+        - certificates
+
+# --- Play 6: Deploy CFK on OpenShift ------------------------------------------
 - name: Deploy CFK on OpenShift
   hosts: localhost
   connection: local

@@ -1,0 +1,27 @@
+# =============================================================================
+# PKCS#11 Provider Configuration for IBM CEX HSM
+# =============================================================================
+# This file is consumed by java.security's SunPKCS11 provider entry:
+#   security.provider.N=SunPKCS11 {{ cp_mtls_ssl_dir }}/pkcs11-provider.cfg
+#
+# CEX mode: {{ cp_mtls_pkcs11_cex_mode | default('EP11') }}
+# Slot: {{ cp_mtls_pkcs11_slot | default(0) }}
+# =============================================================================
+
+name = CEX-{{ cp_mtls_pkcs11_cex_mode | default('EP11') }}
+library = {{ cp_mtls_pkcs11_library | default('/usr/lib64/pkcs11/PKCS11_API.so') }}
+slot = {{ cp_mtls_pkcs11_slot | default(0) }}
+{% if cp_mtls_pkcs11_cex_mode | default('EP11') == 'CCA' %}
+# CCA mode: uses IBM 4769/4770 adapters in CCA coprocessor mode
+attributes(*,CKO_PRIVATE_KEY,*) = {
+  CKA_SIGN = true
+  CKA_EXTRACTABLE = false
+  CKA_SENSITIVE = true
+}
+{% else %}
+# EP11 mode: uses IBM CEX adapters in Enterprise PKCS#11 mode
+attributes(*,CKO_PRIVATE_KEY,*) = {
+  CKA_SIGN = true
+  CKA_EXTRACTABLE = false
+}
+{% endif %}

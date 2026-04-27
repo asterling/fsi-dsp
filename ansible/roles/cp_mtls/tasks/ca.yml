@@ -1,0 +1,93 @@
+---
+# =============================================================================
+# cp_mtls -- CA generation (runs on cert_authority host only)
+# =============================================================================
+# Generates a self-signed root CA. Idempotent: community.crypto modules
+# check file presence + validity before regenerating.
+# =============================================================================
+
+- name: Ensure CA directory exists
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ca_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Ensure signing workspace exists
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ca_dir }}/signed"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Generate CA private key (RSA 4096, passphrase-protected)
+  community.crypto.openssl_privatekey:
+    path: "{{ cp_mtls_ca_dir }}/ca-key.pem"
+    size: 4096
+    type: RSA
+    cipher: auto
+    passphrase: "{{ cp_mtls_ca_passphrase }}"
+    owner: root
+    group: root
+    mode: '0400'
+    backup: true
+
+- name: Generate CA CSR
+  community.crypto.openssl_csr:
+    path: "{{ cp_mtls_ca_dir }}/ca.csr"
+    privatekey_path: "{{ cp_mtls_ca_dir }}/ca-key.pem"
+    privatekey_passphrase: "{{ cp_mtls_ca_passphrase }}"
+    common_name: "{{ cp_mtls_ca_common_name }}"
+    organization_name: "{{ cp_mtls_ca_org }}"
+    organizational_unit_name: "{{ cp_mtls_ca_ou }}"
+    country_name: "{{ cp_mtls_ca_country }}"
+    state_or_province_name: "{{ cp_mtls_ca_state }}"
+    locality_name: "{{ cp_mtls_ca_locality }}"
+    basic_constraints:
+      - 'CA:TRUE'
+    basic_constraints_critical: true
+    key_usage:
+      - keyCertSign
+      - cRLSign
+    key_usage_critical: true
+    digest: "{{ cp_mtls_cert_digest }}"
+    owner: root
+    group: root
+    mode: '0400'
+
+- name: Generate self-signed CA certificate
+  community.crypto.x509_certificate:
+    path: "{{ cp_mtls_ca_dir }}/ca-cert.pem"
+    csr_path: "{{ cp_mtls_ca_dir }}/ca.csr"
+    privatekey_path: "{{ cp_mtls_ca_dir }}/ca-key.pem"
+    privatekey_passphrase: "{{ cp_mtls_ca_passphrase }}"
+    provider: selfsigned
+    selfsigned_not_after: "+{{ cp_mtls_ca_validity_days }}d"
+    selfsigned_digest: "{{ cp_mtls_cert_digest }}"
+    owner: root
+    group: root
+    mode: '0444'
+
+- name: Fetch CA cert to controller for distribution
+  ansible.builtin.fetch:
+    src: "{{ cp_mtls_ca_dir }}/ca-cert.pem"
+    dest: "{{ cp_mtls_ctrl_ca_cert }}"
+    flat: true
+
+- name: Display CA cert summary
+  community.crypto.x509_certificate_info:
+    path: "{{ cp_mtls_ca_dir }}/ca-cert.pem"
+  register: _mtls_ca_info
+
+- name: Report CA cert details
+  ansible.builtin.debug:
+    msg:
+      - "CA subject : {{ _mtls_ca_info.subject }}"
+      - "CA valid   : {{ _mtls_ca_info.not_before }} -> {{ _mtls_ca_info.not_after }}"
+      - "CA SHA-256 : {{ _mtls_ca_info.fingerprints.sha256 | default('n/a') }}"
+
+- name: Record CA generation
+  ansible.builtin.set_fact:
+    _mtls_ca_generated: true

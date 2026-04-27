@@ -12,11 +12,11 @@ This directory contains Grafana dashboard templates and alert rules for the FSI 
 | 2 | Consumer Lag | `dashboard-consumer-lag.json` | Consumer group lag (records) with domain prefix auto-discovery, per-partition breakdown, SLA-tier thresholds |
 | 3 | Connect Status | `dashboard-connect-status.json` | Connector state (RUNNING/PAUSED/FAILED/UNASSIGNED), task health, auto-discovery via Connect REST API |
 | 4 | DR Readiness | `dashboard-dr-readiness.json` | Mirror lag per topic, cluster link health, failover readiness assessment with SLA-tier thresholds |
-| 5 | Flink Jobs | `dashboard-flink-jobs.json` | Stub -- running jobs, checkpoint duration, backpressure, throughput (wired in Phase 6) |
+| 5 | Flink Jobs | `dashboard-flink-jobs.json` | Running jobs, checkpoint duration, backpressure, records throughput, pending records, CFU utilization via CC Metrics API |
 
 **Alert rules:** `alerts.yaml` -- SLA-tier-specific alert rules for mirror lag, consumer lag, Connect task failures, and cluster health.
 
-**Metrics export:** `cc-metrics-export.json` (Confluent Cloud Metrics API datasource) and `jmx-exporter-stub.yaml` (JMX exporter for CFK/CP deployments).
+**Metrics export:** `cc-metrics-export.json` (Confluent Cloud Metrics API datasource) and `jmx-exporter-config.yaml` (JMX exporter for CFK/CP deployments).
 
 ## Prerequisites
 
@@ -101,10 +101,10 @@ Threshold values from [ADR-008: DR Tier Classification](../../docs/adr/008-dr-ti
 | `dashboard-consumer-lag.json` | Grafana JSON | Consumer group lag by topic with auto-discovery |
 | `dashboard-connect-status.json` | Grafana JSON | Connector state monitoring via REST API |
 | `dashboard-dr-readiness.json` | Grafana JSON | Mirror lag, DR health assessment |
-| `dashboard-flink-jobs.json` | Grafana JSON | Flink metrics (stub -- Phase 6) |
+| `dashboard-flink-jobs.json` | Grafana JSON | Flink job metrics via `io.confluent.flink/*` CC Metrics API |
 | `alerts.yaml` | Grafana alerting YAML | SLA-tier alert rules for all panels |
 | `cc-metrics-export.json` | Grafana datasource JSON | CC Metrics API Prometheus datasource config |
-| `jmx-exporter-stub.yaml` | JMX exporter YAML | JMX metric collection config for CFK/CP |
+| `jmx-exporter-config.yaml` | JMX exporter YAML | JMX metric collection config for CFK/CP |
 
 ## Metrics Export
 
@@ -125,9 +125,7 @@ The `cc-metrics-export.json` file configures a Grafana Prometheus datasource tha
 
 ### JMX Exporter (CFK/CP deployments)
 
-The `jmx-exporter-stub.yaml` file configures Prometheus JMX Exporter to collect Kafka broker metrics.
-
-**Status:** Stub -- actual JMX endpoints wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+The `jmx-exporter-config.yaml` file configures Prometheus JMX Exporter to collect Kafka broker metrics.
 
 **Port:** 9101 (matches `reference/local-dev/docker-compose.yml` KAFKA_JMX_PORT)
 
@@ -139,12 +137,6 @@ The `jmx-exporter-stub.yaml` file configures Prometheus JMX Exporter to collect 
 
 ## Flink Jobs Panel
 
-The Flink Jobs dashboard (`dashboard-flink-jobs.json`) is a **stub** with placeholder metric queries. Flink metrics will be available after Phase 6 deployment. The panel structure is in place so Phase 6 only needs to wire in actual metric names without restructuring the dashboard.
-
-Metrics to be wired in Phase 6:
-- `flink_jobmanager_job_uptime` -- Job uptime
-- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time
-- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure
-- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput
+The Flink Jobs dashboard (`dashboard-flink-jobs.json`) uses `io.confluent.flink/*` metrics from the CC Metrics API to visualize running jobs, checkpoint duration, backpressure, records throughput, pending records, and CFU utilization.
 
 See `observability/metrics-mapping.md` for cross-provider query equivalents.

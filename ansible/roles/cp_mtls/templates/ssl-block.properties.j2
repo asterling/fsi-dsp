@@ -1,0 +1,40 @@
+# ===== Listeners =====
+listeners={{ cp_mtls_listener_name }}://0.0.0.0:{{ cp_mtls_listener_port }}
+advertised.listeners={{ cp_mtls_listener_name }}://{{ inventory_hostname }}:{{ cp_mtls_listener_port }}
+listener.security.protocol.map={{ cp_mtls_listener_name }}:SSL
+inter.broker.listener.name={{ cp_mtls_listener_name }}
+
+# ===== Keystore (this broker's identity) =====
+{% if cp_mtls_keystore_backend == 'pkcs11' %}
+ssl.keystore.type=PKCS11
+ssl.keystore.location=NONE
+{% else %}
+ssl.keystore.type={{ cp_mtls_ssl_keystore_type }}
+ssl.keystore.location={{ cp_mtls_ssl_dir }}/{{ inventory_hostname_short }}.keystore.p12
+{% endif %}
+ssl.keystore.password={{ cp_mtls_keystore_password }}
+ssl.key.password={{ cp_mtls_keystore_password }}
+
+# ===== Truststore (who we accept) =====
+ssl.truststore.type={{ cp_mtls_ssl_truststore_type }}
+ssl.truststore.location={{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}
+ssl.truststore.password={{ cp_mtls_truststore_password }}
+
+# ===== mTLS =====
+ssl.client.auth={{ cp_mtls_ssl_client_auth }}
+ssl.endpoint.identification.algorithm={{ cp_mtls_ssl_endpoint_identification }}
+
+# ===== Protocol / cipher pinning =====
+ssl.enabled.protocols={{ cp_mtls_ssl_enabled_protocols }}
+ssl.protocol={{ cp_mtls_ssl_protocol }}
+{% if cp_mtls_ssl_cipher_suites | length > 0 %}
+ssl.cipher.suites={{ cp_mtls_ssl_cipher_suites }}
+{% endif %}
+
+# ===== Principal mapping + super users =====
+ssl.principal.mapping.rules={{ cp_mtls_ssl_principal_mapping }}
+super.users={{ cp_mtls_super_users | default('User:' ~ groups.get('kafka_brokers', groups.get('kafka_broker', [])) | join(';User:')) }}
+
+# ===== Authorizer (KRaft) =====
+authorizer.class.name=org.apache.kafka.metadata.authorizer.StandardAuthorizer
+allow.everyone.if.no.acl.found=false

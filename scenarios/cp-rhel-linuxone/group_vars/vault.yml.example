@@ -1,0 +1,13 @@
+---
+# =============================================================================
+# Vault -- Encrypted secrets for mTLS
+# =============================================================================
+# Copy to vault.yml, edit, then encrypt:
+#   cp vault.yml.example vault.yml
+#   $EDITOR vault.yml
+#   ansible-vault encrypt vault.yml
+# =============================================================================
+
+vault_kafka_ca_passphrase: "REPLACE-ME-ca-passphrase"
+vault_kafka_keystore_password: "REPLACE-ME-keystore-password"
+vault_kafka_truststore_password: "REPLACE-ME-truststore-password"

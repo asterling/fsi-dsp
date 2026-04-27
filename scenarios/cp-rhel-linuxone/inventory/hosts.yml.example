@@ -1,0 +1,37 @@
+---
+all:
+  children:
+    cert_authority:
+      hosts:
+        ca.kafka.fsi.internal:
+          ansible_host: 10.20.10.5
+
+    kafka_brokers:
+      hosts:
+        broker0.kafka.fsi.internal:
+          ansible_host: 10.20.30.40
+          broker_id: 0
+          broker_ip: 10.20.30.40
+          broker_extra_sans:
+            - "DNS:kafka-vip.fsi.internal"
+        broker1.kafka.fsi.internal:
+          ansible_host: 10.20.30.41
+          broker_id: 1
+          broker_ip: 10.20.30.41
+          broker_extra_sans:
+            - "DNS:kafka-vip.fsi.internal"
+        broker2.kafka.fsi.internal:
+          ansible_host: 10.20.30.42
+          broker_id: 2
+          broker_ip: 10.20.30.42
+          broker_extra_sans:
+            - "DNS:kafka-vip.fsi.internal"
+
+    kafka_clients:
+      hosts:
+        app1.fsi.internal:
+          client_cn: fsi-app1
+        app2.fsi.internal:
+          client_cn: fsi-app2
+        connect1.fsi.internal:
+          client_cn: fsi-connect-worker-1

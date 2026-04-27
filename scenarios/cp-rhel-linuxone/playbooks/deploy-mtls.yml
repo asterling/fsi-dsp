@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE -- mTLS deployment playbook
+# =============================================================================
+# Chains cp_mtls role across cert_authority, kafka_brokers, and kafka_clients.
+# Uses serial: 1 for SSL config rollout (rolling restart).
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-mtls.yml --ask-vault-pass
+# =============================================================================
+
+- name: Generate CA certificate
+  hosts: cert_authority
+  gather_facts: true
+  tasks:
+    - name: Run CA generation
+      ansible.builtin.include_role:
+        name: cp_mtls
+      vars:
+        _mtls_stage: ca
+
+- name: Provision broker certificates
+  hosts: kafka_brokers
+  gather_facts: true
+  tasks:
+    - name: Run broker cert provisioning
+      ansible.builtin.include_role:
+        name: cp_mtls
+
+- name: Provision client certificates
+  hosts: kafka_clients
+  gather_facts: true
+  tasks:
+    - name: Run client cert provisioning
+      ansible.builtin.include_role:
+        name: cp_mtls
+
+- name: Configure broker SSL (rolling restart)
+  hosts: kafka_brokers
+  serial: 1
+  gather_facts: true
+  tasks:
+    - name: Apply SSL configuration
+      ansible.builtin.include_role:
+        name: cp_mtls
+  post_tasks:
+    - name: Wait for broker SSL port
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default(inventory_hostname) }}"
+        port: "{{ cp_mtls_listener_port }}"
+        timeout: 120
+        delay: 5

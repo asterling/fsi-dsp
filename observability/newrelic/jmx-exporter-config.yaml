@@ -1,8 +1,8 @@
 # =============================================================================
-# FSI Kafka Platform -- New Relic JMX Integration Stub
+# FSI Kafka Platform -- New Relic JMX Integration
 # =============================================================================
-# New Relic JMX integration stub for CFK/CP deployments.
-# Wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+# Reference configuration for JMX metric collection in CFK/CP deployments.
+# Uses the nri-jmx infrastructure integration to collect Kafka broker MBeans.
 #
 # Uses the nri-jmx infrastructure integration to collect Kafka broker MBeans.
 # Requires the New Relic Infrastructure agent on the target host.

@@ -1,10 +1,10 @@
 # =============================================================================
-# JMX Exporter Configuration Stub
+# JMX Exporter Configuration -- Kafka Broker
 # =============================================================================
-# Stub configuration -- actual JMX endpoints wired in Phase 8 (CFK) and Phase 9 (CP).
+# Reference configuration for JMX metric collection in CFK/CP deployments.
 #
-# This configuration targets the JMX exporter for Kafka brokers in on-premises
-# or Kubernetes deployments where JMX is exposed directly.
+# This configuration targets the Prometheus JMX Exporter for Kafka brokers in
+# on-premises or Kubernetes deployments where JMX is exposed directly.
 #
 # Port: 9101 (matches reference/local-dev/docker-compose.yml KAFKA_JMX_PORT)
 #
@@ -12,9 +12,6 @@
 #   1. Deploy the Prometheus JMX Exporter agent alongside your Kafka brokers
 #   2. Point the exporter at the broker's JMX port using this config
 #   3. Configure Prometheus to scrape the exporter endpoint
-#
-# Phase 8 (CFK on OpenShift): JMX exporter sidecar in CFK broker pods
-# Phase 9 (CP on RHEL): JMX exporter agent on systemd-managed broker hosts
 # =============================================================================
 
 hostPort: "{{JMX_EXPORTER_HOST}}:9101"

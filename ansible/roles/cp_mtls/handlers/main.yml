@@ -1,0 +1,7 @@
+---
+- name: Restart Kafka broker
+  ansible.builtin.systemd:
+    name: "{{ cp_mtls_service_name }}"
+    state: restarted
+    daemon_reload: true
+  listen: Restart Kafka broker

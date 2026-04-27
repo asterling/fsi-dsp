@@ -1,0 +1,81 @@
+---
+# =============================================================================
+# cp_mtls -- Truststore distribution (runs on every host)
+# =============================================================================
+# Installs a PKCS12 truststore containing just the CA cert. Same truststore
+# goes to every broker and client.
+#
+# Uses keytool instead of community.crypto.openssl_pkcs12 because the latter
+# requires a private key (designed for keystores, not truststores). keytool
+# handles cert-only PKCS12 cleanly and is present wherever Kafka is running.
+# =============================================================================
+
+- name: Ensure SSL directory exists
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ssl_dir }}"
+    state: directory
+    owner: "{{ cp_mtls_ssl_owner | default('root') }}"
+    group: "{{ cp_mtls_ssl_group | default('root') }}"
+    mode: '0750'
+
+- name: Ensure CA cert is present on host
+  ansible.builtin.copy:
+    src: "{{ cp_mtls_ctrl_ca_cert }}"
+    dest: "{{ cp_mtls_ssl_dir }}/ca-cert.pem"
+    owner: "{{ cp_mtls_ssl_owner | default('root') }}"
+    group: "{{ cp_mtls_ssl_group | default('root') }}"
+    mode: '0444'
+
+- name: Check whether truststore already contains CA with current fingerprint
+  ansible.builtin.shell: |
+    set -o pipefail
+    keytool -list -keystore "{{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}" \
+            -storetype PKCS12 \
+            -storepass "{{ cp_mtls_truststore_password }}" \
+            -alias CARoot 2>/dev/null \
+      | awk -F: '/SHA-256/ {gsub(/ /, "", $2); gsub(/:/, "", $0); print tolower($0)}' \
+      | tr -d '\n'
+  args:
+    executable: /bin/bash
+  register: _mtls_existing_ts_fp
+  failed_when: false
+  changed_when: false
+  no_log: true
+
+- name: Compute current CA cert fingerprint
+  community.crypto.x509_certificate_info:
+    path: "{{ cp_mtls_ssl_dir }}/ca-cert.pem"
+  register: _mtls_ca_info
+
+- name: Remove stale truststore if fingerprint differs
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}"
+    state: absent
+  when:
+    - _mtls_existing_ts_fp.stdout is defined
+    - _mtls_existing_ts_fp.stdout | length > 0
+    - (_mtls_ca_info.fingerprints.sha256 | default('')) | replace(':', '') | lower not in _mtls_existing_ts_fp.stdout
+
+- name: Import CA cert into PKCS12 truststore via keytool
+  ansible.builtin.command:
+    cmd: >
+      keytool -importcert
+      -keystore {{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}
+      -storetype PKCS12
+      -storepass {{ cp_mtls_truststore_password }}
+      -alias CARoot
+      -file {{ cp_mtls_ssl_dir }}/ca-cert.pem
+      -noprompt
+    creates: "{{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}"
+  no_log: true
+
+- name: Set truststore permissions
+  ansible.builtin.file:
+    path: "{{ cp_mtls_ssl_dir }}/{{ cp_mtls_truststore_filename }}"
+    owner: "{{ cp_mtls_ssl_owner | default('root') }}"
+    group: "{{ cp_mtls_ssl_group | default('root') }}"
+    mode: '0444'
+
+- name: Increment truststore counter
+  ansible.builtin.set_fact:
+    _mtls_truststores: "{{ _mtls_truststores | int + 1 }}"

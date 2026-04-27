@@ -12,11 +12,11 @@ This directory contains IBM Instana dashboard templates and alert configurations
 | 2 | Consumer Lag | Consumer group lag (records) with domain prefix auto-discovery, per-partition breakdown, SLA-tier thresholds |
 | 3 | Connect Status | Connector state (RUNNING/PAUSED/FAILED/UNASSIGNED), FAILED count, state distribution via REST API |
 | 4 | DR Readiness | Mirror lag per topic (seconds), offset lag (records), cluster link state, SLA-tier thresholds |
-| 5 | Flink Jobs | Stub -- job uptime, checkpoint duration, backpressure, throughput (wired in Phase 6) |
+| 5 | Flink Jobs | Running jobs, checkpoint duration, backpressure, records throughput, pending records, CFU utilization via CC Metrics API |
 
 **Alert configurations:** `alerts.json` -- 20 alert configs covering mirror lag (4 tiers), consumer lag (4 tiers), Connect task failures, and cluster health.
 
-**Metrics export:** `cc-metrics-export.json` (CC Metrics API custom metrics source) and `jmx-exporter-stub.yaml` (Instana JMX sensor for CFK/CP deployments).
+**Metrics export:** `cc-metrics-export.json` (CC Metrics API custom metrics source) and `jmx-exporter-config.yaml` (Instana JMX sensor for CFK/CP deployments).
 
 ## Prerequisites
 
@@ -116,7 +116,7 @@ Threshold values from [ADR-008: DR Tier Classification](../../docs/adr/008-dr-ti
 | `dashboard.json` | Instana custom dashboard API payload | 5 widget groups: Cluster Health, Consumer Lag, Connect Status, DR Readiness, Flink Jobs |
 | `alerts.json` | Instana alert configuration payloads | SLA-tier alert rules for all panels |
 | `cc-metrics-export.json` | Instana custom metrics source config | CC Metrics API ingestion |
-| `jmx-exporter-stub.yaml` | Instana JMX sensor config | JMX metric collection for CFK/CP |
+| `jmx-exporter-config.yaml` | Instana JMX sensor config | JMX metric collection for CFK/CP |
 
 ## Metrics Export
 
@@ -134,9 +134,7 @@ The `cc-metrics-export.json` file configures Instana custom metrics ingestion fr
 
 ### JMX Sensor (CFK/CP deployments)
 
-The `jmx-exporter-stub.yaml` file configures the Instana JMX sensor for Kafka broker MBean collection.
-
-**Status:** Stub -- actual JMX endpoints wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+The `jmx-exporter-config.yaml` file configures the Instana JMX sensor for Kafka broker MBean collection.
 
 **Port:** 9101 (matches `reference/local-dev/docker-compose.yml` KAFKA_JMX_PORT)
 
@@ -144,6 +142,6 @@ The `jmx-exporter-stub.yaml` file configures the Instana JMX sensor for Kafka br
 
 ## Flink Jobs Widget Group
 
-The Flink Jobs widgets in the dashboard are **stubs** with placeholder metric queries. Flink metrics will be available after Phase 6 deployment. The widget structure is in place so Phase 6 only needs to wire in actual metric names without restructuring the dashboard.
+The Flink Jobs widgets use `io.confluent.flink/*` metrics from the CC Metrics API to visualize running jobs, checkpoint duration, backpressure, records throughput, pending records, and CFU utilization.
 
 See `observability/metrics-mapping.md` for cross-provider query equivalents.

@@ -12,11 +12,11 @@ This directory contains New Relic dashboard templates and alert definitions for 
 | 2 | Consumer Lag | Consumer group lag (records) with domain prefix auto-discovery, per-partition breakdown, SLA-tier thresholds |
 | 3 | Connect Status | Connector state (RUNNING/PAUSED/FAILED/UNASSIGNED), FAILED count, state distribution, task restarts |
 | 4 | DR Readiness | Mirror lag per topic (seconds), offset lag (records), cluster link state, SLA-tier thresholds |
-| 5 | Flink Jobs | Stub -- job uptime, checkpoint duration, backpressure, throughput (wired in Phase 6) |
+| 5 | Flink Jobs | Running jobs, checkpoint duration, backpressure, records throughput, pending records, CFU utilization via CC Metrics API |
 
 **Alert conditions:** `alerts.json` -- 20 NRQL alert conditions covering mirror lag (4 tiers), consumer lag (4 tiers), Connect task failures, and cluster health.
 
-**Metrics export:** `cc-metrics-export.json` (CC Metrics API Flex integration) and `jmx-exporter-stub.yaml` (nri-jmx for CFK/CP deployments).
+**Metrics export:** `cc-metrics-export.json` (CC Metrics API Flex integration) and `jmx-exporter-config.yaml` (nri-jmx for CFK/CP deployments).
 
 ## Prerequisites
 
@@ -122,7 +122,7 @@ Threshold values from [ADR-008: DR Tier Classification](../../docs/adr/008-dr-ti
 | `dashboard.json` | NerdGraph dashboard mutation payload | 5-page dashboard: Cluster Health, Consumer Lag, Connect Status, DR Readiness, Flink Jobs |
 | `alerts.json` | NRQL alert condition definitions | SLA-tier alert rules for all panels |
 | `cc-metrics-export.json` | New Relic Flex integration config | CC Metrics API ingestion |
-| `jmx-exporter-stub.yaml` | nri-jmx integration config | JMX metric collection for CFK/CP |
+| `jmx-exporter-config.yaml` | nri-jmx integration config | JMX metric collection for CFK/CP |
 
 ## Metrics Export
 
@@ -141,14 +141,12 @@ The `cc-metrics-export.json` file configures a New Relic Flex integration to pul
 
 ### JMX Integration (CFK/CP deployments)
 
-The `jmx-exporter-stub.yaml` file configures the nri-jmx integration for collecting Kafka broker MBeans.
-
-**Status:** Stub -- actual JMX endpoints wired in Phase 8 (CFK on OpenShift) and Phase 9 (CP on RHEL).
+The `jmx-exporter-config.yaml` file configures the nri-jmx integration for collecting Kafka broker MBeans.
 
 **Port:** 9101 (matches `reference/local-dev/docker-compose.yml` KAFKA_JMX_PORT)
 
 ## Flink Jobs Page
 
-The Flink Jobs page in the dashboard is a **stub** with placeholder NRQL queries. Flink metrics will be available after Phase 6 deployment. The page structure is in place so Phase 6 only needs to wire in actual metric names without restructuring the dashboard.
+The Flink Jobs page uses `io.confluent.flink/*` metrics from the CC Metrics API to visualize running jobs, checkpoint duration, backpressure, records throughput, pending records, and CFU utilization.
 
 See `observability/metrics-mapping.md` for cross-provider query equivalents.

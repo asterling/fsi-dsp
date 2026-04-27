@@ -1,5 +1,5 @@
 # Datadog JMX Check Configuration for Kafka Brokers
-# Stub -- wired in Phase 8 (CFK) and Phase 9 (CP)
+# Reference configuration for JMX metric collection in CFK/CP deployments
 #
 # Place this file in /etc/datadog-agent/conf.d/kafka.d/conf.yaml
 # on the Datadog Agent host or as a ConfigMap in Kubernetes.

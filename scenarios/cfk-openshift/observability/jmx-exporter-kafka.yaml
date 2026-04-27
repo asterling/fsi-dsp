@@ -1,11 +1,11 @@
 # =============================================================================
 # JMX Exporter ConfigMap for Kafka Brokers -- CFK on OpenShift
 # =============================================================================
-# Activates the jmx-exporter-stub.yaml patterns from Phase 5 for CFK Kafka
+# Activates the jmx-exporter-config.yaml metric patterns for CFK Kafka
 # brokers. CFK exposes JMX on port 7778 by default (no sidecar needed).
 #
 # This ConfigMap provides the same JMX rules as observability/grafana/
-# jmx-exporter-stub.yaml, adapted for CFK (no hostPort, CFK uses built-in
+# jmx-exporter-config.yaml, adapted for CFK (no hostPort, CFK uses built-in
 # port 7778).
 #
 # Usage:

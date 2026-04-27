@@ -1,0 +1,71 @@
+---
+# =============================================================================
+# cp_mtls -- PKCS#11 / CEX HSM keystore backend (optional)
+# =============================================================================
+# Configures IBM CEX card integration for hardware-backed private keys.
+# Activated by setting cp_mtls_keystore_backend: pkcs11
+#
+# CEX integration requires:
+#   - CEX card visible to LPAR (lszcrypt shows online adapters)
+#   - opencryptoki / pkcsconf installed
+#   - PKCS#11 slot configured (CCA or EP11 mode)
+#   - java.security with PKCS#11 provider entry
+#   - ssl.keystore.type=PKCS11, ssl.keystore.location=NONE
+#
+# Get software keys working first. CEX is an overlay, not a replacement.
+# =============================================================================
+
+- name: Detect CEX adapter mode
+  ansible.builtin.command:
+    cmd: lszcrypt -V
+  register: _mtls_cex_detect
+  changed_when: false
+  failed_when: false
+
+- name: Report CEX adapter status
+  ansible.builtin.debug:
+    msg: >-
+      CEX adapter detection:
+      {{ _mtls_cex_detect.stdout | default('No adapters found') }}
+  when: _mtls_cex_detect.rc == 0
+
+- name: Warn if no CEX adapters detected
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: No CEX adapters detected (lszcrypt failed or returned empty).
+      PKCS#11 mode requires an active CEX card. Falling back to software keys
+      may be necessary.
+  when: _mtls_cex_detect.rc != 0
+
+- name: Validate pkcsconf is available
+  ansible.builtin.command:
+    cmd: which pkcsconf
+  register: _mtls_pkcsconf
+  changed_when: false
+  failed_when: false
+
+- name: Fail if pkcsconf not found in PKCS#11 mode
+  ansible.builtin.fail:
+    msg: >-
+      pkcsconf not found. Install opencryptoki:
+      dnf install -y opencryptoki opencryptoki-libs
+  when: _mtls_pkcsconf.rc != 0
+
+- name: Deploy PKCS#11 provider configuration for java.security
+  ansible.builtin.template:
+    src: java.security.pkcs11.j2
+    dest: "{{ cp_mtls_ssl_dir }}/pkcs11-provider.cfg"
+    owner: "{{ cp_mtls_ssl_owner }}"
+    group: "{{ cp_mtls_ssl_group }}"
+    mode: '0440'
+
+- name: Verify PKCS#11 slot is accessible
+  ansible.builtin.command:
+    cmd: pkcsconf -t -c {{ cp_mtls_pkcs11_slot | default(0) }}
+  register: _mtls_slot_check
+  changed_when: false
+  failed_when: false
+
+- name: Report PKCS#11 slot status
+  ansible.builtin.debug:
+    msg: "PKCS#11 slot {{ cp_mtls_pkcs11_slot | default(0) }}: {{ _mtls_slot_check.stdout | default('check failed') }}"

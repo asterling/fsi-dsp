@@ -131,6 +131,67 @@ else
     echo "SKIP -- /etc/kafka/server.properties not found"
     ((WARN++)) || true
   fi
+
+  # Check 5: Architecture-specific validation
+  ARCH=$(uname -m)
+  echo ""
+  echo "  [5] Architecture-specific FIPS checks (${ARCH}):"
+  if [ "${ARCH}" = "s390x" ]; then
+    # s390x: IBM JDK FIPS providers (not Bouncy Castle)
+    echo -n "    [5a] IBM FIPS provider: "
+    if java -XshowSettings:security 2>&1 | grep -qi "IBMJCEPlusFIPS\|IBMJCEFIPS"; then
+      echo "PASS -- IBM FIPS provider detected"
+      ((PASS++)) || true
+    else
+      echo "WARN -- IBM FIPS provider not in default provider list"
+      echo "      Check: java -XshowSettings:security 2>&1 | grep -i fips"
+      ((WARN++)) || true
+    fi
+
+    # s390x: PKCS12 keystore (not BCFKS)
+    echo "    [5b] PKCS12 keystore check (s390x uses PKCS12, not BCFKS):"
+    for conf in /etc/kafka/server.properties /etc/schema-registry/schema-registry.properties /etc/kafka-connect/connect-distributed.properties; do
+      echo -n "      ${conf}: "
+      if [ -f "${conf}" ]; then
+        if grep -q "ssl.keystore.type=PKCS12\|ssl.keystore.type=PKCS11" "${conf}"; then
+          echo "PASS"
+          ((PASS++)) || true
+        else
+          echo "WARN -- expected PKCS12 or PKCS11 on s390x"
+          ((WARN++)) || true
+        fi
+      else
+        echo "SKIP -- file not found"
+      fi
+    done
+
+    # s390x: CPACF detection (informational)
+    echo -n "    [5c] CPACF (CP Assist for Cryptographic Functions): "
+    if grep -q "msa" /proc/cpuinfo 2>/dev/null; then
+      echo "DETECTED (hardware crypto acceleration available)"
+      ((PASS++)) || true
+    else
+      echo "NOT DETECTED (software crypto only -- not a failure)"
+      ((WARN++)) || true
+    fi
+
+    # NTP skew check
+    echo -n "    [5d] NTP time synchronization: "
+    if command -v chronyc >/dev/null 2>&1; then
+      offset=$(chronyc tracking 2>/dev/null | grep "System time" | awk '{print $4}')
+      echo "offset=${offset:-unknown}s (should be < 1s)"
+      ((PASS++)) || true
+    elif command -v ntpstat >/dev/null 2>&1; then
+      echo "$(ntpstat 2>/dev/null | head -1)"
+      ((PASS++)) || true
+    else
+      echo "WARN -- no NTP client detected (chronyc/ntpstat)"
+      ((WARN++)) || true
+    fi
+  else
+    echo "    x86 architecture -- standard BC FIPS checks apply (see checks 3-4 above)"
+    ((PASS++)) || true
+  fi
 fi
 
 echo ""

@@ -1,0 +1,62 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE (s390x) -- Common Variables
+# =============================================================================
+# Targets IBM LinuxONE (s390x architecture) with IBM Semeru 17 JDK.
+# PKCS12 keystores with FIPS-aware MAC algorithm flags.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# CP version and base settings
+# ---------------------------------------------------------------------------
+confluent_server_enabled: true
+confluent_package_version: "7.7.0"
+
+# ---------------------------------------------------------------------------
+# Architecture: s390x / LinuxONE
+# ---------------------------------------------------------------------------
+cp_architecture: s390x
+cp_jdk_vendor: ibm-semeru
+cp_jdk_version: "17"
+
+# ---------------------------------------------------------------------------
+# Security -- mTLS enabled
+# ---------------------------------------------------------------------------
+ssl_enabled: true
+ssl_mutual_auth_enabled: true
+rbac_enabled: true
+
+# ---------------------------------------------------------------------------
+# mTLS configuration (cp_mtls role)
+# ---------------------------------------------------------------------------
+cp_mtls_ca_org: FSI
+cp_mtls_ca_ou: Platform
+cp_mtls_ca_common_name: FSI-Kafka-Root-CA
+cp_mtls_domain: kafka.fsi.internal
+cp_mtls_ssl_keystore_type: PKCS12
+cp_mtls_ssl_truststore_type: PKCS12
+cp_mtls_keystore_backend: software
+
+# FIPS-aware PKCS12 MAC algorithm for cross-platform portability
+# Prevents "HmacPBESHA1 vs SHA-256" mismatch when keystores cross x86/s390x
+cp_mtls_pkcs12_mac_flags: "-J-Dkeystore.pkcs12.macAlgorithm=HmacPBESHA256"
+
+# Leave empty to use JDK defaults; pin if x86 clients connect to s390x brokers
+cp_mtls_ssl_cipher_suites: ""
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+jmxexporter_enabled: true
+
+# ---------------------------------------------------------------------------
+# FIPS
+# ---------------------------------------------------------------------------
+fips_enabled: true
+
+# ---------------------------------------------------------------------------
+# Vault references (override in vault.yml)
+# ---------------------------------------------------------------------------
+cp_mtls_ca_passphrase: "{{ vault_kafka_ca_passphrase }}"
+cp_mtls_keystore_password: "{{ vault_kafka_keystore_password }}"
+cp_mtls_truststore_password: "{{ vault_kafka_truststore_password }}"

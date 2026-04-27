@@ -31,6 +31,10 @@ collections:
   - name: community.grafana
     version: ">=1.7.0"
 
+  # Cryptographic modules: openssl_privatekey, openssl_csr, x509_certificate, openssl_pkcs12
+  - name: community.crypto
+    version: ">=2.15.0"
+
   # Kubernetes modules: helm, k8s, k8s_info for CFK on OpenShift
   - name: kubernetes.core
     version: ">=5.0.0"

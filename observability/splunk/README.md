@@ -12,11 +12,11 @@ This directory contains Splunk dashboard templates and alert definitions for the
 | 2 | Consumer Lag | Consumer group lag (records) with domain prefix auto-discovery, per-partition breakdown |
 | 3 | Connect Status | Connector state (RUNNING/PAUSED/FAILED/UNASSIGNED) with color-coded table |
 | 4 | DR Readiness | Mirror lag per topic with SLA-tier threshold reference |
-| 5 | Flink Jobs | Stub -- placeholder structure for Phase 6 |
+| 5 | Flink Jobs | Running jobs, checkpoint duration, backpressure, records throughput, pending records, CFU utilization via CC Metrics API |
 
 **Alert rules:** `alerts.json` -- Splunk saved search / alert definitions for mirror lag, consumer lag, Connect task failures, and cluster health.
 
-**Metrics export:** `cc-metrics-export.conf` (Splunk scripted input for CC Metrics API) and `jmx-exporter-stub.conf` (Splunk JMX add-on for CFK/CP deployments).
+**Metrics export:** `cc-metrics-export.conf` (Splunk scripted input for CC Metrics API) and `jmx-exporter-config.conf` (Splunk JMX add-on for CFK/CP deployments).
 
 ## Prerequisites
 
@@ -125,16 +125,10 @@ Threshold values from [ADR-008: DR Tier Classification](../../docs/adr/008-dr-ti
 | `dashboard.xml` | Splunk Simple XML | All 5 row sections in a single dashboard |
 | `alerts.json` | JSON (for REST API import) | Saved search / alert definitions |
 | `cc-metrics-export.conf` | Splunk inputs.conf | CC Metrics API scripted input config |
-| `jmx-exporter-stub.conf` | Splunk inputs.conf | JMX data collection for CFK/CP (stub) |
+| `jmx-exporter-config.conf` | Splunk inputs.conf | JMX data collection for CFK/CP |
 
 ## Flink Jobs Panel
 
-The Flink Jobs panel is a **stub** with placeholder HTML content. Flink metrics will be available after Phase 6 deployment. The panel structure is in place so Phase 6 only needs to replace the HTML with SPL-driven panels without restructuring the dashboard.
-
-Metrics to be wired in Phase 6:
-- `flink_jobmanager_job_uptime` -- Job uptime
-- `flink_taskmanager_job_task_checkpointAlignmentTime` -- Checkpoint alignment time
-- `flink_taskmanager_job_task_backPressuredTimeMsPerSecond` -- Backpressure
-- `flink_taskmanager_job_task_numRecordsOutPerSecond` -- Output throughput
+The Flink Jobs panel uses `io.confluent.flink/*` metrics from the CC Metrics API to visualize running jobs, checkpoint duration, backpressure, records throughput, pending records, and CFU utilization.
 
 See `observability/metrics-mapping.md` for cross-provider query equivalents.

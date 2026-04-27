@@ -1,0 +1,21 @@
+---
+- name: Verify idempotency
+  hosts: all
+  gather_facts: true
+  check_mode: true
+  vars:
+    cp_mtls_ca_passphrase: "test-ca-passphrase"
+    cp_mtls_keystore_password: "test-keystore-password"
+    cp_mtls_truststore_password: "test-truststore-password"
+  tasks:
+    - name: Apply cp_mtls role a second time (must produce zero changes)
+      ansible.builtin.include_role:
+        name: cp_mtls
+      register: second_run
+
+    - name: Assert no changes on second run (idempotency)
+      ansible.builtin.assert:
+        that:
+          - second_run is not changed
+        fail_msg: "cp_mtls role is NOT idempotent -- second run produced changes"
+        success_msg: "cp_mtls role is idempotent -- zero changes on second run"

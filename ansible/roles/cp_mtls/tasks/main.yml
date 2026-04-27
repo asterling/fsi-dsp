@@ -1,0 +1,103 @@
+---
+# =============================================================================
+# cp_mtls role -- Entry point
+# =============================================================================
+# Dispatches to task includes for each stage of mTLS provisioning:
+#   1. CA generation (on cert_authority host)
+#   2. Broker cert provisioning (per-broker)
+#   3. Client cert provisioning (per-client)
+#   4. Truststore distribution (all hosts)
+#   5. SSL config injection (brokers only)
+#
+# Private keys never cross the wire. Keystore assembly happens on-target.
+# PKCS#11/CEX mode available via cp_mtls_keystore_backend: pkcs11
+# =============================================================================
+
+# --- Validate prerequisites --------------------------------------------------
+- name: Assert mTLS credentials are configured
+  ansible.builtin.assert:
+    that:
+      - cp_mtls_ca_passphrase | length > 0
+      - cp_mtls_keystore_password | length > 0
+      - cp_mtls_truststore_password | length > 0
+    fail_msg: >-
+      cp_mtls requires cp_mtls_ca_passphrase, cp_mtls_keystore_password,
+      and cp_mtls_truststore_password to be set (use group_vars/vault.yml)
+    quiet: true
+
+# --- Initialise result counters ----------------------------------------------
+- name: Initialise mTLS result counters
+  ansible.builtin.set_fact:
+    _mtls_ca_generated: false
+    _mtls_broker_certs: 0
+    _mtls_client_certs: 0
+    _mtls_truststores: 0
+    _mtls_ssl_configs: 0
+    _mtls_failed: 0
+    _mtls_errors: []
+
+# --- Stage 1: CA generation -------------------------------------------------
+- name: Generate CA certificate
+  ansible.builtin.include_tasks:
+    file: ca.yml
+  when: inventory_hostname in groups.get('cert_authority', [])
+
+# --- Stage 2: Broker cert provisioning --------------------------------------
+- name: Provision broker certificates
+  ansible.builtin.include_tasks:
+    file: broker_cert.yml
+  when: inventory_hostname in groups.get('kafka_brokers', groups.get('kafka_broker', []))
+
+# --- Stage 3: Client cert provisioning --------------------------------------
+- name: Provision client certificates
+  ansible.builtin.include_tasks:
+    file: client_cert.yml
+  when:
+    - inventory_hostname in groups.get('kafka_clients', [])
+    - client_cn is defined
+
+# --- Stage 4: Truststore distribution ---------------------------------------
+- name: Distribute CA truststore
+  ansible.builtin.include_tasks:
+    file: truststore.yml
+
+# --- Stage 5: SSL config injection ------------------------------------------
+- name: Configure broker SSL properties
+  ansible.builtin.include_tasks:
+    file: ssl_config.yml
+  when: inventory_hostname in groups.get('kafka_brokers', groups.get('kafka_broker', []))
+
+# --- Stage 6: PKCS#11 / CEX setup (optional) --------------------------------
+- name: Configure PKCS#11 keystore backend
+  ansible.builtin.include_tasks:
+    file: pkcs11.yml
+  when: cp_mtls_keystore_backend == 'pkcs11'
+
+# --- Build results summary ---------------------------------------------------
+- name: Set cp_mtls_results output variable
+  ansible.builtin.set_fact:
+    cp_mtls_results:
+      ca_generated: "{{ _mtls_ca_generated }}"
+      broker_certs: "{{ _mtls_broker_certs | int }}"
+      client_certs: "{{ _mtls_client_certs | int }}"
+      truststores: "{{ _mtls_truststores | int }}"
+      ssl_configs: "{{ _mtls_ssl_configs | int }}"
+      failed: "{{ _mtls_failed | int }}"
+      errors: "{{ _mtls_errors }}"
+
+- name: Report mTLS results summary
+  ansible.builtin.debug:
+    msg: >-
+      cp_mtls results: ca={{ cp_mtls_results.ca_generated }},
+      broker_certs={{ cp_mtls_results.broker_certs }},
+      client_certs={{ cp_mtls_results.client_certs }},
+      truststores={{ cp_mtls_results.truststores }},
+      ssl_configs={{ cp_mtls_results.ssl_configs }},
+      failed={{ cp_mtls_results.failed }}
+
+- name: Fail if any mTLS operations failed
+  ansible.builtin.fail:
+    msg: >-
+      {{ cp_mtls_results.failed }} mTLS operation(s) failed:
+      {{ cp_mtls_results.errors | join('; ') }}
+  when: cp_mtls_results.failed | int > 0

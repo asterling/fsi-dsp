@@ -1,0 +1,56 @@
+# =============================================================================
+# CFK on OpenShift on LinuxONE (s390x) -- Kafka Helm overrides
+# =============================================================================
+# Targets s390x worker nodes in a mixed-arch or s390x-only OCP cluster.
+# =============================================================================
+
+kafka:
+  replicas: 3
+  image:
+    # Multi-arch images include s390x variants
+    pullPolicy: IfNotPresent
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+    tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "s390x"
+        effect: "NoSchedule"
+  tls:
+    enabled: true
+    # FIPS must be enabled at OCP install time on s390x, not post-hoc
+    # See: docs/linuxone-fips-guide.md
+
+schemaregistry:
+  replicas: 1
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+
+connect:
+  replicas: 1
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
