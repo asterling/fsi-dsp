@@ -1,0 +1,57 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# =============================================================================
+# overlays/prod/kustomization.yaml — production overlay
+# =============================================================================
+# The ONLY buildable Kustomization artifact for the prod environment.
+# Composes base + all 4 FSI hardening components in dependency order:
+#   01-rbac (must apply before 04-audit — ConfluentServerAuthorizer first)
+#   02-tls  (must apply before 03/04 — TLS secrets referenced by SR bootstrap + Connect)
+#   03-schema-governance
+#   04-audit
+# =============================================================================
+
+# Upstream base: Mondics's CP 8.2.0 CFK manifests (populated by fetch-upstream.sh)
+resources:
+  - ../../base
+
+# FSI hardening layers as Kustomize Components
+# Components apply in listed order — this encodes layer dependencies.
+components:
+  - ../../layers/01-rbac
+  - ../../layers/02-tls
+  - ../../layers/03-schema-governance
+  - ../../layers/04-audit
+
+# Namespace for all resources
+namespace: confluent
+
+# Production-specific variable substitutions
+# These are set as ConfigMap/patch values consumed by the layer patches.
+vars: []
+
+# Production-specific patches — override overlay-variable defaults from layers
+patches:
+  # Audit topic: 7-year retention for OFAC/AML/SOX compliance
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "220752000000"
+    target:
+      kind: KafkaTopic
+      name: confluent-audit-log-events
+
+  # Schema Registry: subject naming pattern for production (enforces domain.entity convention)
+  - patch: |-
+      - op: add
+        path: /spec/configOverrides/server/-
+        value: "schema.registry.subject.name.pattern=^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*-(key|value)$"
+    target:
+      kind: SchemaRegistry
+      name: schemaregistry
+
+commonLabels:
+  app.kubernetes.io/managed-by: "kustomize"
+  environment: "production"
+  goodlabs.io/accelerator: "confluent-on-linuxone"

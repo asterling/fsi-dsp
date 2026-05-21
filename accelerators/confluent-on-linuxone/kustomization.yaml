@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# =============================================================================
+# Top-level kustomization.yaml
+# =============================================================================
+# Default build target → prod overlay.
+#
+# Usage:
+#   kustomize build accelerators/confluent-on-linuxone/          # builds prod
+#   kustomize build accelerators/confluent-on-linuxone/overlays/dev  # builds dev
+#
+# This file is a convenience wrapper. The authoritative build targets are
+# overlays/{dev,prod}/kustomization.yaml.
+# =============================================================================
+
+resources:
+  - overlays/prod

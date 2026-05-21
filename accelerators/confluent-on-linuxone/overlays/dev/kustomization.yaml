@@ -1,0 +1,73 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# =============================================================================
+# overlays/dev/kustomization.yaml — development overlay
+# =============================================================================
+# Same base + 4 components as prod, with relaxed environment-specific settings:
+#   - Audit retention: 30 days (vs 7 years in prod) — reduce dev storage cost
+#   - Schema compatibility: BACKWARD (vs FULL_TRANSITIVE in prod) — allow faster iteration
+#
+# All 4 hardening layers are applied in dev too — this ensures dev is functionally
+# identical to prod (no "works in dev" RBAC surprises in prod).
+# =============================================================================
+
+resources:
+  - ../../base
+
+components:
+  - ../../layers/01-rbac
+  - ../../layers/02-tls
+  - ../../layers/03-schema-governance
+  - ../../layers/04-audit
+
+namespace: confluent
+
+patches:
+  # Audit topic: 30-day retention for dev (vs 7y in prod)
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "2592000000"
+    target:
+      kind: KafkaTopic
+      name: confluent-audit-log-events
+
+  # Schema Registry: BACKWARD compat for dev (faster iteration; still enforces no breaks)
+  - patch: |-
+      - op: replace
+        path: /spec/configOverrides/server/0
+        value: "schema.compatibility.level=backward"
+    target:
+      kind: SchemaRegistry
+      name: schemaregistry
+
+  # Schema Registry: relaxed subject naming for dev (allow test- prefix)
+  - patch: |-
+      - op: add
+        path: /spec/configOverrides/server/-
+        value: "schema.registry.subject.name.pattern=^(test-|[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*)(-(key|value))?$"
+    target:
+      kind: SchemaRegistry
+      name: schemaregistry
+
+  # Reduce replica counts for dev (3 replicas is overkill on a dev cluster)
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Kafka
+      name: kafka
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: Connect
+      name: connect
+
+commonLabels:
+  app.kubernetes.io/managed-by: "kustomize"
+  environment: "development"
+  goodlabs.io/accelerator: "confluent-on-linuxone"

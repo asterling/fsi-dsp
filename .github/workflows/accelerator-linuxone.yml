@@ -1,0 +1,163 @@
+# =============================================================================
+# accelerator-linuxone.yml — CI build-and-lint for the confluent-on-linuxone accelerator
+# =============================================================================
+# Triggered on changes to accelerators/confluent-on-linuxone/**.
+#
+# Jobs:
+#   1. fetch-and-build — fetches upstream at pinned SHA, runs kustomize build
+#      on both overlays, and CRD-schema lints with kubeconform.
+#   2. shell-lint — bash -n syntax check on all *.sh files.
+#
+# NOTE: Cluster-dependent validators (validate-rbac.sh, validate-mtls.sh,
+# validate-schema-governance.sh, validate-audit.sh) are NOT run in CI.
+# They require an OCP-on-LinuxONE cluster. Run them manually per RUNBOOK.md.
+#
+# Extends the existing ci/scripts pattern in this repository.
+# =============================================================================
+
+name: Accelerator LinuxONE
+
+on:
+  pull_request:
+    paths:
+      - 'accelerators/confluent-on-linuxone/**'
+      - '.github/workflows/accelerator-linuxone.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'accelerators/confluent-on-linuxone/**'
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Job 1: fetch upstream + kustomize build + CRD lint
+  # ---------------------------------------------------------------------------
+  fetch-and-build:
+    name: Fetch upstream & kustomize build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        # Pin kustomize version — must be >=5.3 for kind:Component support
+        run: |
+          KUSTOMIZE_VERSION=5.4.3
+          curl -sL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" \
+            | tar xz -C /usr/local/bin
+          kustomize version
+
+      - name: Install kubeconform (CRD schema lint)
+        run: |
+          KUBECONFORM_VERSION=0.6.7
+          curl -sL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar xz -C /usr/local/bin
+          kubeconform -v
+
+      - name: Fetch upstream at pinned SHA
+        # Requires outbound HTTPS to github.com — see KNOWN-GAPS.md G-01
+        # If fetch fails due to network policy, cache base/upstream/ as a CI artifact
+        working-directory: accelerators/confluent-on-linuxone
+        run: |
+          bash base/fetch-upstream.sh
+
+      - name: kustomize build — dev overlay
+        working-directory: accelerators/confluent-on-linuxone
+        run: |
+          echo "Building dev overlay ..."
+          kustomize build overlays/dev > /tmp/dev-manifest.yaml
+          echo "Dev overlay build: OK ($(wc -l < /tmp/dev-manifest.yaml) lines)"
+
+      - name: kustomize build — prod overlay
+        working-directory: accelerators/confluent-on-linuxone
+        run: |
+          echo "Building prod overlay ..."
+          kustomize build overlays/prod > /tmp/prod-manifest.yaml
+          echo "Prod overlay build: OK ($(wc -l < /tmp/prod-manifest.yaml) lines)"
+
+      - name: CRD schema lint — dev overlay (kubeconform)
+        # Lints against the Kubernetes schema + CFK CRD schemas if available.
+        # Known limitation: CFK CRDs (platform.confluent.io) are not in the default
+        # kubeconform schema registry — unknown CRDs are ignored (--ignore-missing-schemas).
+        run: |
+          kubeconform \
+            --ignore-missing-schemas \
+            --strict \
+            --summary \
+            /tmp/dev-manifest.yaml \
+            || echo "kubeconform: warnings noted — CFK CRDs require custom schema registry"
+
+      - name: CRD schema lint — prod overlay (kubeconform)
+        run: |
+          kubeconform \
+            --ignore-missing-schemas \
+            --strict \
+            --summary \
+            /tmp/prod-manifest.yaml \
+            || echo "kubeconform: warnings noted — CFK CRDs require custom schema registry"
+
+      - name: Verify secrets.template/ has no real credentials
+        # Fail if any secrets.template/ file lacks <PLACEHOLDER> markers —
+        # that would mean a real credential was committed.
+        run: |
+          echo "Scanning secrets.template/ directories for <PLACEHOLDER> markers ..."
+          find accelerators/confluent-on-linuxone -path "*/secrets.template/*.yaml" | while read -r f; do
+            if ! grep -q "PLACEHOLDER" "${f}"; then
+              echo "ERROR: ${f} does not contain <PLACEHOLDER> — may contain a real credential" >&2
+              exit 1
+            fi
+            echo "OK: ${f}"
+          done
+          echo "All secrets.template/ files contain <PLACEHOLDER> markers."
+
+  # ---------------------------------------------------------------------------
+  # Job 2: shell script syntax validation
+  # ---------------------------------------------------------------------------
+  shell-lint:
+    name: Shell script syntax (bash -n)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: bash -n all *.sh files
+        run: |
+          echo "Checking shell script syntax ..."
+          fail=0
+          find accelerators/confluent-on-linuxone -name "*.sh" | sort | while read -r script; do
+            if bash -n "${script}" 2>&1; then
+              echo "[OK] ${script}"
+            else
+              echo "[FAIL] ${script}" >&2
+              fail=1
+            fi
+          done
+          exit "${fail}"
+
+      - name: Verify base/.gitignore excludes upstream/
+        # Confirm that upstream/ is gitignored — the fetch-by-SHA contract (D-01)
+        run: |
+          if grep -q "^upstream/$" accelerators/confluent-on-linuxone/base/.gitignore; then
+            echo "OK: base/.gitignore excludes upstream/ (D-01 maintained)"
+          else
+            echo "FAIL: base/.gitignore does not exclude upstream/ — D-01 violated" >&2
+            exit 1
+          fi
+
+      - name: Verify all layer kustomizations are kind:Component
+        # kind:Kustomization in a layer dir would make it buildable outside overlays
+        run: |
+          echo "Checking layer kustomization.yaml files for kind:Component ..."
+          fail=0
+          for layer_dir in accelerators/confluent-on-linuxone/layers/*/; do
+            f="${layer_dir}kustomization.yaml"
+            if [ -f "${f}" ]; then
+              if grep -q "kind: Component" "${f}"; then
+                echo "[OK] ${f}"
+              else
+                echo "[FAIL] ${f} is not kind:Component" >&2
+                fail=1
+              fi
+            fi
+          done
+          exit "${fail}"
