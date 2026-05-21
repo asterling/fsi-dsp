@@ -12,8 +12,9 @@ kind: Kustomization
 # =============================================================================
 
 resources:
-  # Core Confluent Platform components (Kafka, SR, Connect, C3, KafkaRestClass)
-  - ./upstream/confluent-platform.yaml
+  # Core Confluent Platform components (Kafka, SR, Connect, C3, KafkaRestClass).
+  # Filename matches Mondics's repo exactly — do not rename.
+  - ./upstream/confluent-platform-c3++.yaml
   # Cluster Linking for x86-to-LinuxONE migration — used by MIGRATION.md
   - ./upstream/clusterlink.yaml
   # KafkaRestClass CR — required for REST Proxy and C3 REST API

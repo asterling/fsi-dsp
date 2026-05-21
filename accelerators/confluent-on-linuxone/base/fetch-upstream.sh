@@ -19,7 +19,7 @@ set -euo pipefail
 # from Mondics's repo. Always pin a specific commit, never a branch tip.
 # ---------------------------------------------------------------------------
 UPSTREAM_REPO="https://github.com/mmondics/Confluent-LinuxONE-Mirror.git"
-UPSTREAM_SHA="a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"  # <PINNED_SHA — update after review>
+UPSTREAM_SHA="05828eb90b3c508fddd99475b7d3fd42b00f67a3"  # pinned 2026-05-20 HEAD
 
 # Resolve path relative to this script's location regardless of call site
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
