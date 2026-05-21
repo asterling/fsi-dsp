@@ -1,0 +1,24 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: kafka-external
+  namespace: confluent
+spec:
+  # Edge TLS termination — OCP Router holds the external cert, traffic to the
+  # broker pod is plain (or re-encrypted for defense-in-depth if needed).
+  # Internal mTLS (broker-to-broker, component-to-broker) is handled via the
+  # internal listener secretRef in patches/kafka-tls.yaml.
+  host: <PLACEHOLDER_KAFKA_EXTERNAL_HOSTNAME>
+  to:
+    kind: Service
+    name: kafka-bootstrap
+    weight: 100
+  port:
+    targetPort: external
+  tls:
+    termination: edge
+    # Certificate for the external hostname — managed by cert-manager or manually
+    certificate: <PLACEHOLDER_EXTERNAL_TLS_CERT_PEM>
+    key: <PLACEHOLDER_EXTERNAL_TLS_KEY_PEM>
+    caCertificate: <PLACEHOLDER_EXTERNAL_CA_CERT_PEM>
+    insecureEdgeTerminationPolicy: Redirect

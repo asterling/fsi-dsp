@@ -1,0 +1,60 @@
+# Per-component cert Secrets — populated by cert-manager (preferred) or
+# manually via ansible/roles/cp_mtls. With cert-manager, these Secrets are
+# created automatically by the Certificate CRs in certificate-crs.yaml.
+# The templates below are for the manual-rotation fallback path.
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kafka-tls
+  namespace: confluent
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    <PLACEHOLDER_KAFKA_CERT_PEM>
+  tls.key: |
+    <PLACEHOLDER_KAFKA_KEY_PEM>
+  ca.crt: |
+    <PLACEHOLDER_CA_CERT_PEM>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: schemaregistry-tls
+  namespace: confluent
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    <PLACEHOLDER_SR_CERT_PEM>
+  tls.key: |
+    <PLACEHOLDER_SR_KEY_PEM>
+  ca.crt: |
+    <PLACEHOLDER_CA_CERT_PEM>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: controlcenter-tls
+  namespace: confluent
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    <PLACEHOLDER_C3_CERT_PEM>
+  tls.key: |
+    <PLACEHOLDER_C3_KEY_PEM>
+  ca.crt: |
+    <PLACEHOLDER_CA_CERT_PEM>
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: connect-tls
+  namespace: confluent
+type: kubernetes.io/tls
+stringData:
+  tls.crt: |
+    <PLACEHOLDER_CONNECT_CERT_PEM>
+  tls.key: |
+    <PLACEHOLDER_CONNECT_KEY_PEM>
+  ca.crt: |
+    <PLACEHOLDER_CA_CERT_PEM>

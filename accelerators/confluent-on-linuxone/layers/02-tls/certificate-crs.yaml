@@ -1,0 +1,120 @@
+---
+# =============================================================================
+# certificate-crs.yaml — cert-manager Issuer + Certificate CRs
+# =============================================================================
+# Uses cert-manager Operator for OpenShift (OperatorHub) which is:
+# - s390x-compatible (multi-arch images since v1.14.0)
+# - FIPS-validated (>=1.14.0 with FIPS build flag)
+#
+# The CA cert referenced by the ClusterIssuer must be minted separately by
+# ansible/roles/cp_mtls or LinuxOne/ansible-mtls/ and stored in ca-key-pair Secret.
+#
+# Manual rotation fallback (if cert-manager is not available):
+#   1. Mint new cert with cfssl: cfssl gencert -ca=ca.pem -ca-key=ca-key.pem ...
+#   2. Create/update the K8s Secret: oc create secret generic <name> -n confluent \
+#        --from-file=tls.crt=broker.pem --from-file=tls.key=broker-key.pem \
+#        --from-file=ca.crt=ca.pem --dry-run=client -o yaml | oc apply -f -
+#   3. CFK will detect the Secret update and trigger a rolling restart.
+# =============================================================================
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: confluent-ca-issuer
+spec:
+  # Self-signed CA — replace with your enterprise PKI (e.g., Vault PKI backend)
+  # for production. The CA cert is the root of trust for mTLS verification.
+  ca:
+    secretName: ca-key-pair
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kafka-tls
+  namespace: confluent
+spec:
+  secretName: kafka-tls
+  duration: 8760h  # 1 year
+  renewBefore: 720h  # renew 30 days before expiry
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - kafka.confluent.svc.cluster.local
+    - "*.kafka.confluent.svc.cluster.local"
+    - kafka
+  issuerRef:
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: schemaregistry-tls
+  namespace: confluent
+spec:
+  secretName: schemaregistry-tls
+  duration: 8760h
+  renewBefore: 720h
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - schemaregistry.confluent.svc.cluster.local
+    - schemaregistry
+  issuerRef:
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: controlcenter-tls
+  namespace: confluent
+spec:
+  secretName: controlcenter-tls
+  duration: 8760h
+  renewBefore: 720h
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - controlcenter.confluent.svc.cluster.local
+    - controlcenter
+  issuerRef:
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: connect-tls
+  namespace: confluent
+spec:
+  secretName: connect-tls
+  duration: 8760h
+  renewBefore: 720h
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    - connect.confluent.svc.cluster.local
+    - connect
+  issuerRef:
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
