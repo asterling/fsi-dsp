@@ -1,0 +1,6 @@
+{
+  "_comment": "Flox manifest lock file — regenerate on a Flox-equipped machine with `flox activate` or `flox lock`.",
+  "_note": "This is a stub lock file. See KNOWN-GAPS.md: 'Flox manifest.lock must be regenerated on a Flox-equipped machine'. The manifest.toml above is the authoritative package spec; this stub ensures the file exists in version control so the directory is tracked. Run `flox activate` in this directory to regenerate with pinned store paths.",
+  "version": 1,
+  "packages": {}
+}

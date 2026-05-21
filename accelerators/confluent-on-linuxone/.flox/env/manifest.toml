@@ -1,0 +1,76 @@
+version = 1
+
+# =============================================================================
+# Confluent-on-LinuxONE Accelerator — Flox dev toolchain
+# =============================================================================
+# Pins every CLI tool needed to fetch the upstream base, build Kustomize
+# manifests, and validate the deployed cluster.
+#
+# This environment runs on the developer's macOS (or Linux/x86) workstation.
+# s390x does not constrain the toolchain — only the cluster-side images do.
+# =============================================================================
+
+[install]
+
+# OpenShift CLI — required to apply manifests and run oc adm commands
+# against the OCP-on-LinuxONE target cluster. Pinned to 4.14+ for CFK 3.2.x
+# compatibility.
+oc.pkg-path = "oc"
+oc.version = ">=4.14"
+
+# Helm 3.x — used by ansible/roles/cfk_operator to install the CFK operator
+# chart. Not used for direct component management (CFK handles that).
+helm.pkg-path = "helm"
+helm.version = ">=3.14"
+
+# kubectl — generic Kubernetes CLI; used alongside oc for non-OCP-specific
+# operations (apply, get, describe). oc is a superset but some scripts use
+# plain kubectl for portability.
+kubectl.pkg-path = "kubectl"
+kubectl.version = ">=1.28"
+
+# Kustomize — builds the base + component manifest stream that gets applied
+# to the cluster. Must be >=5.x for kind:Component support.
+kustomize.pkg-path = "kustomize"
+kustomize.version = ">=5.3"
+
+# cfssl — CloudFlare's PKI toolkit; used by ansible/roles/cp_mtls and
+# LinuxOne/ansible-mtls/ to mint the CA and per-component leaf certificates
+# that populate secrets.template/ → K8s Secrets. FIPS-capable on Linux;
+# on macOS used for local PKI scaffolding only.
+cfssl.pkg-path = "cfssl"
+cfssl.version = ">=1.6"
+
+# yq — YAML processor; used by validate-*.sh scripts to extract and assert
+# on CR fields without a running cluster.
+yq.pkg-path = "yq"
+yq.version = ">=4.40"
+
+# jq — JSON processor; used by validate-*.sh to parse confluent CLI JSON
+# output and by fetch-upstream.sh for idempotency checks.
+jq.pkg-path = "jq"
+jq.version = ">=1.7"
+
+# Confluent CLI — required by validate-rbac.sh (confluent iam rbac
+# role-binding list) and validate-audit.sh (consume from audit topic).
+# Version >=3.0 required for MDS/CP 8.x support.
+confluent.pkg-path = "confluent"
+confluent.version = ">=3.0"
+
+[hook]
+on-activate = """
+  # Run fetch-upstream.sh to populate base/upstream/ from the pinned SHA.
+  # Idempotent — no-ops if upstream/ is already at the correct SHA.
+  # Requires network access at activation time (see KNOWN-GAPS.md).
+  SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]:-$0}")/../../base"
+  if [ -f "${SCRIPT_DIR}/fetch-upstream.sh" ]; then
+    echo "[flox] Running fetch-upstream.sh to populate base/upstream/ ..."
+    bash "${SCRIPT_DIR}/fetch-upstream.sh"
+  else
+    echo "[flox] WARNING: base/fetch-upstream.sh not found — run it manually before kustomize build."
+  fi
+"""
+
+[options]
+systems = ["aarch64-darwin", "x86_64-darwin", "x86_64-linux"]
+# s390x is the cluster target, not the developer workstation — not listed here.
