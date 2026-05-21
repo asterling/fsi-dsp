@@ -1,0 +1,28 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# =============================================================================
+# 04-audit — Audit logging hardening layer
+# =============================================================================
+# Routes Confluent security events to _confluent-audit-log-events topic and
+# ships them to SIEM (Splunk + Dynatrace) via Connect Sink connectors.
+#
+# DEPENDS ON layer 01-rbac: the ConfluentServerAuthorizer (enabled by 01-rbac)
+# must be active for the audit router to capture authz decisions.
+# Component ordering in the overlay (01 before 04) enforces this dependency.
+# =============================================================================
+
+resources:
+  # Pre-create the audit log topic with explicit retention (not broker auto-create)
+  - kafkatopic-audit.yaml
+  # Connect CR + Splunk Sink + HTTP Sink (Dynatrace) Connector CRs
+  - connect-cr.yaml
+
+patches:
+  # Kafka CR: add confluent.security.event.router.config on spec.configOverrides
+  # This patches a DISTINCT CR field from layers 01 (spec.authorization) and
+  # 02 (spec.tls) to avoid JSON-merge collisions.
+  - path: patches/kafka-audit.yaml
+    target:
+      kind: Kafka
+      name: kafka

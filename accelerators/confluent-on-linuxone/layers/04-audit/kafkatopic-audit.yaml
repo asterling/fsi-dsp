@@ -1,0 +1,36 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: confluent-audit-log-events
+  namespace: confluent
+  annotations:
+    # Topic name with underscore prefix is a Confluent internal convention.
+    # The leading underscore marks this as a system/infrastructure topic.
+    goodlabs.io/topic: "_confluent-audit-log-events"
+spec:
+  # Pre-creating the topic declaratively ensures retention and replication
+  # are set before the first event arrives. Broker auto-create would use defaults.
+  name: _confluent-audit-log-events
+  replicas: 3
+  # Partition count: 6 (per project Kafka partition convention) — supports
+  # parallel audit log consumers (SIEM connectors, compliance readers)
+  partitionCount: 6
+  configs:
+    # -----------------------------------------------------------------------
+    # Retention: overlay-configurable
+    # Production: 7 years (220752000000 ms) — OFAC/AML/SOX regulatory minimum
+    # Development: 30 days (2592000000 ms) — reduce storage cost in non-prod
+    # -----------------------------------------------------------------------
+    retention.ms: "$(AUDIT_RETENTION_MS)"
+
+    # Cleanup policy: delete only — no log compaction on audit topics.
+    # Compaction would suppress duplicate events with the same key, potentially
+    # hiding replay attacks or repeated denied attempts.
+    cleanup.policy: "delete"
+
+    # Minimum replication for durability — 2 of 3 replicas must acknowledge
+    # before write is confirmed. Prevents data loss if one broker fails.
+    min.insync.replicas: "2"
+
+    # Segment roll: 1 hour — limits recovery window on broker failure
+    segment.ms: "3600000"

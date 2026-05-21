@@ -1,0 +1,118 @@
+---
+# =============================================================================
+# Connect CR — upstream has Connect commented out; this layer re-enables it
+# for SIEM shipping. All connector JARs are arch-neutral Java baked into a
+# custom s390x Connect image (see KNOWN-GAPS.md for Dynatrace connector note).
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connect
+metadata:
+  name: connect
+  namespace: confluent
+spec:
+  replicas: 2
+  image:
+    # Custom Connect image with Splunk Sink + HTTP Sink JARs pre-installed.
+    # Must be built for s390x (CPACF-accelerated JVM, multi-arch manifest).
+    # Build reference: docker buildx build --platform linux/s390x ...
+    application: <PLACEHOLDER_S390X_CONNECT_IMAGE>
+    init: confluentinc/confluent-init-container:2.8.0
+  tls:
+    secretRef: connect-tls
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9092
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: https://schemaregistry.confluent.svc.cluster.local:8081
+      tls:
+        enabled: true
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true
+---
+# =============================================================================
+# Splunk Sink Connector — ships audit events to Splunk via HEC
+# Connector JAR: splunk-kafka-connector (arch-neutral Java)
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: splunk-audit-sink
+  namespace: confluent
+spec:
+  class: com.splunk.kafka.connect.SplunkSinkConnector
+  taskMax: 2
+  connectClusterRef:
+    name: connect
+  configs:
+    topics: _confluent-audit-log-events
+    splunk.hec.uri: <PLACEHOLDER_SPLUNK_HEC_URI>
+    # HEC token stored in Vault — not committed to the repo
+    splunk.hec.token: "${vault:secret/confluent/splunk-hec-token}"
+    splunk.hec.ssl.validate.certs: "true"
+    splunk.hec.ssl.trust.store.path: /mnt/sslcerts/kafka-client.truststore.jks
+    splunk.hec.acks: "true"
+    splunk.hec.threads: "2"
+    # Source type maps Confluent audit log schema to Splunk event model
+    splunk.hec.json.event.enrichment: "source=confluent-audit,sourcetype=confluent:kafka:audit"
+    # Reference Splunk dashboards: observability/splunk/ (do not duplicate — D-03)
+    # See layers/04-audit/siem/README.md for dashboard cross-references
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: "false"
+---
+# =============================================================================
+# HTTP Sink Connector → Dynatrace ingest API
+# =============================================================================
+# NOTE: There is no first-party Confluent/Dynatrace connector.
+# This uses the generic HTTP Sink connector (confluentinc/kafka-connect-http)
+# to POST to the Dynatrace generic log ingest API v2.
+# See KNOWN-GAPS.md: "No native Dynatrace connector — HTTP Sink workaround"
+# and observability/dynatrace/ for dashboard configuration.
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: dynatrace-audit-sink
+  namespace: confluent
+spec:
+  class: io.confluent.connect.http.HttpSinkConnector
+  taskMax: 2
+  connectClusterRef:
+    name: connect
+  configs:
+    topics: _confluent-audit-log-events
+    # Dynatrace generic log ingest v2 endpoint
+    http.api.url: <PLACEHOLDER_DYNATRACE_INGEST_URL>
+    # DT API token stored in Vault
+    http.headers: "Authorization: Api-Token ${vault:secret/confluent/dynatrace-api-token},Content-Type: application/json; charset=utf-8"
+    request.method: POST
+    batch.max.size: "100"
+    batch.prefix: '{"logs":['
+    batch.suffix: "]}"
+    batch.separator: ","
+    # Reference Dynatrace dashboards: observability/dynatrace/ (D-03)
+    # See layers/04-audit/siem/README.md
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: "false"
