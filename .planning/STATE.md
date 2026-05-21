@@ -34,13 +34,18 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent:
 
 ### Pending Todos
 
-- Update UPSTREAM_SHA in base/fetch-upstream.sh to actual mmondics/Confluent-LinuxONE-Mirror commit SHA
 - Regenerate .flox/env/manifest.lock on a Flox-equipped machine (KNOWN-GAPS G-07)
 - Build custom s390x Connect image with Splunk Sink + HTTP Sink JARs (KNOWN-GAPS G-08)
 
 ### Blockers/Concerns
 
 - s390x compatibility must be verified per tool/image; gaps go in accelerator KNOWN-GAPS.md
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260521-26u | FSI-hardened Confluent-on-LinuxONE accelerator — fork Mondics runbook + 4 hardening layers | 2026-05-21 | c511571 | [260521-26u-build-accelerators-confluent-on-linuxone](./quick/260521-26u-build-accelerators-confluent-on-linuxone/) |
 
 ## Session Continuity
 
