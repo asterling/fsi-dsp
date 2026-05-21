@@ -11,10 +11,10 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 Phase: 17 of 17 (FSI-Hardened Confluent-on-LinuxONE Accelerator)
 Plan: Tracked as quick task
-Status: In progress
-Last activity: 2026-05-21 — Re-bootstrapped .planning/ to support accelerator quick task
+Status: Complete
+Last activity: 2026-05-21 — Executed quick task 260521-26u: built accelerators/confluent-on-linuxone/ (10 tasks, 53 files, 10 commits)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -34,7 +34,9 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent:
 
 ### Pending Todos
 
-None yet.
+- Update UPSTREAM_SHA in base/fetch-upstream.sh to actual mmondics/Confluent-LinuxONE-Mirror commit SHA
+- Regenerate .flox/env/manifest.lock on a Flox-equipped machine (KNOWN-GAPS G-07)
+- Build custom s390x Connect image with Splunk Sink + HTTP Sink JARs (KNOWN-GAPS G-08)
 
 ### Blockers/Concerns
 
@@ -43,5 +45,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-05-21
-Stopped at: Bootstrapped GSD state files for the Confluent-on-LinuxONE accelerator quick task
+Stopped at: Completed quick task 260521-26u — accelerators/confluent-on-linuxone/ fully built
 Resume file: None
