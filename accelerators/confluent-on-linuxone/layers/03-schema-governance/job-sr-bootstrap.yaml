@@ -1,0 +1,98 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sr-bootstrap
+  namespace: confluent
+  annotations:
+    # This Job is the one sanctioned explicit/imperative SR initialization step.
+    # PUTs to /config are idempotent — re-running the Job does not change state
+    # if the config is already at the desired level.
+    goodlabs.io/purpose: "Bootstrap Schema Registry FULL_TRANSITIVE compat and per-subject mode"
+spec:
+  # Never restart — if the SR is not ready, re-apply rather than loop.
+  # The operator will re-create the Job if the deployment is re-applied.
+  # Idempotency: PUT /config is idempotent (subsequent PUTs are no-ops if value matches).
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      # s390x affinity — SR bootstrap Job must run on s390x nodes alongside SR
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - s390x
+      # UBI9 + curl base image — s390x-supported multi-arch image.
+      # See KNOWN-GAPS.md: "SR bootstrap-Job base image must be s390x (UBI9 + curl)"
+      containers:
+        - name: sr-bootstrap
+          image: registry.access.redhat.com/ubi9/ubi-minimal:latest
+          command:
+            - /bin/bash
+            - -c
+            - |
+              set -euo pipefail
+
+              SR_URL="${SR_URL:-https://schemaregistry.confluent.svc.cluster.local:8081}"
+              SR_USER="${SR_USER:-}"
+              SR_PASS="${SR_PASS:-}"
+
+              # Build auth header if credentials provided (MDS bearer or basic)
+              if [ -n "${SR_USER}" ] && [ -n "${SR_PASS}" ]; then
+                AUTH="-u ${SR_USER}:${SR_PASS}"
+              else
+                AUTH=""
+              fi
+
+              echo "[sr-bootstrap] Waiting for Schema Registry to be ready ..."
+              until curl -sf ${AUTH} "${SR_URL}/subjects" > /dev/null 2>&1; do
+                echo "[sr-bootstrap] SR not ready yet — retrying in 5s ..."
+                sleep 5
+              done
+              echo "[sr-bootstrap] SR is ready."
+
+              # PUT global FULL_TRANSITIVE compatibility
+              echo "[sr-bootstrap] Setting global compatibility to FULL_TRANSITIVE ..."
+              curl -sf ${AUTH} -X PUT \
+                -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+                --data '{"compatibility": "FULL_TRANSITIVE"}' \
+                "${SR_URL}/config"
+              echo ""
+              echo "[sr-bootstrap] Global compatibility set to FULL_TRANSITIVE."
+
+              # PUT global mode to READWRITE (explicit, not relying on default)
+              echo "[sr-bootstrap] Setting global mode to READWRITE ..."
+              curl -sf ${AUTH} -X PUT \
+                -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+                --data '{"mode": "READWRITE"}' \
+                "${SR_URL}/mode"
+              echo ""
+              echo "[sr-bootstrap] Done."
+          env:
+            - name: SR_URL
+              value: "https://schemaregistry.confluent.svc.cluster.local:8081"
+            - name: SR_USER
+              valueFrom:
+                secretKeyRef:
+                  name: sr-bootstrap-credentials
+                  key: username
+                  optional: true
+            - name: SR_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: sr-bootstrap-credentials
+                  key: password
+                  optional: true
+          volumeMounts:
+            - name: sr-tls
+              mountPath: /etc/ssl/sr
+              readOnly: true
+      volumes:
+        - name: sr-tls
+          secret:
+            secretName: schemaregistry-tls
+            optional: true

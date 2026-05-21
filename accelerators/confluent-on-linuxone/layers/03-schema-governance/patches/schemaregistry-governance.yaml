@@ -1,0 +1,26 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: SchemaRegistry
+metadata:
+  name: schemaregistry
+spec:
+  # configOverrides.server sets SR server properties that CFK does not expose
+  # as first-class CR fields. This is on a distinct CR section from 02-tls
+  # configOverrides to avoid JSON-merge conflicts.
+  configOverrides:
+    server:
+      # Default compatibility level for all subjects — FULL_TRANSITIVE enforces
+      # that every registered schema is both backward and forward compatible with
+      # ALL previously registered versions, not just the latest.
+      # FULL_TRANSITIVE is the FSI standard: enables regulatory replay across
+      # any two schema versions without consumer changes.
+      - schema.compatibility.level=full_transitive
+
+      # Subject naming strategy: TopicNameStrategy by default.
+      # Override to RecordNameStrategy if your domain uses event union patterns.
+      - schema.registry.subject.name.strategy=io.confluent.kafka.serializers.subject.TopicNameStrategyName
+
+      # Subject name validation regex — overlay-configurable (see overlays/prod).
+      # Default enforces <domain>.<entity>-<suffix> convention.
+      # Set schema.registry.resource.extension.version to enable REST extensions.
+      # Validation is enforced by the SR REST extension registered below.
+      - schema.registry.subject.name.pattern=$(SUBJECT_NAME_PATTERN)
