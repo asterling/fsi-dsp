@@ -1,0 +1,19 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: consumer-only-payments
+spec:
+  # DeveloperRead = consume from topic + commit offsets for the consumer group.
+  # Does NOT grant DeveloperWrite/produce. Topic + Group PREFIXED enforces
+  # namespace isolation: consumers can only use consumer groups matching their prefix.
+  principal:
+    type: group
+    name: <PLACEHOLDER_CONSUMER_LDAP_GROUP>
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Topic
+      name: payments.
+      patternType: PREFIXED
+    - resourceType: Group
+      name: payments.
+      patternType: PREFIXED

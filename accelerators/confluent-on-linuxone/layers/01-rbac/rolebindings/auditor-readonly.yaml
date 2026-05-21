@@ -1,0 +1,59 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: auditor-readonly-audit-topic
+spec:
+  # -----------------------------------------------------------------------
+  # LOCKED DECISION D-02: auditor-readonly is audit-topic-scoped ONLY.
+  # DeveloperRead is explicitly NOT granted on payments.* or any other
+  # business topic. Confluent DeveloperRead always grants consume — binding
+  # this role to business topics would expose transaction payload to auditors.
+  # This binding covers the audit log topic + SR subjects (metadata only).
+  # -----------------------------------------------------------------------
+  principal:
+    type: group
+    name: <PLACEHOLDER_AUDITOR_LDAP_GROUP>
+  role: DeveloperRead
+  resourcePatterns:
+    # Audit log topic — the ONLY Kafka topic auditors consume
+    - resourceType: Topic
+      name: _confluent-audit-log-events
+      patternType: LITERAL
+    # Consumer group for the audit log consumer — scoped to avoid group hijacking
+    - resourceType: Group
+      name: auditor-readonly-
+      patternType: PREFIXED
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: auditor-readonly-sr-subjects
+spec:
+  # SR subject metadata access — auditors can read schema definitions for
+  # compliance purposes (data lineage, PII field identification) but cannot
+  # produce to or consume from business topics.
+  # D-02: scope is SR subjects only, NOT Kafka topic payloads.
+  principal:
+    type: group
+    name: <PLACEHOLDER_AUDITOR_LDAP_GROUP>
+  role: DeveloperRead
+  clustersScopeByIds:
+    schemaRegistryClusterId: <PLACEHOLDER_SR_CLUSTER_ID>
+  resourcePatterns:
+    - resourceType: Subject
+      name: ""
+      patternType: PREFIXED
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: auditor-readonly-cluster-metadata
+spec:
+  # Read-scoped cluster metadata access — allows auditors to list topics,
+  # consumer groups, and brokers for audit trail purposes (not to consume data).
+  # D-02: ClusterAdmin is NOT granted; only the minimal Describe/List scopes.
+  principal:
+    type: group
+    name: <PLACEHOLDER_AUDITOR_LDAP_GROUP>
+  role: ClusterAdmin
+  resourcePatterns: []

@@ -1,0 +1,19 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: schema-admin-payments
+spec:
+  # ResourceOwner on Subject PREFIXED = full lifecycle for schemas in the
+  # matched subject prefix (create, evolve, delete). Scoped to SR cluster ID
+  # to keep Schema Registry RBAC distinct from Kafka cluster RBAC.
+  # The subject prefix aligns with the topic prefix for consistent governance.
+  principal:
+    type: group
+    name: <PLACEHOLDER_SCHEMA_ADMIN_LDAP_GROUP>
+  role: ResourceOwner
+  clustersScopeByIds:
+    schemaRegistryClusterId: <PLACEHOLDER_SR_CLUSTER_ID>
+  resourcePatterns:
+    - resourceType: Subject
+      name: payments.
+      patternType: PREFIXED

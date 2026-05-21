@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# =============================================================================
+# 01-rbac — MDS RBAC hardening layer
+# =============================================================================
+# Adds Confluent MDS (Metadata Service) with LDAP as the IdP, ConfluentServer
+# Authorizer, and six FSI-scoped ConfluentRolebinding CRs.
+#
+# Applied before 04-audit (component order) because the audit router depends on
+# ConfluentServerAuthorizer being active first.
+# =============================================================================
+
+resources:
+  - rolebindings/platform-admin.yaml
+  - rolebindings/topic-admin.yaml
+  - rolebindings/producer-only.yaml
+  - rolebindings/consumer-only.yaml
+  - rolebindings/schema-admin.yaml
+  - rolebindings/auditor-readonly.yaml
+
+patches:
+  # Kafka: enable MDS RBAC authorization + configure MDS with LDAP IdP
+  - path: patches/kafka-mds.yaml
+    target:
+      kind: Kafka
+      name: kafka
+  # SchemaRegistry: add dependencies.mds so SR validates tokens against MDS
+  - path: patches/schemaregistry-mds.yaml
+    target:
+      kind: SchemaRegistry
+      name: schemaregistry
+  # ControlCenter: add dependencies.mds for C3 SSO via MDS
+  - path: patches/controlcenter-mds.yaml
+    target:
+      kind: ControlCenter
+      name: controlcenter
+  # KafkaRestProxy: add dependencies.mds for REST API token validation
+  - path: patches/kafkarestproxy-mds.yaml
+    target:
+      kind: KafkaRestProxy
+      name: kafkarestproxy

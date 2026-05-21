@@ -1,0 +1,19 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: topic-admin-payments
+spec:
+  # ResourceOwner on a PREFIXED pattern = full topic lifecycle (create, delete,
+  # alter configs) for the matched prefix. Scoped to a domain prefix, not global.
+  # Domain teams get ownership of their own topic namespace only.
+  principal:
+    type: group
+    name: <PLACEHOLDER_TOPIC_ADMIN_LDAP_GROUP>
+  role: ResourceOwner
+  resourcePatterns:
+    - resourceType: Topic
+      name: payments.
+      patternType: PREFIXED
+    - resourceType: Group
+      name: payments.
+      patternType: PREFIXED

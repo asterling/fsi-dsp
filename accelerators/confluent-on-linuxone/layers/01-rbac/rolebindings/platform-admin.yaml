@@ -1,0 +1,12 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: platform-admin
+spec:
+  # SystemAdmin = full cluster control including operator-level operations.
+  # Bound to an LDAP group, not individuals — the IdP is the identity boundary.
+  # Only the platform ops team group should be in this LDAP group.
+  principal:
+    type: group
+    name: <PLACEHOLDER_PLATFORM_ADMIN_LDAP_GROUP>
+  role: SystemAdmin

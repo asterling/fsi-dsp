@@ -1,0 +1,49 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: Kafka
+metadata:
+  name: kafka
+spec:
+  # Enable RBAC authorization via ConfluentServerAuthorizer.
+  # This must be applied before layer 04-audit (component ordering enforces this).
+  authorization:
+    type: rbac
+    superUsers:
+      - User:kafka
+  # MDS (Metadata Service) — issues and validates RBAC tokens.
+  # LDAP is the IdP boundary; individual users are never bound directly.
+  services:
+    mds:
+      tls:
+        enabled: true
+      # Token keypair: RSA keypair for JWT signing. Never commit real keys.
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      provider:
+        type: ldap
+        ldap:
+          # LDAP connection — populate via secrets.template/ldap-credentials.yaml
+          address: <PLACEHOLDER_LDAP_URI>
+          authentication:
+            type: simple
+            simple:
+              secretRef: ldap-credentials
+          configurations:
+            groupNameAttribute: cn
+            groupObjectClass: group
+            groupMemberAttribute: member
+            groupMemberAttributeValueRegex: CN=(.*),.*
+            userNameAttribute: sAMAccountName
+            userObjectClass: person
+            userSearchBase: <PLACEHOLDER_USER_SEARCH_BASE>
+            groupSearchBase: <PLACEHOLDER_GROUP_SEARCH_BASE>
+  # Node affinity for s390x — sourced from scenarios/cfk-openshift-linuxone/values/kafka.yaml
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x

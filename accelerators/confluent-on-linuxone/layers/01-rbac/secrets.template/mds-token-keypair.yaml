@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mds-token-keypair
+  namespace: confluent
+type: Opaque
+stringData:
+  # RSA keypair for MDS JWT token signing. Generate with:
+  #   openssl genrsa -out mds.key 4096
+  #   openssl rsa -in mds.key -outform PEM -pubout -out mds.pub
+  # Replace <PLACEHOLDER> with the actual PEM content (base64-encoded if data: not stringData:)
+  mdsPublicKey.pem: |
+    <PLACEHOLDER_MDS_PUBLIC_KEY_PEM>
+  mdsTokenKeyPair.pem: |
+    <PLACEHOLDER_MDS_PRIVATE_KEY_PEM>

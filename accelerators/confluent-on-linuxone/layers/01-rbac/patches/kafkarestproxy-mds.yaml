@@ -1,0 +1,18 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaRestProxy
+metadata:
+  name: kafkarestproxy
+spec:
+  # REST Proxy validates bearer tokens against MDS so per-request RBAC applies
+  # to REST-produced/consumed messages.
+  dependencies:
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true

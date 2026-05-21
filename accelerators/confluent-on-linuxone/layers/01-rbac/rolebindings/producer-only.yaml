@@ -1,0 +1,20 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: producer-only-payments
+spec:
+  # DeveloperWrite = produce to topic, write to transactional IDs.
+  # Does NOT grant DeveloperRead/consume — enforces write-only access.
+  # The validate-rbac.sh script asserts that a producer-only principal
+  # cannot consume from the same topic (expected 403).
+  principal:
+    type: group
+    name: <PLACEHOLDER_PRODUCER_LDAP_GROUP>
+  role: DeveloperWrite
+  resourcePatterns:
+    - resourceType: Topic
+      name: payments.
+      patternType: PREFIXED
+    - resourceType: TransactionalId
+      name: payments.
+      patternType: PREFIXED

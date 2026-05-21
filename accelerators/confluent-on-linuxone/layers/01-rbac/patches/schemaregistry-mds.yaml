@@ -1,0 +1,18 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: SchemaRegistry
+metadata:
+  name: schemaregistry
+spec:
+  # SR must validate RBAC tokens against MDS before serving schema requests.
+  # This enables subject-level RBAC (schema-admin, auditor-readonly scoping).
+  dependencies:
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true

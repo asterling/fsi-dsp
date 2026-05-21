@@ -1,0 +1,28 @@
+apiVersion: platform.confluent.io/v1beta1
+kind: ControlCenter
+metadata:
+  name: controlcenter
+spec:
+  # C3 must federate identity through MDS for SSO — without this, C3 falls back
+  # to anonymous access or its own credential store, bypassing RBAC enforcement.
+  dependencies:
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: <PLACEHOLDER_SR_ENDPOINT>
+      tls:
+        enabled: true
+    kafka:
+      bootstrapEndpoint: <PLACEHOLDER_KAFKA_BOOTSTRAP>
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
