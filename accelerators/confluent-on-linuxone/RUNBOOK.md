@@ -1,8 +1,9 @@
 # Confluent Platform on LinuxONE — FSI Hardened Deployment Runbook
 
 This runbook walks a complete deployment of Confluent Platform 8.2.0 on Red Hat
-OpenShift Container Platform 4.14+ on IBM LinuxONE / s390x, with four FSI hardening
-controls applied (RBAC, mTLS, Schema Registry governance, audit logging).
+OpenShift Container Platform 4.14+ on IBM LinuxONE / s390x, with five FSI hardening
+controls applied (RBAC, mTLS, Schema Registry governance, audit logging, Flink stream
+processing) layered as Kustomize Components on top of IBM's reference implementation.
 
 > **Notation:**
 > - Steps marked `[UPSTREAM]` follow Mondics's runbook from `base/upstream/`
@@ -52,6 +53,36 @@ ansible-playbook -i inventory/linuxone.yml ansible/playbooks/cfk_operator.yml \
 
 Reference: `ansible/roles/cfk_operator/` — the role installs via OLM or Helm,
 waits for operator readiness, and configures the `ConfluentPlatform` CRD admission webhook.
+
+---
+
+## Step 1b: Install FKO + CMF Flink operators [GOODLABS]
+
+Required before applying `layers/05-flink/`. FKO (Flink Kubernetes Operator) and
+CMF (Confluent Manager for Apache Flink) are separate Helm charts; they must be
+installed in order (FKO first — CMF depends on FKO CRDs). The `flink_operators`
+Ansible role installs both, readiness-gated.
+
+```bash
+# From the repo root:
+ansible-playbook -i inventory/linuxone.yml ansible/playbooks/flink_operators.yml \
+  -e flink_namespace=confluent
+
+# Audit mode (GET-only, no changes):
+ansible-playbook -i inventory/linuxone.yml ansible/playbooks/flink_operators.yml --check
+```
+
+Reference: `ansible/roles/flink_operators/` — role installs FKO (`confluentinc/flink-kubernetes-operator`)
+then CMF (`confluentinc/confluent-manager-for-apache-flink`) with `wait: true` and a 600s timeout.
+
+**Build the SQL-runner image before applying FlinkApplications** (KNOWN-GAPS.md G-12):
+
+```bash
+# Follow layers/05-flink/sql-runner/README.md for docker buildx --platform linux/s390x instructions
+# Then update <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE> in:
+#   layers/05-flink/flink-environment.yaml
+#   layers/05-flink/applications/*.yaml
+```
 
 ---
 
@@ -180,6 +211,28 @@ The Cluster Linking configuration is in `base/upstream/clusterlink.yaml`.
 
 ---
 
+## Step 10: Validate Flink stream processing layer [GOODLABS]
+
+```bash
+KAFKA_BOOTSTRAP=kafka.confluent.svc.cluster.local:9092 \
+SR_URL=https://schemaregistry.confluent.svc.cluster.local:8081 \
+FLINK_CERT=/path/to/flink-client.pem \
+FLINK_KEY=/path/to/flink-client-key.pem \
+FLINK_CA_CERT=/path/to/ca.pem \
+bash layers/05-flink/validate-flink.sh
+```
+
+Asserts:
+- FlinkEnvironment + CMFRestClass reconciled (both RUNNING)
+- Both FlinkApplications reach RUNNING state
+- Flink→Kafka mTLS handshake accepted by broker
+- Schema Registry reachable with Flink client cert (Avro-Confluent integration)
+- Flink output KafkaTopic CRs exist with correct retention
+- RBAC ConfluentRolebinding CRs present
+- Flink Kafka access events appear in `confluent-audit-log-events` (layer 04 integration)
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -189,3 +242,7 @@ The Cluster Linking configuration is in `base/upstream/clusterlink.yaml`.
 | `kustomize build` fails with unknown field | Stale CRD schema | `oc get crd kafka.platform.confluent.io -o json` to verify installed version |
 | Audit topic not receiving events | layer 04 applied before layer 01 | Re-apply in order 01→02→03→04; check component ordering in overlay kustomization |
 | SR bootstrap Job not completing | s390x image pull failure | Verify UBI9 image is available; see `layers/03-schema-governance/job-sr-bootstrap.yaml` |
+| FlinkApplication stuck in PENDING | SQL-runner image not pushed | Build image per `layers/05-flink/sql-runner/README.md`; replace `<PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>` in FlinkEnvironment + FlinkApplication CRs |
+| CMF mTLS handshake failure | cmf-mtls-credentials Secret missing or wrong CA | Verify `oc get secret cmf-mtls-credentials -n confluent`; cert must be signed by `confluent-ca-issuer` |
+| FlinkApplication failing with `SSL handshake` | flink-kafka-client-tls Secret misconfigured | Verify keystore CN matches `<PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>` in ConfluentRolebinding; confirm CA matches broker's `confluent-ca-issuer` |
+| No Flink events in audit topic | FKO/CMF not installed or layer 05 applied before layer 01 | Run `ansible-playbook flink_operators.yml`; verify component order in overlay (05 last) |

@@ -61,10 +61,11 @@ accelerators/confluent-on-linuxone/
 │   ├── 01-rbac/           # README, kustomization.yaml (kind: Component), patches, rolebindings, secrets.template/, validate-rbac.sh
 │   ├── 02-tls/            # README, Component, per-component TLS patches, cert-manager CRs, route-tls, secrets.template/, validate-mtls.sh
 │   ├── 03-schema-governance/  # README, Component, SR governance patch, job-sr-bootstrap.yaml, validate-schema-governance.sh
-│   └── 04-audit/          # README, Component, kafka audit patch, audit KafkaTopic CR, Connect CR + sink Connectors, validate-audit.sh
+│   ├── 04-audit/          # README, Component, kafka audit patch, audit KafkaTopic CR, Connect CR + sink Connectors, validate-audit.sh
+│   └── 05-flink/          # README, Component (resources-only), FlinkEnvironment, CMFRestClass, rolebindings/, tls/, applications/, topics/, sql-runner/, validate-flink.sh
 └── overlays/
-    ├── dev/kustomization.yaml   # base + components, relaxed (30d audit retention, BACKWARD compat)
-    └── prod/kustomization.yaml  # base + all 4 components, FULL_TRANSITIVE, 7y retention
+    ├── dev/kustomization.yaml   # base + all 5 components, relaxed (30d retention, BACKWARD compat, parallelism 1)
+    └── prod/kustomization.yaml  # base + all 5 components, FULL_TRANSITIVE, 7y retention, EXACTLY_ONCE Flink
 ```
 
 ## Composition mechanism
@@ -73,10 +74,15 @@ Each `layers/NN-*/kustomization.yaml` is `kind: Component`
 (`kustomize.config.k8s.io/v1alpha1`) — a non-buildable fragment carrying that layer's
 `patches:` and `resources:`. `overlays/{dev,prod}/kustomization.yaml` is the single
 buildable `kind: Kustomization`: `resources: [../../base]` + `components: [01-rbac,
-02-tls, 03-schema-governance, 04-audit]`. Components apply in listed order, encoding
-dependencies (RBAC's ConfluentServerAuthorizer before audit; TLS secrets before MDS
-references them). This gives each layer its own directory + README + ownership
-boundary while keeping exactly one buildable artifact per environment.
+02-tls, 03-schema-governance, 04-audit, 05-flink]`. Components apply in listed order,
+encoding dependencies (RBAC's ConfluentServerAuthorizer before audit; TLS secrets before
+MDS references them; 05-flink last because it depends on layer 01 MDS and layer 02's
+`confluent-ca-issuer` ClusterIssuer). This gives each layer its own directory + README +
+ownership boundary while keeping exactly one buildable artifact per environment.
+
+Layer 05 is **resources-only** (no `patches:` block). Flink is a Kafka client — it adds
+new CRs rather than patching existing ones. Per-overlay sizing (parallelism, checkpoint
+interval, retention) is handled by patches in `overlays/{dev,prod}/kustomization.yaml`.
 
 CFK CRs are not strategic-merge-annotated → Kustomize uses JSON-merge (list fields
 replace, not append). Mitigation: each layer owns a **distinct CR field**
@@ -166,6 +172,34 @@ cluster via MDS/Helm REST — no parallel broker management path.
   Validation `validate-audit.sh`: generate each event type, consume the audit topic,
   confirm each lands.
 
+### 5. `layers/05-flink/` — Flink stream processing
+
+- `FlinkEnvironment` CR: defines the CMF-managed Flink compute context. Specifies the
+  s390x nodeAffinity block, RocksDB state backend, Prometheus metrics reporter (port 9249),
+  and the mTLS cert volume mount for Flink→Kafka mutual TLS.
+- `CMFRestClass` CR: defines the mTLS-secured CFK→CMF control channel. CFK uses this
+  to submit, cancel, and savepoint FlinkApplications via CMF REST.
+- `rolebindings/`: two self-contained ConfluentRolebinding CRs — `flink-developer`
+  (LDAP group → FlinkEnvironmentAdmin) and three `flink-job-runtime-*` bindings
+  (service account → DeveloperRead source, DeveloperWrite sink, DeveloperRead SR).
+- `tls/certificate-crs.yaml`: cert-manager `Certificate` CRs for `cmf-tls` and
+  `flink-kafka-client-tls`. Both `issuerRef` reference the EXISTING `confluent-ca-issuer`
+  ClusterIssuer (registered by layer 02). No new PKI.
+- `applications/`: two FlinkApplication CRs + SQL ConfigMaps. CFK ports of
+  `reference/flink-sql/tumbling-window-aggregation.sql` and `stream-table-join-enrichment.sql`.
+  SQL uses mutual TLS to Kafka (keystore + truststore) and `https://` SR URL (layer 02 mTLS'd SR).
+- `topics/`: two KafkaTopic CRs for Flink sink output, `retention.ms=$(FLINK_OUTPUT_RETENTION_MS)`.
+- `sql-runner/`: Dockerfile for the custom s390x cp-flink image (shipped, not built here).
+  See KNOWN-GAPS.md G-12.
+- Audit integration: Flink's Kafka access is audited automatically by layer 04 —
+  the `ConfluentServerAuthorizer` (layer 01) fires on every Flink topic access and
+  routes the event to `confluent-audit-log-events`. No layer-04 change required.
+- Operator prerequisite: FKO + CMF Helm charts installed via `ansible/roles/flink_operators/`
+  (RUNBOOK Step 1b). These operators are not Kustomize-managed — they are Helm-managed
+  prerequisites, parallel to how `ansible/roles/cfk_operator/` manages the CFK operator.
+
+---
+
 ## Flox dev environment
 
 `.flox/env/manifest.toml` (v1 schema) pins, in `[install]`: `oc` (OCP 4.14+),
@@ -201,7 +235,7 @@ the toolchain (only the cluster images do).
 - Apply: `kustomize build overlays/prod | oc apply -f -` (server-side
   `--dry-run=server` first to exercise CFK CRD admission).
 - Per-layer: run `validate-rbac.sh`, `validate-mtls.sh`,
-  `validate-schema-governance.sh`, `validate-audit.sh` — each confirms its control.
+  `validate-schema-governance.sh`, `validate-audit.sh`, `validate-flink.sh` — each confirms its control.
 - End-to-end: deploy on an OCP-on-LinuxONE cluster, run all 4 validators, then
   exercise MIGRATION.md by cluster-linking to a second cluster and confirming
   mirror-lag → 0 + record-count parity.

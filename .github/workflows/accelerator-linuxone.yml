@@ -5,12 +5,21 @@
 #
 # Jobs:
 #   1. fetch-and-build — fetches upstream at pinned SHA, runs kustomize build
-#      on both overlays, and CRD-schema lints with kubeconform.
-#   2. shell-lint — bash -n syntax check on all *.sh files.
+#      on both overlays (now including layer 05-flink), and CRD-schema lints
+#      with kubeconform.
+#   2. shell-lint — bash -n syntax check on all *.sh files (including
+#      layers/05-flink/validate-flink.sh).
 #
 # NOTE: Cluster-dependent validators (validate-rbac.sh, validate-mtls.sh,
-# validate-schema-governance.sh, validate-audit.sh) are NOT run in CI.
-# They require an OCP-on-LinuxONE cluster. Run them manually per RUNBOOK.md.
+# validate-schema-governance.sh, validate-audit.sh, validate-flink.sh) are
+# NOT run in CI. They require an OCP-on-LinuxONE cluster with FKO + CMF
+# installed (RUNBOOK Steps 1 and 1b). Run them manually per RUNBOOK.md.
+#
+# The kustomize build jobs exercise layer 05-flink automatically because
+# overlays/{dev,prod} include ../../layers/05-flink as the last component.
+# The secrets.template scan globs all */secrets.template/*.yaml (includes
+# layers/05-flink/secrets.template/). The kind:Component check loops all
+# layers/*/ (includes layers/05-flink/kustomization.yaml).
 #
 # Extends the existing ci/scripts pattern in this repository.
 # =============================================================================

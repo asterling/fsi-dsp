@@ -1,8 +1,9 @@
 # Confluent Platform on IBM LinuxONE — FSI Hardened Accelerator
 
 Production-grade Confluent Platform 8.2.0 on Red Hat OpenShift on IBM LinuxONE / s390x,
-with four FSI hardening controls (RBAC, mTLS, Schema Registry governance, audit logging)
-layered as Kustomize Components on top of IBM's reference implementation.
+with five FSI hardening controls (RBAC, mTLS, Schema Registry governance, audit logging,
+Flink stream processing) layered as Kustomize Components on top of IBM's reference
+implementation.
 
 ---
 
@@ -15,6 +16,7 @@ layered as Kustomize Components on top of IBM's reference implementation.
 | `layers/02-tls/` | GoodLabs | mTLS on all internal listeners, FIPS mode, cert-manager integration |
 | `layers/03-schema-governance/` | GoodLabs | FULL_TRANSITIVE compatibility, SR bootstrap Job, hard-delete RBAC enforcement |
 | `layers/04-audit/` | GoodLabs | Audit event routing, 7y-retention audit topic, Splunk + Dynatrace sinks |
+| `layers/05-flink/` | GoodLabs | Flink stream processing: FlinkEnvironment, CMFRestClass, mTLS, RBAC, FSI example jobs |
 | Flox env | GoodLabs | Pinned dev toolchain (oc, helm, kubectl, kustomize, cfssl, yq, jq, confluent) |
 
 **Attribution:** The upstream base is Matt Mondics's public reference for Confluent Platform
@@ -32,11 +34,13 @@ overlays/{dev,prod}/kustomization.yaml   ← the only buildable Kustomization
             ├── 01-rbac    (MDS + LDAP IdP + 6 ConfluentRolebinding CRs)
             ├── 02-tls     (mTLS secretRef + FIPS + cert-manager CRs)
             ├── 03-schema-governance  (FULL_TRANSITIVE + SR bootstrap Job)
-            └── 04-audit   (audit router + KafkaTopic + Connect SIEM sinks)
+            ├── 04-audit   (audit router + KafkaTopic + Connect SIEM sinks)
+            └── 05-flink   (FlinkEnvironment + CMFRestClass + RBAC + mTLS + FSI example jobs)
 ```
 
 Component order encodes dependencies: RBAC (ConfluentServerAuthorizer) must apply
-before audit (event router); TLS secrets must exist before SR governance bootstrap Job.
+before audit (event router) and Flink RBAC; TLS secrets + confluent-ca-issuer must
+exist before SR bootstrap Job and Flink mTLS Certificate CRs; 05-flink is last.
 
 ---
 
@@ -89,6 +93,26 @@ with `retention.ms=220752000000` (7y) in prod, 30d in dev. Re-enables Connect
 (upstream had it commented out) with Splunk Sink (HEC) and HTTP Sink → Dynatrace
 connectors. SIEM dashboards: `observability/splunk/`, `observability/dynatrace/`.
 
+### Layer 05: Flink stream processing
+
+**Why:** Kafka without stream processing is incomplete for FSI analytics workloads.
+CFK 3.2.0+ on s390x supports managing Flink Applications — this is the best-grounded
+s390x capability the accelerator offers. Windowed aggregations and enrichment joins
+are consumed by OFAC/AML screening and risk reporting systems that require exactly-once
+semantics (no duplicate events in regulatory outputs).
+
+**What:** Deploys `FlinkEnvironment` and `CMFRestClass` CRs for the CMF-managed Flink
+compute environment. Includes two example FSI jobs (1-minute transaction volume tumbling
+window; account transaction enrichment via temporal stream-table join). Self-contained
+mTLS (Certificate CRs signed by `confluent-ca-issuer`) and RBAC (Flink developer LDAP
+group, job runtime service account least-privilege). Flink's Kafka access is automatically
+audited by layer 04 (mTLS identity → ConfluentServerAuthorizer → audit-log-events) — no
+change to layers 01-04 required.
+
+**Prerequisite:** FKO + CMF must be installed before applying this layer (RUNBOOK Step 1b):
+`ansible-playbook ansible/playbooks/flink_operators.yml`. The custom s390x SQL-runner
+image must be built and pushed (KNOWN-GAPS.md G-12; see `layers/05-flink/sql-runner/`).
+
 ---
 
 ## Build and validation
@@ -126,6 +150,15 @@ bash layers/03-schema-governance/validate-schema-governance.sh
 
 # Layer 04: Audit — asserts KafkaTopic exists, Connect RUNNING, audit topic populated
 bash layers/04-audit/validate-audit.sh
+
+# Layer 05: Flink — asserts FlinkEnvironment/CMFRestClass RUNNING, both FlinkApplications
+#   RUNNING, Flink→Kafka mTLS, SR Avro-Confluent, output topics, RBAC, audit integration
+KAFKA_BOOTSTRAP=kafka.confluent.svc.cluster.local:9092 \
+SR_URL=https://schemaregistry.confluent.svc.cluster.local:8081 \
+FLINK_CERT=/path/to/flink-client.pem \
+FLINK_KEY=/path/to/flink-client-key.pem \
+FLINK_CA_CERT=/path/to/ca.pem \
+bash layers/05-flink/validate-flink.sh
 ```
 
 Cluster-dependent — requires OCP access. Not run in CI (see `.github/workflows/accelerator-linuxone.yml`).

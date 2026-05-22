@@ -19,6 +19,10 @@ operational impact, the approved workaround, and current status.
 | G-07 | Flox manifest.lock stub must be regenerated | `manifest.lock` in `.flox/env/` is a stub — actual Nix store paths are platform-specific | On a machine with Flox installed, run `flox activate` in `accelerators/confluent-on-linuxone/` to generate a real lock file; commit the result | Open |
 | G-08 | Custom s390x Connect image required | `layers/04-audit/connect-cr.yaml` references a custom Connect image with Splunk Sink + HTTP Sink JARs pre-installed for s390x | Build with `docker buildx build --platform linux/s390x`; base image must be CP 8.2.0 Connect s390x image; JAR versions must match connector compatibility matrix | Open |
 | G-09 | Cluster Linking schema sync (CP 8.2+) needs verification | Schema Registry Cluster Linking for automatic schema migration between clusters may have s390x-specific behavior | Test schema sync feature in a staging environment; fall back to manual SR migration tool if needed; see `MIGRATION.md` Section 2.4 | Needs verification |
+| G-10 | FKO + CMF are parallel Helm operators outside the kustomize build | `kustomize build overlays/{dev,prod}` is no longer self-sufficient — FKO and CMF must be installed first or FlinkApplication CRs will be rejected by the API server (CRDs absent) | Install via RUNBOOK Step 1b: `ansible-playbook ansible/playbooks/flink_operators.yml`; `--check` mode provides audit-only path | Mitigated by design |
+| G-11 | CFK 3.2.0+ on s390x officially supports only Flink Applications | Per Confluent's statement: CFK 3.2.0+ on s390x is supported only for managing Flink Applications. Layers 01-04 (Kafka, SR, Connect, C3) are run-at-your-own-risk on s390x | Informational — this accelerator adds layers 01-04 as FSI hardening controls; the supported Flink Application path (layer 05) is the primary s390x CFK use case | Informational |
+| G-12 | Custom s390x SQL-runner image required before FlinkApplications start | FlinkApplication CRs reference `<PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>` — unresolved, pods will fail image pull | Build with `docker buildx build --platform linux/s390x` per `layers/05-flink/sql-runner/README.md`; push to your registry; replace all `<PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>` references | Open |
+| G-13 | Flink checkpoint state encryption — cluster-dependent | `state.checkpoints.dir` in FlinkEnvironment and FlinkApplications references `<PLACEHOLDER_ENCRYPTED_CHECKPOINT_STORAGE_URI>`. Unencrypted checkpoint state is a regulatory finding (PCI-DSS 3.4, GLBA) | Use an OCP StorageClass with `encryption: true` or an S3-compatible endpoint with SSE-KMS; replace placeholder in `layers/05-flink/flink-environment.yaml` | Open |
 
 ---
 
@@ -150,3 +154,85 @@ docker buildx build \
 
 The `connect.Dockerfile` should download connector JARs (arch-neutral Java) from
 Confluent Hub and install them into the CFK Connect image base.
+
+---
+
+### G-10: FKO + CMF parallel Helm operators
+
+**Context:** `layers/05-flink/` introduces FlinkApplication, FlinkEnvironment, and
+CMFRestClass CRs that require FKO and CMF CRDs to be registered before `kustomize build`
+output can be applied. The overlay is no longer self-sufficient as a `kustomize build | oc apply`.
+
+**Impact:** Applying the kustomize output without FKO + CMF installed results in
+`no kind "FlinkApplication" is registered` API server errors.
+
+**Workaround:** RUNBOOK Step 1b installs FKO then CMF via the `flink_operators` Ansible role
+(readiness-gated, `wait: true`). The `--check` playbook invocation provides a GET-only audit
+path for compliance verification without mutations.
+
+```bash
+ansible-playbook ansible/playbooks/flink_operators.yml          # install
+ansible-playbook ansible/playbooks/flink_operators.yml --check  # audit
+```
+
+---
+
+### G-11: CFK s390x support scope — Flink Applications only
+
+**Context:** Confluent's official statement for CFK 3.2.0+ on s390x (IBM LinuxONE):
+CFK is supported on s390x only for managing Flink Applications. All other CFK-managed
+components (Kafka, SchemaRegistry, Connect, ControlCenter, KsqlDB) are not officially
+supported on s390x in CFK 3.2.x.
+
+**Impact:** Layers 01-04 (RBAC, mTLS, SR governance, audit logging) apply to the Kafka,
+SR, and Connect CRs — these components are run-at-your-own-risk on s390x.
+
+**Informational:** This accelerator adds layers 01-04 as FSI hardening controls based on
+the working Mondics reference (CP 8.2.0 on s390x without FSI hardening). Layer 05 (Flink)
+is the officially supported CFK on s390x path and is the primary accelerator value.
+
+---
+
+### G-12: Custom s390x SQL-runner image
+
+**Context:** FlinkApplication CRs reference `<PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>`.
+This is a custom image based on `confluentinc/cp-flink:1.20.0-cp1` with
+`flink-sql-connector-kafka` (3.2.0-1.20) and `flink-sql-avro-confluent-registry` (1.20.0)
+pre-installed, plus the GoodLabs `fsi-sql-runner.jar`.
+
+**Build process:**
+
+```bash
+docker buildx build \
+  --platform linux/s390x \
+  -f layers/05-flink/sql-runner/Dockerfile \
+  -t <YOUR_REGISTRY>/fsi-flink-sql-runner:1.20.0-cp1 \
+  layers/05-flink/sql-runner/ \
+  --push
+```
+
+See `layers/05-flink/sql-runner/README.md` for full instructions including air-gapped
+environments, JAR version matrix, and OCP internal registry push.
+
+---
+
+### G-13: Flink checkpoint state encryption
+
+**Context:** Flink job state is checkpointed to `state.checkpoints.dir`. On a production
+LinuxONE cluster, this directory must be encrypted. `flink-environment.yaml` references
+`<PLACEHOLDER_ENCRYPTED_CHECKPOINT_STORAGE_URI>` as a reminder.
+
+**Regulatory impact:** Unencrypted checkpoint state may contain sensitive in-flight data
+(transaction amounts, account numbers). PCI-DSS 3.4 and GLBA require encryption of
+sensitive data at rest, including transient processing state.
+
+**Options:**
+1. **OCP encrypted StorageClass**: Create a StorageClass with `encryption: true` (IBM
+   LinuxONE LUKS2 or pervasive encryption via CP Assist for Cryptographic Functions — CPACF).
+   Set `state.checkpoints.dir: pvc:///flink-checkpoints` using a PVC backed by this StorageClass.
+2. **S3-compatible object store with SSE-KMS**: Set `state.checkpoints.dir: s3://bucket/checkpoints`
+   with SSE-KMS enabled. Requires `flink-s3-fs-hadoop` or `flink-s3-fs-presto` JAR in the image.
+3. **IBM Cloud Object Storage (on-prem)**: For on-prem LinuxONE deployments with IBM COS.
+
+Replace `<PLACEHOLDER_ENCRYPTED_CHECKPOINT_STORAGE_URI>` in `layers/05-flink/flink-environment.yaml`
+with the chosen endpoint before applying.
