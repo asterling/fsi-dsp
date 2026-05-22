@@ -1,0 +1,43 @@
+---
+# =============================================================================
+# cmfrestclass.yaml — CMFRestClass CR
+# =============================================================================
+# CMFRestClass defines the mTLS-secured control channel between CFK and CMF.
+# CFK uses this channel to manage Flink lifecycle operations (FlinkApplication
+# submit, cancel, savepoint, status). The mTLS configuration here ensures that
+# CFK's connection to the CMF REST API is mutually authenticated — no unauthenticated
+# management plane access.
+#
+# This is the governed control path: all FlinkApplication lifecycle events
+# flow through CMF REST, which is gated by the CMF mTLS credential in
+# secrets.template/cmf-mtls-credentials.yaml.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: CMFRestClass
+metadata:
+  name: fsi-cmf-rest
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  cmfRest:
+    # CMF REST API endpoint — the CMF service in the confluent namespace.
+    # CMF exposes its REST API on port 8080 (HTTP) or 8443 (HTTPS/mTLS).
+    # Replace <PLACEHOLDER_CMF_SERVICE_ENDPOINT> with the actual CMF service
+    # URL (e.g., https://cmf.confluent.svc.cluster.local:8443).
+    endpoint: <PLACEHOLDER_CMF_SERVICE_ENDPOINT>
+
+    # mTLS authentication — CFK presents a client certificate to CMF.
+    # The secretRef points at the cert-manager-issued cmf-tls Secret
+    # (created by tls/certificate-crs.yaml, signed by layer 02's confluent-ca-issuer).
+    authentication:
+      type: mtls
+      mtls:
+        secretRef: cmf-mtls-credentials
+
+    # TLS configuration for the CFK → CMF connection.
+    # The CA in this secret must match the CMF server certificate's CA.
+    # Both are signed by confluent-ca-issuer (layer 02), so the trust root is shared.
+    tls:
+      secretRef: cmf-mtls-credentials

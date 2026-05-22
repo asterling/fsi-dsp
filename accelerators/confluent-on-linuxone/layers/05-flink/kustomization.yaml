@@ -1,0 +1,44 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# =============================================================================
+# 05-flink — Flink stream processing hardening layer
+# =============================================================================
+# Additive layer: adds Flink CRs, self-contained mTLS, RBAC, and topic
+# governance. Patches NOTHING from layers 01-04.
+#
+# DEPENDS ON:
+#   - layer 01-rbac: MDS ConfluentServerAuthorizer must be active so that
+#     Flink's Kafka client mTLS identity is subject to RBAC. Flink's Kafka
+#     access automatically appears in confluent-audit-log-events (layer 04)
+#     because Flink authenticates via mTLS and the audit router fires on
+#     ConfluentServerAuthorizer decisions — no change to layers 01-04 needed.
+#   - layer 02-tls: the confluent-ca-issuer ClusterIssuer (cluster-scoped)
+#     must be present before the Certificate CRs in tls/certificate-crs.yaml
+#     can be signed. Layer 02 registers this ClusterIssuer; layer 05 reuses it.
+#
+# Because of these dependencies, 05-flink is appended LAST in the overlays'
+# components: list (after 04-audit).
+#
+# secrets.template/ files are NOT included in resources: — they are operator
+# templates for out-of-band secret population, never applied directly.
+# =============================================================================
+
+resources:
+  # Core Flink CRs
+  - flink-environment.yaml
+  - cmfrestclass.yaml
+
+  # Self-contained RBAC — flink-developer (LDAP group) + flink-job-runtime (SA)
+  - rolebindings/flink-developer.yaml
+  - rolebindings/flink-job-runtime.yaml
+
+  # Self-contained mTLS — Certificate CRs referencing layer 02's ClusterIssuer
+  - tls/certificate-crs.yaml
+
+  # Example FSI FlinkApplication jobs + SQL ConfigMaps
+  - applications/txn-volume-tumbling-window.yaml
+  - applications/account-transaction-enrichment.yaml
+
+  # Output topics for Flink job sink tables
+  - topics/kafkatopic-flink-output.yaml

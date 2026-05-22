@@ -1,0 +1,82 @@
+---
+# =============================================================================
+# flink-environment.yaml — FlinkEnvironment CR
+# =============================================================================
+# The FlinkEnvironment is the CMF-managed context object that groups
+# FlinkApplication CRs into a governed compute environment. CFK/CMF uses it
+# to resolve the Flink cluster defaults (image, resource profiles, FlinkConf)
+# that FlinkApplications inherit unless they override explicitly.
+#
+# Namespace: confluent — single-namespace strategy (consistent with all other
+# CFK components in this accelerator). Multi-namespace Flink is a variant
+# documented in layers/05-flink/README.md.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: FlinkEnvironment
+metadata:
+  name: fsi-flink-env
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  # Flink version — must match the sql-runner image and connector JARs.
+  # CP 8.2.0 supports Apache Flink 1.20.x via CMF 2.3.x.
+  flinkVersion: "v1_20"
+
+  # Default image for FlinkApplications in this environment.
+  # The custom sql-runner image includes flink-sql-connector-kafka and
+  # flink-sql-avro-confluent-registry JARs for mTLS Kafka + SR integration.
+  # Replace <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE> per sql-runner/README.md.
+  image: <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>
+
+  # Default Flink configuration applied to all FlinkApplications in this env.
+  # Individual FlinkApplications may add to or override these via their own
+  # spec.flinkConfiguration block.
+  flinkConfiguration:
+    # Prometheus metrics reporter — exposes job metrics on port 9249.
+    # Scraped by the cluster Prometheus (see observability/grafana/dashboard-flink-jobs.json).
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+
+    # Task slot sizing — 4 slots per TaskManager pod is a sensible default
+    # for s390x LPAR workloads; individual FlinkApplications may override via parallelism.
+    taskmanager.numberOfTaskSlots: "4"
+
+    # State backend: rocksdb for large FSI state (risk aggregations, enrichment joins).
+    # hashmap is acceptable for micro-batch tumbling windows on small state.
+    state.backend: rocksdb
+
+    # Checkpoint state directory — MUST point at an encrypted StorageClass or S3/GCS
+    # bucket with SSE-KMS enabled. Unencrypted checkpoint state is a regulatory finding.
+    # See KNOWN-GAPS.md G-13 for the encrypted StorageClass requirement.
+    state.checkpoints.dir: <PLACEHOLDER_ENCRYPTED_CHECKPOINT_STORAGE_URI>
+
+    # Checkpoint interval default (overlay-patched: prod=30s, dev=60s)
+    execution.checkpointing.interval: "60000"
+
+  # s390x node affinity — required to schedule Flink pods on LinuxONE workers.
+  # Sourced from scenarios/cfk-openshift-linuxone/values/kafka.yaml affinity pattern.
+  podTemplate:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - s390x
+      containers:
+        - name: flink-main-container
+          # Mount Flink-Kafka mutual TLS keystore/truststore (from layer 02 CA chain).
+          # The secret is populated from secrets.template/flink-kafka-client-credentials.yaml.
+          volumeMounts:
+            - name: flink-kafka-client-tls
+              mountPath: /opt/certs
+              readOnly: true
+      volumes:
+        - name: flink-kafka-client-tls
+          secret:
+            secretName: flink-kafka-client-tls
