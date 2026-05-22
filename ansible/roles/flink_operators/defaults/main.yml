@@ -1,0 +1,45 @@
+---
+# =============================================================================
+# flink_operators role -- Default variable values
+# =============================================================================
+# Deploys FKO (Flink Kubernetes Operator) and CMF (Confluent Manager for Apache
+# Flink) on OpenShift via Helm with readiness gates.
+#
+# Two Helm charts are installed in order: FKO first (provides the FlinkDeployment
+# and FlinkApplication CRDs that CMF depends on), then CMF.
+#
+# Chart versions should be confirmed against packages.confluent.io/helm at
+# deploy time to ensure correct pairing with CP 8.2.0. The versions below
+# target the FKO 1.14.x and CMF 2.3.x lines compatible with CP 8.2.0.
+# =============================================================================
+
+# Shared Helm repository for both operators
+flink_helm_repo_name: confluentinc
+flink_helm_repo_url: https://packages.confluent.io/helm
+
+# --- FKO: Flink Kubernetes Operator -----------------------------------------
+# Chart: flink-kubernetes-operator (the open-source FKO, Confluent-packaged)
+# FKO 1.14.x is the supported line for Apache Flink 1.20.x on CP 8.2.0.
+fko_helm_release_name: flink-kubernetes-operator
+fko_helm_chart_ref: confluentinc/flink-kubernetes-operator
+fko_helm_chart_version: "1.14.0"
+
+# --- CMF: Confluent Manager for Apache Flink ---------------------------------
+# Chart: confluent-manager-for-apache-flink (CMF)
+# CMF 2.3.x pairs with CFK 3.2.x and requires FKO CRDs to be present first.
+# CMF manages the FlinkEnvironment and CMFRestClass CRs (platform.confluent.io/v1beta1).
+cmf_helm_release_name: confluent-manager-for-apache-flink
+cmf_helm_chart_ref: confluentinc/confluent-manager-for-apache-flink
+cmf_helm_chart_version: "2.3.0"
+
+# Target namespace — same namespace as all Confluent components
+flink_namespace: confluent
+
+# Helm wait timeout — 600 seconds matches cfk_operator convention and is
+# sufficient for the operator pods to pull s390x images and become Ready.
+flink_helm_wait_timeout: "600s"
+
+# Readiness polling after Helm completes (belt-and-suspenders for flaky pods)
+# 30 retries × 20 second delay = 10 minutes maximum wait.
+flink_readiness_retries: 30
+flink_readiness_delay: 20
