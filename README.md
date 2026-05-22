@@ -17,6 +17,24 @@ A universal, automation-first platform for standing up governed Kafka, Flink, an
 
 All eight scenarios enforce identical governance: topic naming, schema compatibility, RBAC patterns, and SLA-tier defaults.
 
+## Accelerators
+
+Where `scenarios/` are starter kits, `accelerators/` are opinionated, end-to-end, production-grade deployments.
+
+### Confluent on LinuxONE (`accelerators/confluent-on-linuxone/`)
+
+FSI-hardened Confluent Platform on IBM LinuxONE (s390x) via the CFK operator on OpenShift. Forks IBM / Matt Mondics's public reference runbook (pulled by pinned SHA — fetch-by-SHA, not vendored) as a clean base, then layers five Kustomize Components on top:
+
+| Layer | Control |
+|-------|---------|
+| `01-rbac` | MDS RBAC — platform-admin, topic-admin, producer/consumer-only, auditor-readonly, schema-admin |
+| `02-tls` | mTLS between all components, FIPS cipher suites, cert-manager rotation |
+| `03-schema-governance` | FULL_TRANSITIVE compatibility, subject-naming enforcement, hard-delete controls |
+| `04-audit` | Broker audit log → 7-year retention topic → Splunk / Dynatrace SIEM sinks |
+| `05-flink` | Apache Flink via Confluent Manager for Apache Flink (CMF) — `FlinkApplication` CRs, self-contained mTLS + RBAC, FSI example jobs |
+
+Composed by `overlays/{dev,prod}`; `flox activate` pins the toolchain. Flink's prerequisite operators (FKO + CMF) install via the `flink_operators` Ansible role. See `accelerators/confluent-on-linuxone/README.md`, `DESIGN.md`, and `KNOWN-GAPS.md`.
+
 ## Quick Start
 
 ```bash
@@ -117,7 +135,7 @@ Plus: Kafka Connect JDBC configs (East/West), Docker Compose local dev (Kafka + 
 
 ### Ansible Automation (`ansible/`)
 
-Ten roles providing full lifecycle management for Confluent Platform and CFK deployments:
+Eleven roles providing full lifecycle management for Confluent Platform and CFK deployments:
 
 | Role | Purpose |
 |------|---------|
@@ -131,6 +149,7 @@ Ten roles providing full lifecycle management for Confluent Platform and CFK dep
 | `cfk_operator` | CFK Helm deployment with CR readiness gates |
 | `cfk_topic` | KafkaTopic CRD generation from CPTopic YAML with governance parity |
 | `cp_mtls` | mTLS certificate provisioning (CA, broker/client keystores, truststores) |
+| `flink_operators` | Flink Kubernetes Operator + Confluent Manager for Apache Flink (CMF) Helm install with readiness gates |
 
 All roles support `--check` mode for audit-ready dry runs. Orchestrated by `site.yml` with tag-isolated selective execution.
 
@@ -145,6 +164,9 @@ All roles support `--check` mode for audit-ready dry runs. Orchestrated by `site
 ## Project Structure
 
 ```
+accelerators/
+  confluent-on-linuxone/     # FSI-hardened CP on LinuxONE — CFK base + 5 Kustomize layers
+                             #   (RBAC, TLS, schema governance, audit, Flink)
 scenarios/
   cc-aws/                    # Confluent Cloud on AWS (Terraform)
   cc-azure/                  # Confluent Cloud on Azure (Terraform)
@@ -168,6 +190,8 @@ ansible/
     cp_dr_mrc/               # MRC observer promotion (RPO=0)
     cfk_operator/            # CFK Helm + CR readiness gates
     cfk_topic/               # KafkaTopic CRD from CPTopic YAML
+    cp_mtls/                 # mTLS cert provisioning (CA, keystores, truststores)
+    flink_operators/         # FKO + CMF Helm install (readiness-gated)
   playbooks/                 # DR, governance, CFK deployment playbooks
   filter_plugins/            # fsi_governance Jinja2 filters
   inventories/               # dev, staging, prod, dr environments
