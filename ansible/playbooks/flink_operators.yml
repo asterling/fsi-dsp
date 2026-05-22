@@ -1,0 +1,26 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- FKO + CMF Flink operator deployment playbook
+# =============================================================================
+# Installs the Flink Kubernetes Operator (FKO) and Confluent Manager for Apache
+# Flink (CMF) into the confluent namespace via Helm, with readiness gates.
+#
+# This is RUNBOOK Step 1b — run it after the CFK operator (deploy-cfk.yml)
+# and before applying layers/05-flink/ via kustomize.
+#
+# Usage:
+#   ansible-playbook ansible/playbooks/flink_operators.yml
+#   ansible-playbook ansible/playbooks/flink_operators.yml --check  # audit mode
+#   ansible-playbook ansible/playbooks/flink_operators.yml \
+#     -e fko_helm_chart_version=1.14.0 \
+#     -e cmf_helm_chart_version=2.3.0
+# =============================================================================
+
+- name: Deploy FKO and CMF Flink operators
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Deploy FKO and CMF operators
+      ansible.builtin.include_role:
+        name: flink_operators

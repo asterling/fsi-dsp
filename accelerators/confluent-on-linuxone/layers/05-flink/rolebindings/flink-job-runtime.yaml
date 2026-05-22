@@ -1,0 +1,97 @@
+---
+# =============================================================================
+# rolebindings/flink-job-runtime.yaml — Flink job runtime least-privilege RBAC
+# =============================================================================
+# Grants the minimum Kafka + Schema Registry access that the Flink job runtime
+# (service account) requires to execute the FSI example SQL jobs:
+#
+#   1. DeveloperRead on source topic prefix (corebanking.) — read input events
+#   2. DeveloperWrite on sink topic prefix (flink.output.) — write aggregated results
+#   3. DeveloperRead on SR subjects (corebanking.) — deserialize Avro input
+#
+# The Flink job's Kafka identity is its mTLS certificate CN/SAN, which must
+# match the service account name registered with MDS. The certificate is issued
+# by confluent-ca-issuer (layer 02) via the flink-kafka-client-tls Certificate CR.
+#
+# Least-privilege rationale: The job runtime must NOT have produce rights on
+# source topics (no accidental re-publication of input events) and must NOT
+# have consume rights on the audit log topic (no self-auditing). Separate bindings
+# per role type makes each grant independently auditable and revocable.
+# =============================================================================
+
+# --- Binding 1: read from source topics (corebanking.*) ----------------------
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: flink-job-runtime-source-read
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  principal:
+    # Service account identity — the Flink job authenticates to Kafka via mTLS.
+    # The CN in the flink-kafka-client-tls certificate must match this name.
+    type: user
+    name: <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>
+  # DeveloperRead: consume from topic (and committed offsets for consumer group).
+  # Does NOT grant produce — enforces write-only access on the Flink job's input.
+  role: DeveloperRead
+  resourcePatterns:
+    # Read from any corebanking.* topic (tumbling-window source + enrichment source)
+    - resourceType: Topic
+      name: corebanking.
+      patternType: PREFIXED
+    # Consumer group access — required for Flink's Kafka source checkpointing
+    - resourceType: Group
+      name: flink-fsi-
+      patternType: PREFIXED
+
+---
+# --- Binding 2: write to Flink output topics (flink.output.*) ----------------
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: flink-job-runtime-sink-write
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  principal:
+    type: user
+    name: <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>
+  # DeveloperWrite: produce to sink topics.
+  # Does NOT grant read — output topics should only be readable by downstream consumers.
+  role: DeveloperWrite
+  resourcePatterns:
+    # Write to the Flink output topic prefix (matches topics/kafkatopic-flink-output.yaml)
+    - resourceType: Topic
+      name: flink.output.
+      patternType: PREFIXED
+    # TransactionalId prefix for exactly-once sink semantics (prod overlay)
+    - resourceType: TransactionalId
+      name: flink-fsi-
+      patternType: PREFIXED
+
+---
+# --- Binding 3: read SR subjects for Avro deserialization (corebanking.*) ----
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: flink-job-runtime-sr-read
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  principal:
+    type: user
+    name: <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>
+  # DeveloperRead on SR subjects: allows fetching schema by ID for Avro deserialization.
+  # The avro-confluent format connector in Flink SQL retrieves schemas via SR REST API.
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Subject
+      name: corebanking.
+      patternType: PREFIXED

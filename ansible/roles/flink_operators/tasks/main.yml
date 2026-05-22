@@ -1,0 +1,20 @@
+---
+# =============================================================================
+# flink_operators role -- Entry point
+# =============================================================================
+# Routes to check mode (GET-only audit) or deploy flow.
+# No apply_crs.yml — Flink CRs (FlinkEnvironment, CMFRestClass, FlinkApplication)
+# are applied via kustomize, not this role. The role's only job is the Helm layer.
+# =============================================================================
+
+# --- Check mode: report operator and CR state without mutations --------------
+- name: Run check-mode Flink operator audit report
+  ansible.builtin.include_tasks:
+    file: check.yml
+  when: ansible_check_mode | bool
+
+# --- Normal mode: deploy FKO then CMF via Helm -------------------------------
+- name: Deploy FKO and CMF operators via Helm
+  ansible.builtin.include_tasks:
+    file: deploy.yml
+  when: not (ansible_check_mode | bool)

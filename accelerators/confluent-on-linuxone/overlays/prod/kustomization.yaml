@@ -5,11 +5,13 @@ kind: Kustomization
 # overlays/prod/kustomization.yaml — production overlay
 # =============================================================================
 # The ONLY buildable Kustomization artifact for the prod environment.
-# Composes base + all 4 FSI hardening components in dependency order:
+# Composes base + all 5 FSI hardening components in dependency order:
 #   01-rbac (must apply before 04-audit — ConfluentServerAuthorizer first)
-#   02-tls  (must apply before 03/04 — TLS secrets referenced by SR bootstrap + Connect)
+#   02-tls  (must apply before 03/04/05 — TLS secrets + confluent-ca-issuer ClusterIssuer)
 #   03-schema-governance
 #   04-audit
+#   05-flink (appended LAST — depends on layer 01 MDS + layer 02 cert ClusterIssuer
+#             and broker mTLS listener)
 # =============================================================================
 
 # Upstream base: Mondics's CP 8.2.0 CFK manifests (populated by fetch-upstream.sh)
@@ -23,6 +25,7 @@ components:
   - ../../layers/02-tls
   - ../../layers/03-schema-governance
   - ../../layers/04-audit
+  - ../../layers/05-flink
 
 # Namespace for all resources
 namespace: confluent
@@ -50,6 +53,46 @@ patches:
     target:
       kind: SchemaRegistry
       name: schemaregistry
+
+  # Flink output topics: 7-year retention for OFAC/AML/SOX compliance
+  # Windowed aggregation and enrichment outputs are regulatory evidence.
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "220752000000"
+    target:
+      kind: KafkaTopic
+      name: flink-output-txn-volume-1m
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "220752000000"
+    target:
+      kind: KafkaTopic
+      name: flink-output-enriched-transaction
+
+  # FlinkApplication: production sizing — EXACTLY_ONCE semantics, 30s checkpoint interval, parallelism 2
+  # EXACTLY_ONCE required for regulatory reporting (no duplicate events in OFAC/AML outputs).
+  - patch: |-
+      - op: replace
+        path: /spec/job/parallelism
+        value: 2
+      - op: replace
+        path: /spec/flinkConfiguration/execution.checkpointing.interval
+        value: "30000"
+    target:
+      kind: FlinkApplication
+      name: fsi-txn-volume-tumbling-window
+  - patch: |-
+      - op: replace
+        path: /spec/job/parallelism
+        value: 2
+      - op: replace
+        path: /spec/flinkConfiguration/execution.checkpointing.interval
+        value: "30000"
+    target:
+      kind: FlinkApplication
+      name: fsi-account-txn-enrichment
 
 commonLabels:
   app.kubernetes.io/managed-by: "kustomize"

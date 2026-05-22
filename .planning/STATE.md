@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 Phase: 17 of 17 (FSI-Hardened Confluent-on-LinuxONE Accelerator)
 Plan: Tracked as quick task
 Status: Complete
-Last activity: 2026-05-21 — Executed quick task 260521-26u: built accelerators/confluent-on-linuxone/ (10 tasks, 53 files, 10 commits)
+Last activity: 2026-05-22 — Executed quick task 260522-kjt: added layers/05-flink to accelerators/confluent-on-linuxone/ (8 tasks, 28 files, 7 commits)
 
 Progress: [██████████] 100%
 
@@ -36,6 +36,8 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent:
 
 - Regenerate .flox/env/manifest.lock on a Flox-equipped machine (KNOWN-GAPS G-07)
 - Build custom s390x Connect image with Splunk Sink + HTTP Sink JARs (KNOWN-GAPS G-08)
+- Build custom s390x SQL-runner image per layers/05-flink/sql-runner/README.md (KNOWN-GAPS G-12)
+- Configure encrypted StorageClass/SSE endpoint for Flink checkpoint state (KNOWN-GAPS G-13)
 
 ### Blockers/Concerns
 
@@ -46,9 +48,10 @@ Decisions are logged in PROJECT.md Key Decisions table. Recent:
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260521-26u | FSI-hardened Confluent-on-LinuxONE accelerator — fork Mondics runbook + 4 hardening layers | 2026-05-21 | c511571 | [260521-26u-build-accelerators-confluent-on-linuxone](./quick/260521-26u-build-accelerators-confluent-on-linuxone/) |
+| 260522-kjt | Add Apache Flink as layer 05 of the confluent-on-linuxone accelerator | 2026-05-22 | e4b08da | [260522-kjt-add-apache-flink-as-layer-05-of-the-conf](./quick/260522-kjt-add-apache-flink-as-layer-05-of-the-conf/) |
 
 ## Session Continuity
 
-Last session: 2026-05-21
-Stopped at: Completed quick task 260521-26u — accelerators/confluent-on-linuxone/ fully built
+Last session: 2026-05-22
+Stopped at: Completed quick task 260522-kjt — layers/05-flink added to accelerators/confluent-on-linuxone/
 Resume file: None

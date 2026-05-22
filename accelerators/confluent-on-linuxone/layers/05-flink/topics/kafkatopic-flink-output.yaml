@@ -1,0 +1,72 @@
+---
+# =============================================================================
+# topics/kafkatopic-flink-output.yaml — Flink output topic KafkaTopic CRs
+# =============================================================================
+# Pre-creates the Flink job sink topics declaratively, ensuring retention,
+# replication, and compaction settings are authoritative before the first
+# event arrives. Broker auto-create would use defaults, which differ from
+# these FSI-mandated settings.
+#
+# Topic naming: flink.output.{domain}.{entity} — signals the Flink origin
+# and allows ConfluentRolebindings to scope access on the flink.output. prefix.
+#
+# Retention: overlay-substitutable via $(FLINK_OUTPUT_RETENTION_MS) token,
+# consistent with the audit topic's $(AUDIT_RETENTION_MS) pattern (layer 04).
+# Production overlays set 7y (220752000000 ms); dev overlays set 30d (2592000000 ms).
+# =============================================================================
+
+# --- Topic 1: Tumbling-window transaction volume aggregation output ----------
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: flink-output-txn-volume-1m
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  name: flink.output.corebanking.txn-volume-1m
+  replicas: 3
+  # 6 partitions: matches project partition convention (supports parallel consumers
+  # for dashboard / alerting systems reading the windowed output)
+  partitionCount: 6
+  configs:
+    # Retention: overlay-configurable (see overlays/{dev,prod}/kustomization.yaml patches)
+    # Production: 7 years for OFAC/AML/SOX — windowed aggregates are regulatory evidence
+    # Development: 30 days to reduce storage cost
+    retention.ms: "$(FLINK_OUTPUT_RETENTION_MS)"
+
+    # Delete policy: no compaction on windowed aggregates.
+    # Compaction would suppress window rows with the same key, corrupting the time series.
+    cleanup.policy: "delete"
+
+    # min.insync.replicas=2: write requires 2/3 replicas — durable under single broker loss
+    min.insync.replicas: "2"
+
+    # Segment roll: 1 hour — bounds recovery window on broker failure
+    segment.ms: "3600000"
+
+---
+# --- Topic 2: Stream-table join enriched transaction output ------------------
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: flink-output-enriched-transaction
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  name: flink.output.fraud.enriched-transaction
+  replicas: 3
+  # 6 partitions: enriched transaction stream — parallel fraud scoring consumers
+  partitionCount: 6
+  configs:
+    retention.ms: "$(FLINK_OUTPUT_RETENTION_MS)"
+
+    # Delete policy: enriched transaction events are consumed and processed;
+    # compaction would suppress duplicates but would break event-time replay.
+    cleanup.policy: "delete"
+
+    min.insync.replicas: "2"
+    segment.ms: "3600000"

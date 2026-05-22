@@ -1,0 +1,188 @@
+---
+# =============================================================================
+# applications/txn-volume-tumbling-window.yaml — FlinkApplication + SQL ConfigMap
+# =============================================================================
+# CFK port of reference/flink-sql/tumbling-window-aggregation.sql.
+# FSI use case: 1-minute transaction volume aggregation by domain for dashboards
+# and alerting (feeds risk/compliance dashboards in real time).
+#
+# Unlike CC Flink (which auto-discovers SR subjects), CFK Flink requires explicit
+# CREATE TABLE with WITH(...) connector properties. The SQL uses mutual TLS to
+# Kafka (keystore + truststore, not truststore-only) and https:// Schema Registry
+# URL (layer 02 mTLS'd SR). Plain SSL (truststore-only) is NOT used here because
+# the broker listener is mtls (requires client cert) — see layer 02.
+#
+# Checkpoint state: MUST point at an encrypted StorageClass or SSE-enabled
+# object store. Default from FlinkEnvironment; override per job if needed.
+# See KNOWN-GAPS.md G-13.
+#
+# Per-overlay sizing patches (overlays/{dev,prod}/kustomization.yaml):
+#   prod: EXACTLY_ONCE semantics, parallelism 2, checkpointInterval 30s
+#   dev:  AT_LEAST_ONCE (default), parallelism 1, checkpointInterval 60s
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: FlinkApplication
+metadata:
+  name: fsi-txn-volume-tumbling-window
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+    fsi.pattern: "tumbling-window"
+    fsi.domain: "corebanking"
+spec:
+  # References the FlinkEnvironment CR (defaults: image, s390x affinity, RocksDB state)
+  flinkEnvironment: fsi-flink-env
+
+  # Custom sql-runner image — must be built and pushed before applying.
+  # See sql-runner/README.md for docker buildx --platform linux/s390x instructions.
+  image: <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>
+
+  # Job configuration
+  job:
+    # The fsi-sql-runner.jar reads the SQL file from the mounted ConfigMap and
+    # submits it to the Flink SQL gateway as a batch of DDL + DML statements.
+    jarURI: local:///opt/flink/usrlib/fsi-sql-runner.jar
+    entryClass: com.goodlabs.fsi.flink.SqlRunner
+    args:
+      - "--sql-file"
+      - "/opt/flink/sql/tumbling-window.sql"
+    # parallelism: patched per overlay (prod: 2, dev: 1)
+    parallelism: 1
+    upgradeMode: savepoint
+    state: running
+
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    # Checkpoint interval: patched per overlay (prod: 30000ms, dev: 60000ms)
+    execution.checkpointing.interval: "60000"
+    # Prometheus metrics reporter (port 9249 — scraped by cluster Prometheus)
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+
+  taskManager:
+    resource:
+      memory: "4096m"
+      cpu: 2
+
+  # Pod template: mount the SQL ConfigMap and the Flink-Kafka mTLS credentials.
+  # The mTLS keystore/truststore are consumed by the SQL WITH(...) properties.
+  podTemplate:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - s390x
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: sql-scripts
+              mountPath: /opt/flink/sql
+            - name: flink-kafka-client-tls
+              mountPath: /opt/certs
+              readOnly: true
+      volumes:
+        - name: sql-scripts
+          configMap:
+            name: fsi-txn-volume-tumbling-window-sql
+        - name: flink-kafka-client-tls
+          secret:
+            secretName: flink-kafka-client-tls
+
+---
+# =============================================================================
+# ConfigMap — Tumbling Window SQL
+# =============================================================================
+# CFK port of reference/flink-sql/tumbling-window-aggregation.sql.
+# CFK Flink requires explicit CREATE TABLE (CC Flink auto-discovers SR subjects).
+# Kafka connector uses mutual TLS (keystore + truststore) because the broker
+# listener.internal.authentication.type is mtls (layer 02).
+# Schema Registry URL is https:// (mTLS'd SR — layer 02).
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fsi-txn-volume-tumbling-window-sql
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+data:
+  tumbling-window.sql: |
+    -- CFK port of reference/flink-sql/tumbling-window-aggregation.sql
+    -- FSI use case: 1-minute transaction volume aggregation by domain
+    -- Requires mutual TLS to Kafka (not truststore-only) because layer 02 enables
+    -- listeners.internal.authentication.type: mtls on all brokers.
+
+    CREATE TABLE account_transaction (
+      transaction_id  STRING,
+      account_number  STRING,
+      amount          DECIMAL(15, 2),
+      transaction_type STRING,
+      `timestamp`     TIMESTAMP(3),
+      WATERMARK FOR `timestamp` AS `timestamp` - INTERVAL '5' SECOND
+    ) WITH (
+      'connector'                               = 'kafka',
+      'topic'                                   = 'corebanking.transactions.v1.account-transaction',
+      'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
+      'scan.startup.mode'                       = 'earliest-offset',
+      'value.format'                            = 'avro-confluent',
+      'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      -- Mutual TLS: both keystore (client cert) and truststore (CA) are required
+      'properties.security.protocol'            = 'SSL',
+      'properties.ssl.keystore.type'            = 'JKS',
+      'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
+      'properties.ssl.keystore.password'        = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'properties.ssl.key.password'             = '<PLACEHOLDER_KEY_PASSWORD>',
+      'properties.ssl.truststore.type'          = 'JKS',
+      'properties.ssl.truststore.location'      = '/opt/certs/truststore.jks',
+      'properties.ssl.truststore.password'      = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>'
+    );
+
+    CREATE TABLE txn_volume_1m (
+      window_start      TIMESTAMP(3),
+      window_end        TIMESTAMP(3),
+      transaction_count BIGINT,
+      total_amount      DECIMAL(15, 2),
+      avg_amount        DECIMAL(15, 2),
+      min_amount        DECIMAL(15, 2),
+      max_amount        DECIMAL(15, 2)
+    ) WITH (
+      'connector'                               = 'kafka',
+      'topic'                                   = 'flink.output.corebanking.txn-volume-1m',
+      'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
+      'value.format'                            = 'avro-confluent',
+      'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol'            = 'SSL',
+      'properties.ssl.keystore.type'            = 'JKS',
+      'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
+      'properties.ssl.keystore.password'        = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'properties.ssl.key.password'             = '<PLACEHOLDER_KEY_PASSWORD>',
+      'properties.ssl.truststore.type'          = 'JKS',
+      'properties.ssl.truststore.location'      = '/opt/certs/truststore.jks',
+      'properties.ssl.truststore.password'      = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>'
+    );
+
+    INSERT INTO txn_volume_1m
+    SELECT
+      window_start,
+      window_end,
+      COUNT(*)        AS transaction_count,
+      SUM(amount)     AS total_amount,
+      AVG(amount)     AS avg_amount,
+      MIN(amount)     AS min_amount,
+      MAX(amount)     AS max_amount
+    FROM TABLE(
+      TUMBLE(TABLE account_transaction, DESCRIPTOR(`timestamp`), INTERVAL '1' MINUTE)
+    )
+    GROUP BY window_start, window_end;

@@ -1,0 +1,60 @@
+---
+# =============================================================================
+# flink_operators role -- Helm-based FKO + CMF operator deployment
+# =============================================================================
+# Adds the Confluent Helm repository and installs both operator charts in the
+# correct order: FKO first (its CRDs must be present before CMF starts up),
+# then CMF. Both use wait:true so the playbook blocks until each operator
+# pod is Ready — required before applying Flink CRs via kustomize.
+# =============================================================================
+
+- name: Add Confluent Helm repository
+  kubernetes.core.helm_repository:
+    name: "{{ flink_helm_repo_name }}"
+    repo_url: "{{ flink_helm_repo_url }}"
+    state: present
+
+# ---------------------------------------------------------------------------
+# Install FKO first — CMF depends on FlinkApplication/FlinkEnvironment CRDs
+# that FKO registers. Installing CMF before FKO results in CRD-not-found errors.
+# ---------------------------------------------------------------------------
+- name: Deploy Flink Kubernetes Operator (FKO) via Helm
+  kubernetes.core.helm:
+    name: "{{ fko_helm_release_name }}"
+    chart_ref: "{{ fko_helm_chart_ref }}"
+    chart_version: "{{ fko_helm_chart_version }}"
+    release_namespace: "{{ flink_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: "{{ flink_helm_wait_timeout }}"
+  register: _fko_helm_result
+
+- name: Report FKO deployment result
+  ansible.builtin.debug:
+    msg: >-
+      FKO Helm release '{{ fko_helm_release_name }}'
+      status={{ _fko_helm_result.status | default('unknown') }}
+  when: _fko_helm_result is defined
+
+# ---------------------------------------------------------------------------
+# Install CMF second — requires FKO CRDs present and operator Running.
+# CMF provides the CMFRestClass and FlinkEnvironment controllers that CFK uses
+# to manage Flink lifecycle (FlinkApplication CR reconciliation).
+# ---------------------------------------------------------------------------
+- name: Deploy Confluent Manager for Apache Flink (CMF) via Helm
+  kubernetes.core.helm:
+    name: "{{ cmf_helm_release_name }}"
+    chart_ref: "{{ cmf_helm_chart_ref }}"
+    chart_version: "{{ cmf_helm_chart_version }}"
+    release_namespace: "{{ flink_namespace }}"
+    create_namespace: true
+    wait: true
+    wait_timeout: "{{ flink_helm_wait_timeout }}"
+  register: _cmf_helm_result
+
+- name: Report CMF deployment result
+  ansible.builtin.debug:
+    msg: >-
+      CMF Helm release '{{ cmf_helm_release_name }}'
+      status={{ _cmf_helm_result.status | default('unknown') }}
+  when: _cmf_helm_result is defined

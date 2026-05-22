@@ -4,12 +4,15 @@ kind: Kustomization
 # =============================================================================
 # overlays/dev/kustomization.yaml — development overlay
 # =============================================================================
-# Same base + 4 components as prod, with relaxed environment-specific settings:
+# Same base + 5 components as prod, with relaxed environment-specific settings:
 #   - Audit retention: 30 days (vs 7 years in prod) — reduce dev storage cost
 #   - Schema compatibility: BACKWARD (vs FULL_TRANSITIVE in prod) — allow faster iteration
+#   - Flink: parallelism 1, 60s checkpoint interval (reduced resource use)
+#   - Flink output retention: 30 days
 #
-# All 4 hardening layers are applied in dev too — this ensures dev is functionally
+# All 5 hardening layers are applied in dev too — this ensures dev is functionally
 # identical to prod (no "works in dev" RBAC surprises in prod).
+# 05-flink is appended LAST — depends on layer 01 MDS + layer 02 confluent-ca-issuer.
 # =============================================================================
 
 resources:
@@ -20,6 +23,7 @@ components:
   - ../../layers/02-tls
   - ../../layers/03-schema-governance
   - ../../layers/04-audit
+  - ../../layers/05-flink
 
 namespace: confluent
 
@@ -66,6 +70,45 @@ patches:
     target:
       kind: Connect
       name: connect
+
+  # Flink output topics: 30-day retention for dev (vs 7y in prod)
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "2592000000"
+    target:
+      kind: KafkaTopic
+      name: flink-output-txn-volume-1m
+  - patch: |-
+      - op: replace
+        path: /spec/configs/retention.ms
+        value: "2592000000"
+    target:
+      kind: KafkaTopic
+      name: flink-output-enriched-transaction
+
+  # FlinkApplication: dev sizing — parallelism 1, 60s checkpoint interval
+  # Reduces resource use on a dev cluster (vs prod: parallelism 2, 30s)
+  - patch: |-
+      - op: replace
+        path: /spec/job/parallelism
+        value: 1
+      - op: replace
+        path: /spec/flinkConfiguration/execution.checkpointing.interval
+        value: "60000"
+    target:
+      kind: FlinkApplication
+      name: fsi-txn-volume-tumbling-window
+  - patch: |-
+      - op: replace
+        path: /spec/job/parallelism
+        value: 1
+      - op: replace
+        path: /spec/flinkConfiguration/execution.checkpointing.interval
+        value: "60000"
+    target:
+      kind: FlinkApplication
+      name: fsi-account-txn-enrichment
 
 commonLabels:
   app.kubernetes.io/managed-by: "kustomize"

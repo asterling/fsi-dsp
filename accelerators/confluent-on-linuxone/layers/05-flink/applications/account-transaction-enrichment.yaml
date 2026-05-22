@@ -1,0 +1,199 @@
+---
+# =============================================================================
+# applications/account-transaction-enrichment.yaml — FlinkApplication + SQL ConfigMap
+# =============================================================================
+# CFK port of reference/flink-sql/stream-table-join-enrichment.sql.
+# FSI use case: Enrich real-time transaction stream with customer profile data
+# for fraud detection. Temporal join (FOR SYSTEM_TIME AS OF) on the compacted
+# customer-profile topic.
+#
+# Same mTLS / SR patterns as txn-volume-tumbling-window.yaml — see that file
+# for the rationale comments.
+#
+# Temporal join requirements:
+#   1. customer-profile topic must have cleanup.policy=compact (compacted lookup table)
+#   2. customer-profile schema must define a PRIMARY KEY field for temporal join semantics
+#   3. JOIN ON clause must include the primary key column
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: FlinkApplication
+metadata:
+  name: fsi-account-txn-enrichment
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+    fsi.pattern: "stream-table-join"
+    fsi.domain: "corebanking"
+spec:
+  flinkEnvironment: fsi-flink-env
+  image: <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>
+
+  job:
+    jarURI: local:///opt/flink/usrlib/fsi-sql-runner.jar
+    entryClass: com.goodlabs.fsi.flink.SqlRunner
+    args:
+      - "--sql-file"
+      - "/opt/flink/sql/enrichment.sql"
+    # parallelism: patched per overlay (prod: 2, dev: 1)
+    parallelism: 1
+    upgradeMode: savepoint
+    state: running
+
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "4"
+    # Checkpoint interval: patched per overlay (prod: 30000ms, dev: 60000ms)
+    execution.checkpointing.interval: "60000"
+    metrics.reporter.prom.factory.class: org.apache.flink.metrics.prometheus.PrometheusReporterFactory
+    metrics.reporter.prom.port: "9249"
+
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 1
+
+  taskManager:
+    resource:
+      # Enrichment jobs carry larger state (customer-profile lookup cache)
+      # than pure aggregation jobs — allocate more memory for RocksDB state.
+      memory: "8192m"
+      cpu: 2
+
+  podTemplate:
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/arch
+                    operator: In
+                    values:
+                      - s390x
+      containers:
+        - name: flink-main-container
+          volumeMounts:
+            - name: sql-scripts
+              mountPath: /opt/flink/sql
+            - name: flink-kafka-client-tls
+              mountPath: /opt/certs
+              readOnly: true
+      volumes:
+        - name: sql-scripts
+          configMap:
+            name: fsi-account-txn-enrichment-sql
+        - name: flink-kafka-client-tls
+          secret:
+            secretName: flink-kafka-client-tls
+
+---
+# =============================================================================
+# ConfigMap — Account Transaction Enrichment SQL
+# =============================================================================
+# CFK port of reference/flink-sql/stream-table-join-enrichment.sql.
+# Temporal join (FOR SYSTEM_TIME AS OF txn.$rowtime) requires:
+#   1. customer_profile table with PRIMARY KEY (compacted topic)
+#   2. WATERMARK on the transaction stream
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fsi-account-txn-enrichment-sql
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+data:
+  enrichment.sql: |
+    -- CFK port of reference/flink-sql/stream-table-join-enrichment.sql
+    -- FSI use case: enrich real-time transaction stream with customer profile
+    -- for fraud detection. Temporal join against compacted customer-profile topic.
+    -- Requires mTLS (keystore + truststore) to Kafka (layer 02: mtls listener).
+
+    CREATE TABLE account_transaction (
+      transaction_id   STRING,
+      account_number   STRING,
+      amount           DECIMAL(15, 2),
+      transaction_type STRING,
+      `timestamp`      TIMESTAMP(3),
+      WATERMARK FOR `timestamp` AS `timestamp` - INTERVAL '5' SECOND
+    ) WITH (
+      'connector'                               = 'kafka',
+      'topic'                                   = 'corebanking.transactions.v1.account-transaction',
+      'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
+      'scan.startup.mode'                       = 'earliest-offset',
+      'value.format'                            = 'avro-confluent',
+      'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol'            = 'SSL',
+      'properties.ssl.keystore.type'            = 'JKS',
+      'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
+      'properties.ssl.keystore.password'        = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'properties.ssl.key.password'             = '<PLACEHOLDER_KEY_PASSWORD>',
+      'properties.ssl.truststore.type'          = 'JKS',
+      'properties.ssl.truststore.location'      = '/opt/certs/truststore.jks',
+      'properties.ssl.truststore.password'      = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>'
+    );
+
+    -- Temporal join dimension table: cleanup.policy=compact compacted topic.
+    -- PRIMARY KEY must match a registered schema field.
+    CREATE TABLE customer_profile (
+      account_number STRING PRIMARY KEY NOT ENFORCED,
+      risk_rating    STRING,
+      kyc_status     STRING,
+      country_code   STRING
+    ) WITH (
+      'connector'                               = 'kafka',
+      'topic'                                   = 'corebanking.customers.v1.customer-profile',
+      'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
+      'scan.startup.mode'                       = 'earliest-offset',
+      'value.format'                            = 'avro-confluent',
+      'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol'            = 'SSL',
+      'properties.ssl.keystore.type'            = 'JKS',
+      'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
+      'properties.ssl.keystore.password'        = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'properties.ssl.key.password'             = '<PLACEHOLDER_KEY_PASSWORD>',
+      'properties.ssl.truststore.type'          = 'JKS',
+      'properties.ssl.truststore.location'      = '/opt/certs/truststore.jks',
+      'properties.ssl.truststore.password'      = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>'
+    );
+
+    CREATE TABLE enriched_transaction (
+      transaction_id   STRING,
+      account_number   STRING,
+      amount           DECIMAL(15, 2),
+      transaction_type STRING,
+      `timestamp`      TIMESTAMP(3),
+      risk_rating      STRING,
+      kyc_status       STRING,
+      country_code     STRING
+    ) WITH (
+      'connector'                               = 'kafka',
+      'topic'                                   = 'flink.output.fraud.enriched-transaction',
+      'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
+      'value.format'                            = 'avro-confluent',
+      'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      'properties.security.protocol'            = 'SSL',
+      'properties.ssl.keystore.type'            = 'JKS',
+      'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
+      'properties.ssl.keystore.password'        = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'properties.ssl.key.password'             = '<PLACEHOLDER_KEY_PASSWORD>',
+      'properties.ssl.truststore.type'          = 'JKS',
+      'properties.ssl.truststore.location'      = '/opt/certs/truststore.jks',
+      'properties.ssl.truststore.password'      = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>'
+    );
+
+    INSERT INTO enriched_transaction
+    SELECT
+      txn.transaction_id,
+      txn.account_number,
+      txn.amount,
+      txn.transaction_type,
+      txn.`timestamp`,
+      cust.risk_rating,
+      cust.kyc_status,
+      cust.country_code
+    FROM account_transaction AS txn
+    JOIN customer_profile
+      FOR SYSTEM_TIME AS OF txn.`timestamp` AS cust
+    ON txn.account_number = cust.account_number;

@@ -1,0 +1,96 @@
+---
+# =============================================================================
+# flink_operators role -- Check mode (read-only audit)
+# =============================================================================
+# Queries the current state of the FKO and CMF Helm releases plus the Flink
+# CRs in the namespace, without making any mutations. Safe for --check runs
+# and drift detection. All tasks use check_mode: false + changed_when: false.
+# =============================================================================
+
+# --- FKO Helm release status -------------------------------------------------
+- name: Query FKO Helm release status
+  kubernetes.core.helm_info:
+    name: "{{ fko_helm_release_name }}"
+    release_namespace: "{{ flink_namespace }}"
+  register: _fko_helm_info
+  check_mode: false
+  changed_when: false
+
+- name: Report FKO operator status
+  ansible.builtin.debug:
+    msg: >-
+      FKO Helm release '{{ fko_helm_release_name }}'
+      in namespace '{{ flink_namespace }}':
+      {{ _fko_helm_info.status | default('not found') }}
+  changed_when: false
+
+# --- CMF Helm release status -------------------------------------------------
+- name: Query CMF Helm release status
+  kubernetes.core.helm_info:
+    name: "{{ cmf_helm_release_name }}"
+    release_namespace: "{{ flink_namespace }}"
+  register: _cmf_helm_info
+  check_mode: false
+  changed_when: false
+
+- name: Report CMF operator status
+  ansible.builtin.debug:
+    msg: >-
+      CMF Helm release '{{ cmf_helm_release_name }}'
+      in namespace '{{ flink_namespace }}':
+      {{ _cmf_helm_info.status | default('not found') }}
+  changed_when: false
+
+# --- Query FlinkApplication CR status ----------------------------------------
+- name: Query FlinkApplication CR status
+  kubernetes.core.k8s_info:
+    kind: FlinkApplication
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ flink_namespace }}"
+  register: _flink_app_check
+  check_mode: false
+  changed_when: false
+
+- name: Report FlinkApplication CR status
+  ansible.builtin.debug:
+    msg: >-
+      FlinkApplication CRs in '{{ flink_namespace }}':
+      {{ _flink_app_check.resources | length }} found,
+      phases={{ _flink_app_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false
+
+# --- Query FlinkEnvironment CR status ----------------------------------------
+- name: Query FlinkEnvironment CR status
+  kubernetes.core.k8s_info:
+    kind: FlinkEnvironment
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ flink_namespace }}"
+  register: _flink_env_check
+  check_mode: false
+  changed_when: false
+
+- name: Report FlinkEnvironment CR status
+  ansible.builtin.debug:
+    msg: >-
+      FlinkEnvironment CRs in '{{ flink_namespace }}':
+      {{ _flink_env_check.resources | length }} found,
+      phases={{ _flink_env_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false
+
+# --- Query CMFRestClass CR status --------------------------------------------
+- name: Query CMFRestClass CR status
+  kubernetes.core.k8s_info:
+    kind: CMFRestClass
+    api_version: platform.confluent.io/v1beta1
+    namespace: "{{ flink_namespace }}"
+  register: _cmf_rest_check
+  check_mode: false
+  changed_when: false
+
+- name: Report CMFRestClass CR status
+  ansible.builtin.debug:
+    msg: >-
+      CMFRestClass CRs in '{{ flink_namespace }}':
+      {{ _cmf_rest_check.resources | length }} found,
+      phases={{ _cmf_rest_check.resources | map(attribute='status.phase', default='unknown') | list }}
+  changed_when: false
