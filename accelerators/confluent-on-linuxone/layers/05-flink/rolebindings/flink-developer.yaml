@@ -1,0 +1,45 @@
+---
+# =============================================================================
+# rolebindings/flink-developer.yaml — Flink developer RBAC binding
+# =============================================================================
+# Grants the Flink developer group permission to submit, cancel, and monitor
+# FlinkApplication CRs via CMF REST. This binding is bound to an LDAP group,
+# never to individuals — the IdP is the identity boundary (same FSI convention
+# as all layer 01-rbac bindings).
+#
+# FSI rationale: Segregation of duties requires that the identity that deploys
+# Flink jobs is auditable via the IdP group membership, not ad-hoc individual
+# credentials. Binding to an LDAP group ensures that:
+#   1. Access is revocable by removing the user from the IdP group (no per-user
+#      ConfluentRolebinding deletion required).
+#   2. Group membership changes are captured in the IdP audit trail, satisfying
+#      SOX/FFIEC access-change logging requirements.
+#
+# The FlinkEnvironmentAdmin role grants:
+#   - Submit / cancel / savepoint FlinkApplication CRs in the confluent namespace
+#   - View FlinkApplication status and logs via CMF REST
+# It does NOT grant topic-level produce/consume — that is scoped to the Flink
+# job's service account (see flink-job-runtime.yaml).
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: flink-developer
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  principal:
+    # Bind to an LDAP group — never to individuals.
+    # Replace <PLACEHOLDER_FLINK_DEVELOPER_LDAP_GROUP> with the actual group DN
+    # or short name as configured in MDS LDAP settings (layer 01).
+    type: group
+    name: <PLACEHOLDER_FLINK_DEVELOPER_LDAP_GROUP>
+  # FlinkEnvironmentAdmin: manage Flink job lifecycle via CMF REST.
+  # Scoped to the fsi-flink-env FlinkEnvironment (not cluster-wide admin).
+  role: FlinkEnvironmentAdmin
+  resourcePatterns:
+    - resourceType: FlinkEnvironment
+      name: fsi-flink-env
+      patternType: LITERAL

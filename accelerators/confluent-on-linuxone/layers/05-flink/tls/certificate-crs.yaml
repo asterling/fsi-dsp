@@ -1,0 +1,80 @@
+---
+# =============================================================================
+# tls/certificate-crs.yaml — cert-manager Certificate CRs for Flink mTLS
+# =============================================================================
+# These Certificate CRs are signed by the EXISTING confluent-ca-issuer
+# ClusterIssuer defined in layers/02-tls/certificate-crs.yaml. The issuer is
+# cluster-scoped — it is NOT redefined here. Referencing it ensures that Flink's
+# mTLS certificates share the same CA trust root as the Kafka broker, Schema
+# Registry, and all other CFK components. This means:
+#   - Kafka brokers accept Flink's client cert (same CA = same trust chain)
+#   - CMF's server cert is trusted by CFK (same CA = same trust chain)
+#   - No separate PKI infrastructure required for Flink
+#
+# FIPS note: cert-manager >=1.14.0 is FIPS-validated and s390x-supported.
+# RSA 4096 keys are FIPS-140-2 compliant. ECDSA P-384 is an acceptable
+# alternative if smaller key sizes are required.
+# =============================================================================
+
+# --- Certificate 1: CMF server/client TLS ------------------------------------
+# Used by: CMFRestClass.spec.tls.secretRef = cmf-mtls-credentials
+# Identity: CMF REST API endpoint — allows CFK to authenticate to CMF
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: cmf-tls
+  namespace: confluent
+spec:
+  secretName: cmf-mtls-credentials
+  duration: 8760h    # 1 year
+  renewBefore: 720h  # renew 30 days before expiry
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - server auth
+    - client auth
+  dnsNames:
+    # CMF service DNS names — adjust if CMF is deployed with a custom service name
+    - cmf.confluent.svc.cluster.local
+    - "*.cmf.confluent.svc.cluster.local"
+    - confluent-manager-for-apache-flink.confluent.svc.cluster.local
+  issuerRef:
+    # Reuse layer 02's existing ClusterIssuer — do NOT redefine it.
+    # confluent-ca-issuer is registered by layers/02-tls/certificate-crs.yaml.
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
+
+---
+# --- Certificate 2: Flink job runtime → Kafka mutual TLS --------------------
+# Used by: flink-kafka-client-tls Secret (mounted in FlinkApplication pods)
+# Identity: the Flink job runtime service account identity for mTLS to Kafka.
+# The CN/SAN here must match the ConfluentRolebinding principal in
+# rolebindings/flink-job-runtime.yaml (<PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: flink-kafka-client-tls
+  namespace: confluent
+spec:
+  secretName: flink-kafka-client-tls
+  duration: 8760h
+  renewBefore: 720h
+  isCA: false
+  privateKey:
+    algorithm: RSA
+    size: 4096
+  usages:
+    - client auth
+  # The CN identifies the Flink job runtime to the Kafka broker (MDS RBAC principal).
+  # Replace <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT> with the actual service account name.
+  commonName: <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>
+  dnsNames:
+    # Flink TaskManager / JobManager pod identity SANs
+    - flink.confluent.svc.cluster.local
+    - "*.flink.confluent.svc.cluster.local"
+  issuerRef:
+    # Same CA as all other CFK components — shared trust root.
+    name: confluent-ca-issuer
+    kind: ClusterIssuer
