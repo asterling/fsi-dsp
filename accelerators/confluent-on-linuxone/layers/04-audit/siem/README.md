@@ -39,7 +39,7 @@ for the `confluent.audit` log source to enable attribute-based dashboarding.
 Both SIEM destinations should alert on:
 
 - > 10 authentication failures in 60 seconds from a single principal
-- Any `AuthorizationResult: DENIED` for topic `_confluent-audit-log-events`
+- Any `AuthorizationResult: DENIED` for topic `confluent-audit-log-events`
   (audit log tampering attempt)
 - Any hard-delete Schema Registry event by a non-`schema-admin` principal
 - Any `ConfluentRolebinding` CRUD event outside of a maintenance window

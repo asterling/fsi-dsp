@@ -6,11 +6,11 @@ metadata:
   annotations:
     # Topic name with underscore prefix is a Confluent internal convention.
     # The leading underscore marks this as a system/infrastructure topic.
-    goodlabs.io/topic: "_confluent-audit-log-events"
+    goodlabs.io/topic: "confluent-audit-log-events"
 spec:
   # Pre-creating the topic declaratively ensures retention and replication
   # are set before the first event arrives. Broker auto-create would use defaults.
-  name: _confluent-audit-log-events
+  name: confluent-audit-log-events
   replicas: 3
   # Partition count: 6 (per project Kafka partition convention) — supports
   # parallel audit log consumers (SIEM connectors, compliance readers)

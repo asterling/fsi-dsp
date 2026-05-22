@@ -51,7 +51,7 @@ unrestricted topic access. SOX, FFIEC, and PCI-DSS § 7 require least-privilege 
 `ConfluentRolebinding` CRs: `platform-admin` (SystemAdmin), `topic-admin` (ResourceOwner
 PREFIXED), `producer-only` (DeveloperWrite), `consumer-only` (DeveloperRead),
 `schema-admin` (ResourceOwner Subject PREFIXED), `auditor-readonly` (DeveloperRead on
-`_confluent-audit-log-events` and SR subjects ONLY — not on `payments.*`).
+`confluent-audit-log-events` and SR subjects ONLY — not on `payments.*`).
 
 All bindings use LDAP groups, not individuals.
 
@@ -84,7 +84,7 @@ enforced via `ResourceOwner` RBAC scoping from layer 01.
 require 7-year immutable audit trails. No logging = automatic finding in bank exams.
 
 **What:** Sets `confluent.security.event.router.config` on the Kafka CR to route
-authn/authz/management events to `_confluent-audit-log-events`. Pre-creates the topic
+authn/authz/management events to `confluent-audit-log-events`. Pre-creates the topic
 with `retention.ms=220752000000` (7y) in prod, 30d in dev. Re-enables Connect
 (upstream had it commented out) with Splunk Sink (HEC) and HTTP Sink → Dynatrace
 connectors. SIEM dashboards: `observability/splunk/`, `observability/dynatrace/`.

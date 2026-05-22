@@ -25,7 +25,7 @@ set -euo pipefail
 : "${ADMIN_PASS:?Set ADMIN_PASS}"
 
 NAMESPACE="${NAMESPACE:-confluent}"
-AUDIT_TOPIC="_confluent-audit-log-events"
+AUDIT_TOPIC="confluent-audit-log-events"
 CONSUMER_GROUP="validate-audit-$$"
 PASS=0
 FAIL=0
@@ -42,7 +42,7 @@ echo "--- Check: audit KafkaTopic CR exists ---"
 if oc get kafkatopic confluent-audit-log-events -n "${NAMESPACE}" &>/dev/null; then
   retention=$(oc get kafkatopic confluent-audit-log-events -n "${NAMESPACE}" \
     -o jsonpath='{.spec.configs.retention\.ms}' 2>/dev/null || echo "unknown")
-  log_pass "KafkaTopic _confluent-audit-log-events exists (retention.ms=${retention})"
+  log_pass "KafkaTopic confluent-audit-log-events exists (retention.ms=${retention})"
 else
   log_fail "KafkaTopic confluent-audit-log-events not found in namespace ${NAMESPACE}"
 fi

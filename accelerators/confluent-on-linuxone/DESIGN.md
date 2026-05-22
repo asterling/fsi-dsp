@@ -34,7 +34,7 @@ production-grade hardened CP on LinuxONE with each control independently validat
    `ATTRIBUTION.md` cites Mondics + the article; `KNOWN-GAPS.md` flags the
    network-access requirement.
 2. **`auditor-readonly` = audit-topic-scoped.** Bound to `DeveloperRead` on
-   `_confluent-audit-log-events` + all SR subjects (metadata) + read-scoped cluster
+   `confluent-audit-log-events` + all SR subjects (metadata) + read-scoped cluster
    metadata. Explicitly **not** bound to `payments.*` business topics — true payload
    isolation, since Confluent `DeveloperRead` always grants consume.
 3. **Reuse existing repo assets.** The accelerator's FSI overlays are Kustomize/CRD,
@@ -108,7 +108,7 @@ cluster via MDS/Helm REST — no parallel broker management path.
   `platform-admin`→`SystemAdmin`; `topic-admin`→`ResourceOwner` Topic `PREFIXED`;
   `producer-only`→`DeveloperWrite`; `consumer-only`→`DeveloperRead` (Topic+Group
   `PREFIXED`); `schema-admin`→`ResourceOwner` Subject `PREFIXED` (`schemaRegistryClusterId`
-  scope); `auditor-readonly`→`DeveloperRead` on `_confluent-audit-log-events` + SR
+  scope); `auditor-readonly`→`DeveloperRead` on `confluent-audit-log-events` + SR
   subjects only (see decision 2).
 - Sample bindings for a `payments.` domain; bind to LDAP **groups** (`type: group`),
   never individuals — the IdP is the identity boundary.
@@ -150,9 +150,9 @@ cluster via MDS/Helm REST — no parallel broker management path.
 
 ### 4. `layers/04-audit/` — Audit logging
 - Kafka CR patch: `confluent.security.event.router.config` JSON routing auth
-  attempts, authz decisions, and management events to `_confluent-audit-log-events`.
+  attempts, authz decisions, and management events to `confluent-audit-log-events`.
   Depends on layer 01's ConfluentServerAuthorizer (component order).
-- `kafkatopic-audit.yaml`: `KafkaTopic` CR pre-creating `_confluent-audit-log-events`
+- `kafkatopic-audit.yaml`: `KafkaTopic` CR pre-creating `confluent-audit-log-events`
   with `retentionMs` = 7y (`220752000000`) prod / 30d dev — overlay variable, so
   retention is declarative and authoritative (not left to broker auto-create).
 - `connect-cr.yaml`: a `Connect` CR (upstream has Connect commented out) +

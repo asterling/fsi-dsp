@@ -4,7 +4,7 @@ kind: Component
 # =============================================================================
 # 04-audit — Audit logging hardening layer
 # =============================================================================
-# Routes Confluent security events to _confluent-audit-log-events topic and
+# Routes Confluent security events to confluent-audit-log-events topic and
 # ships them to SIEM (Splunk + Dynatrace) via Connect Sink connectors.
 #
 # DEPENDS ON layer 01-rbac: the ConfluentServerAuthorizer (enabled by 01-rbac)

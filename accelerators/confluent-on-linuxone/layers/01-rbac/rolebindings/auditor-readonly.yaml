@@ -17,7 +17,7 @@ spec:
   resourcePatterns:
     # Audit log topic — the ONLY Kafka topic auditors consume
     - resourceType: Topic
-      name: _confluent-audit-log-events
+      name: confluent-audit-log-events
       patternType: LITERAL
     # Consumer group for the audit log consumer — scoped to avoid group hijacking
     - resourceType: Group

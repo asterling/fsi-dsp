@@ -85,10 +85,10 @@ if oc get confluentrolebinding auditor-readonly-audit-topic -n "${NAMESPACE}" &>
   log_pass "auditor-readonly-audit-topic ConfluentRolebinding exists"
   binding_topic=$(oc get confluentrolebinding auditor-readonly-audit-topic -n "${NAMESPACE}" \
     -o jsonpath='{.spec.resourcePatterns[0].name}' 2>/dev/null || echo "")
-  if [ "${binding_topic}" = "_confluent-audit-log-events" ]; then
-    log_pass "auditor-readonly scoped to _confluent-audit-log-events (D-02 verified)"
+  if [ "${binding_topic}" = "confluent-audit-log-events" ]; then
+    log_pass "auditor-readonly scoped to confluent-audit-log-events (D-02 verified)"
   else
-    log_fail "auditor-readonly topic binding not scoped to _confluent-audit-log-events: got '${binding_topic}'"
+    log_fail "auditor-readonly topic binding not scoped to confluent-audit-log-events: got '${binding_topic}'"
   fi
 else
   log_fail "auditor-readonly-audit-topic ConfluentRolebinding not found"

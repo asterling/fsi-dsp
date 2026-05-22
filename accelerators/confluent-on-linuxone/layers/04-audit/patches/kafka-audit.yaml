@@ -7,7 +7,7 @@ spec:
   # Audit event router configuration
   # --------------------------------------------------------------------------
   # confluent.security.event.router.config routes Confluent security events
-  # to the _confluent-audit-log-events topic. This depends on layer 01's
+  # to the confluent-audit-log-events topic. This depends on layer 01's
   # ConfluentServerAuthorizer being active (component ordering enforces this).
   #
   # Field: spec.configOverrides.server — distinct from layer 01 (spec.authorization)
@@ -18,7 +18,7 @@ spec:
       # Route all security event categories to the audit log topic
       # JSON value must be single-line for properties file compatibility
       - >-
-        confluent.security.event.router.config={"destinations":{"bootstrap_servers":"kafka.confluent.svc.cluster.local:9092","topic_name":"_confluent-audit-log-events"},"default_topics":{"allowed":"_confluent-audit-log-events","denied":"_confluent-audit-log-events"},"routes":{"crn:///kafka=*":"{"allowed":"_confluent-audit-log-events","denied":"_confluent-audit-log-events"},"crn:///schema-registry=*":"{"allowed":"_confluent-audit-log-events","denied":"_confluent-audit-log-events"},"crn:///connect=*":"{"allowed":"_confluent-audit-log-events","denied":"_confluent-audit-log-events"}}}
+        confluent.security.event.router.config={"destinations":{"bootstrap_servers":"kafka.confluent.svc.cluster.local:9092","topic_name":"confluent-audit-log-events"},"default_topics":{"allowed":"confluent-audit-log-events","denied":"confluent-audit-log-events"},"routes":{"crn:///kafka=*":"{"allowed":"confluent-audit-log-events","denied":"confluent-audit-log-events"},"crn:///schema-registry=*":"{"allowed":"confluent-audit-log-events","denied":"confluent-audit-log-events"},"crn:///connect=*":"{"allowed":"confluent-audit-log-events","denied":"confluent-audit-log-events"}}}
       # Event categories captured:
       #   - Authentication attempts (SASL, mTLS handshakes)
       #   - Authorization decisions (produce, consume, admin ops)

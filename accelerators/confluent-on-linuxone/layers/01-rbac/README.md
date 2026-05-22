@@ -27,7 +27,7 @@ Enables **MDS (Metadata Service)** with an **LDAP IdP** and deploys six
 | `producer-only` | `DeveloperWrite` | Topic+TransactionalId PREFIXED | Cannot consume |
 | `consumer-only` | `DeveloperRead` | Topic+Group PREFIXED | Cannot produce |
 | `schema-admin` | `ResourceOwner` | Subject PREFIXED (SR cluster) | Schema namespace only |
-| `auditor-readonly` | `DeveloperRead` | `_confluent-audit-log-events` + SR subjects | **NOT** payments.* |
+| `auditor-readonly` | `DeveloperRead` | `confluent-audit-log-events` + SR subjects | **NOT** payments.* |
 
 All role bindings use LDAP **groups** (`type: group`), never individuals. The LDAP
 directory is the identity boundary; individual user membership is managed there.
@@ -35,7 +35,7 @@ directory is the identity boundary; individual user membership is managed there.
 ## Locked decision D-02: auditor-readonly is audit-topic-scoped
 
 `auditor-readonly` is bound **only** to:
-- `_confluent-audit-log-events` topic (LITERAL)
+- `confluent-audit-log-events` topic (LITERAL)
 - SR subjects (PREFIXED, all prefixes) — schema metadata only
 - Cluster metadata (list/describe only)
 

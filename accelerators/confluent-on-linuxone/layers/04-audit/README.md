@@ -34,7 +34,7 @@ This is an automatic finding in any SOC 2 Type II, PCI DSS, or bank exam.
    on a **distinct CR field** (`spec.configOverrides.server`) from layers 01 and 02 to
    avoid JSON-merge patch collisions.
 
-2. **`kafkatopic-audit.yaml`**: pre-creates `_confluent-audit-log-events` with:
+2. **`kafkatopic-audit.yaml`**: pre-creates `confluent-audit-log-events` with:
    - `retention.ms`: overlay-configurable — 7 years (220752000000 ms) in prod,
      30 days (2592000000 ms) in dev
    - `cleanup.policy: delete` (no compaction — compaction suppresses duplicate events)
@@ -59,7 +59,7 @@ Do not apply layer 04 without layer 01 — the audit router will silently no-op.
 
 ## Audit topic protection
 
-The `_confluent-audit-log-events` topic is protected by:
+The `confluent-audit-log-events` topic is protected by:
 - **RBAC** (layer 01): only `auditor-readonly` has `DeveloperRead` on this topic;
   `platform-admin` has `SystemAdmin` which includes write — but this is the only role
   with that level of cluster access
@@ -73,7 +73,7 @@ bash layers/04-audit/validate-audit.sh
 ```
 
 Cluster-dependent. Asserts: KafkaTopic CR exists, Connect RUNNING, Splunk Sink RUNNING,
-messages present in `_confluent-audit-log-events`.
+messages present in `confluent-audit-log-events`.
 
 ## Cross-references
 

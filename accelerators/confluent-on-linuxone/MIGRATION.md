@@ -27,7 +27,7 @@ confluent iam rbac role-binding list \
   --role DeveloperRead | grep -v "PREFIXED\|LITERAL"
 ```
 
-Expected: no wildcard role bindings; `auditor-readonly` scoped to `_confluent-audit-log-events` only.
+Expected: no wildcard role bindings; `auditor-readonly` scoped to `confluent-audit-log-events` only.
 
 ### 1.2 TLS posture on source cluster
 
@@ -53,8 +53,8 @@ that are incompatible with destination consumers — enumerate and remediate bef
 ### 1.4 Audit log coverage on source
 
 ```bash
-# Verify _confluent-audit-log-events exists and has recent events
-confluent kafka topic consume _confluent-audit-log-events \
+# Verify confluent-audit-log-events exists and has recent events
+confluent kafka topic consume confluent-audit-log-events \
   --bootstrap <SOURCE_BOOTSTRAP> \
   --from-beginning \
   --timeout-ms 5000 | wc -l
@@ -246,12 +246,12 @@ confluent kafka topic list --bootstrap <DESTINATION_BOOTSTRAP> --output json \
 
 ### 4.3 Audit log continuity verification
 
-Confirm `_confluent-audit-log-events` on the destination cluster received events
+Confirm `confluent-audit-log-events` on the destination cluster received events
 throughout the migration window:
 
 ```bash
 # Consume audit events in the migration time range and export
-confluent kafka topic consume _confluent-audit-log-events \
+confluent kafka topic consume confluent-audit-log-events \
   --bootstrap <DESTINATION_BOOTSTRAP> \
   --from-beginning \
   --print-key \

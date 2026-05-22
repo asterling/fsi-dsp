@@ -163,9 +163,9 @@ bash layers/04-audit/validate-audit.sh
 ```
 
 Asserts:
-- Authentication attempt → event lands in `_confluent-audit-log-events`
-- Authorization decision → event lands in `_confluent-audit-log-events`
-- Schema change → event lands in `_confluent-audit-log-events`
+- Authentication attempt → event lands in `confluent-audit-log-events`
+- Authorization decision → event lands in `confluent-audit-log-events`
+- Schema change → event lands in `confluent-audit-log-events`
 
 Check SIEM delivery:
 - Splunk: see dashboards in `observability/splunk/`

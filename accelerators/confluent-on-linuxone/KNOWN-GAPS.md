@@ -61,7 +61,7 @@ will silently fail FSI compliance. Verify OCP FIPS mode before applying layer 02
 ### G-03: No native Dynatrace Kafka Connector
 
 **Context:** Dynatrace does not publish a Confluent-certified Kafka Connect connector.
-Monitoring `_confluent-audit-log-events` via Dynatrace requires a bridge.
+Monitoring `confluent-audit-log-events` via Dynatrace requires a bridge.
 
 **Workaround:** `kafka-connect-http` (confluentinc) posts JSON batches to Dynatrace's
 generic log ingest API v2 (`/api/v2/logs/ingest`). The payload is JSON-formatted audit
