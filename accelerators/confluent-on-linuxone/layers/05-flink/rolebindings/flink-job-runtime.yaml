@@ -91,7 +91,39 @@ spec:
   # DeveloperRead on SR subjects: allows fetching schema by ID for Avro deserialization.
   # The avro-confluent format connector in Flink SQL retrieves schemas via SR REST API.
   role: DeveloperRead
+  # SR cluster scope — required for Subject bindings so MDS can resolve which
+  # Schema Registry the grant applies to (matches the convention from
+  # layers/01-rbac/rolebindings/schema-admin.yaml).
+  clustersScopeByIds:
+    schemaRegistryClusterId: <PLACEHOLDER_SR_CLUSTER_ID>
   resourcePatterns:
     - resourceType: Subject
       name: corebanking.
+      patternType: PREFIXED
+
+---
+# --- Binding 4: write SR subjects for Avro auto-register (flink.output.*) ----
+# The avro-confluent format connector defaults to `auto-register-schemas=true`
+# for value formats — the first sink write POSTs the value schema to SR. That
+# requires DeveloperWrite (or ResourceOwner) on the resulting subject. Without
+# this binding, the sink writes return 403 and the job enters CrashLoopBackOff.
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: flink-job-runtime-sr-write
+  namespace: confluent
+  labels:
+    goodlabs.io/layer: "05-flink"
+    goodlabs.io/accelerator: "confluent-on-linuxone"
+spec:
+  principal:
+    type: user
+    name: <PLACEHOLDER_FLINK_JOB_SERVICE_ACCOUNT>
+  # DeveloperWrite: register / update schemas under the sink subjects.
+  role: DeveloperWrite
+  clustersScopeByIds:
+    schemaRegistryClusterId: <PLACEHOLDER_SR_CLUSTER_ID>
+  resourcePatterns:
+    - resourceType: Subject
+      name: flink.output.
       patternType: PREFIXED
