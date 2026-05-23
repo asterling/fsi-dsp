@@ -13,21 +13,24 @@
 # target the FKO 1.14.x and CMF 2.3.x lines compatible with CP 8.2.0.
 # =============================================================================
 
-# Shared Helm repository for both operators
-flink_helm_repo_name: confluentinc
-flink_helm_repo_url: https://packages.confluent.io/helm
-
 # --- FKO: Flink Kubernetes Operator -----------------------------------------
-# Chart: flink-kubernetes-operator (the open-source FKO, Confluent-packaged)
-# FKO 1.14.x is the supported line for Apache Flink 1.20.x on CP 8.2.0.
+# Chart: flink-operator/flink-kubernetes-operator (upstream Apache; Confluent
+# does NOT redistribute this chart under packages.confluent.io/helm — the
+# image confluentinc/cp-flink-kubernetes-operator exists, but the chart is
+# Apache-only). FKO 1.14.x is the supported line for Apache Flink 1.20.x
+# on CP 8.2.0. Matches scenarios/cfk-openshift/README.md convention.
+fko_helm_repo_name: flink-operator
+fko_helm_repo_url: https://archive.apache.org/dist/flink/flink-kubernetes-operator-1.14.0/
 fko_helm_release_name: flink-kubernetes-operator
-fko_helm_chart_ref: confluentinc/flink-kubernetes-operator
+fko_helm_chart_ref: flink-operator/flink-kubernetes-operator
 fko_helm_chart_version: "1.14.0"
 
 # --- CMF: Confluent Manager for Apache Flink ---------------------------------
-# Chart: confluent-manager-for-apache-flink (CMF)
+# Chart: confluentinc/confluent-manager-for-apache-flink (Confluent-published).
 # CMF 2.3.x pairs with CFK 3.2.x and requires FKO CRDs to be present first.
 # CMF manages the FlinkEnvironment and CMFRestClass CRs (platform.confluent.io/v1beta1).
+cmf_helm_repo_name: confluentinc
+cmf_helm_repo_url: https://packages.confluent.io/helm
 cmf_helm_release_name: confluent-manager-for-apache-flink
 cmf_helm_chart_ref: confluentinc/confluent-manager-for-apache-flink
 cmf_helm_chart_version: "2.3.0"

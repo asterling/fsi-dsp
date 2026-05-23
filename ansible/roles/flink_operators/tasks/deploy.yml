@@ -8,10 +8,16 @@
 # pod is Ready — required before applying Flink CRs via kustomize.
 # =============================================================================
 
-- name: Add Confluent Helm repository
+- name: Add Apache Flink Helm repository (for FKO)
   kubernetes.core.helm_repository:
-    name: "{{ flink_helm_repo_name }}"
-    repo_url: "{{ flink_helm_repo_url }}"
+    name: "{{ fko_helm_repo_name }}"
+    repo_url: "{{ fko_helm_repo_url }}"
+    state: present
+
+- name: Add Confluent Helm repository (for CMF)
+  kubernetes.core.helm_repository:
+    name: "{{ cmf_helm_repo_name }}"
+    repo_url: "{{ cmf_helm_repo_url }}"
     state: present
 
 # ---------------------------------------------------------------------------
