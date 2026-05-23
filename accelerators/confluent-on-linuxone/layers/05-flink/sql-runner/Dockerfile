@@ -25,11 +25,15 @@
 # CP 8.2.0 at hub.docker.com/r/confluentinc/cp-flink before building.
 FROM confluentinc/cp-flink:1.20.0-cp1
 
-ENV FLINK_VERSION=1.20.0
+# ARG (not ENV) so values can be overridden at build time via
+# `docker buildx build --build-arg KAFKA_CONNECTOR_VERSION=...`.
+# These versions are only used in the wget URLs below — no runtime visibility
+# is needed, so plain ARG suffices.
+ARG FLINK_VERSION=1.20.0
 # Kafka connector version: matches Flink 1.20.x and Kafka 3.6/3.7 protocol
-ENV KAFKA_CONNECTOR_VERSION=3.2.0-1.20
+ARG KAFKA_CONNECTOR_VERSION=3.2.0-1.20
 # Avro-Confluent format connector version: matches Flink 1.20.x
-ENV AVRO_CONFLUENT_VERSION=1.20.0
+ARG AVRO_CONFLUENT_VERSION=1.20.0
 
 # Download Kafka SQL connector JAR into Flink's lib/ directory.
 # This adds Kafka source/sink support to Flink SQL TABLE API.
