@@ -28,6 +28,16 @@ spec:
   # Single-namespace strategy (consistent with all other CFK components here).
   kubernetesNamespace: confluent
 
+  # CMFRestClass reference — REQUIRED. CFK uses this to resolve which CMF REST
+  # endpoint to dispatch FlinkApplication lifecycle operations through.
+  # Implicit `default` lookup only works when the CMFRestClass is literally
+  # named `default`; ours is `fsi-cmf-rest`, so this reference must be explicit.
+  # FlinkApplications in this environment inherit this reference unless they
+  # set their own spec.cmfRestClassRef.
+  cmfRestClassRef:
+    name: fsi-cmf-rest
+    namespace: confluent
+
   # Defaults inherited by FlinkApplications referencing this environment.
   flinkApplicationDefaults:
     spec:

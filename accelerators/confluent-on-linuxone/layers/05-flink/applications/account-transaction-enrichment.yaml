@@ -27,6 +27,14 @@ metadata:
     fsi.domain: "corebanking"
 spec:
   flinkEnvironment: fsi-flink-env
+
+  # CMFRestClass — explicit per-application reference (defense-in-depth; the
+  # FlinkEnvironment also sets this). Identifies the CMF REST endpoint CFK
+  # dispatches lifecycle ops through.
+  cmfRestClassRef:
+    name: fsi-cmf-rest
+    namespace: confluent
+
   image: <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>
 
   job:

@@ -34,6 +34,13 @@ spec:
   # References the FlinkEnvironment CR (defaults: image, s390x affinity, RocksDB state)
   flinkEnvironment: fsi-flink-env
 
+  # CMFRestClass — explicit per-application reference (defense-in-depth; the
+  # FlinkEnvironment also sets this). Identifies the CMF REST endpoint CFK
+  # dispatches lifecycle ops through.
+  cmfRestClassRef:
+    name: fsi-cmf-rest
+    namespace: confluent
+
   # Custom sql-runner image — must be built and pushed before applying.
   # See sql-runner/README.md for docker buildx --platform linux/s390x instructions.
   image: <PLACEHOLDER_CP_FLINK_SQL_RUNNER_IMAGE>
