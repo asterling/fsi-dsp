@@ -132,15 +132,18 @@ jobs:
       - name: bash -n all *.sh files
         run: |
           echo "Checking shell script syntax ..."
+          # NOTE: do NOT use `find ... | while read`; the `while` runs in a
+          # pipeline subshell and `fail=1` never escapes. Use process
+          # substitution so the loop runs in the parent shell.
           fail=0
-          find accelerators/confluent-on-linuxone -name "*.sh" | sort | while read -r script; do
+          while IFS= read -r script; do
             if bash -n "${script}" 2>&1; then
               echo "[OK] ${script}"
             else
               echo "[FAIL] ${script}" >&2
               fail=1
             fi
-          done
+          done < <(find accelerators/confluent-on-linuxone -name "*.sh" | sort)
           exit "${fail}"
 
       - name: Verify base/.gitignore excludes upstream/
