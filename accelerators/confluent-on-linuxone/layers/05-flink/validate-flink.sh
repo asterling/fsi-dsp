@@ -159,14 +159,22 @@ echo ""
 # Section 7: Flink Kafka access appears in audit log (layer 04 + 05 integration)
 # ---------------------------------------------------------------------------
 echo "--- Check: Flink topic access events in confluent-audit-log-events ---"
-echo "[INFO] Waiting up to 30s for Flink job activity to appear in audit topic ..."
-audit_events=$(oc exec -n "${NAMESPACE}" deploy/kafka -c kafka -- \
+echo "[INFO] Waiting up to 15s for Flink job activity to appear in audit topic ..."
+# CFK manages Kafka as a StatefulSet (not Deployment) — pods are kafka-0/1/2,
+# the workload object is sts/kafka. `oc exec deploy/kafka` would fail with
+# NotFound (no Deployment exists).
+# Layer 02 enables internal-listener mTLS, so kafka-console-consumer needs
+# a consumer.config with the broker truststore — without it the SSL handshake
+# fails before any record is consumed. Mount path matches the broker pod's
+# in-cluster TLS material (CFK-rendered).
+audit_events=$(oc exec -n "${NAMESPACE}" sts/kafka -c kafka -- \
   kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka.confluent.svc.cluster.local:9092 \
+  --consumer.config /mnt/sslcerts/kafka-server/consumer.properties \
   --topic confluent-audit-log-events \
   --from-beginning \
   --max-messages 100 \
-  --timeout-ms 15000 2>/dev/null | grep -c "flink" || echo "0")
+  --timeout-ms 15000 2>/dev/null | grep -c "flink" || true)
 if [ "${audit_events}" -gt 0 ]; then
   log_pass "Flink Kafka access events found in confluent-audit-log-events (${audit_events} matching events)"
 else
