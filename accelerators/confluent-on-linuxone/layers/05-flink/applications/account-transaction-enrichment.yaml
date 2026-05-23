@@ -132,6 +132,14 @@ data:
       'scan.startup.mode'                       = 'earliest-offset',
       'value.format'                            = 'avro-confluent',
       'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      -- SR REST client mTLS — separate from Kafka client SSL above. The avro-confluent
+      -- format uses its own CachedSchemaRegistryClient that does NOT inherit properties.ssl.*.
+      'value.avro-confluent.ssl.keystore.location'   = '/opt/certs/keystore.jks',
+      'value.avro-confluent.ssl.keystore.password'   = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.keystore.type'       = 'JKS',
+      'value.avro-confluent.ssl.truststore.location' = '/opt/certs/truststore.jks',
+      'value.avro-confluent.ssl.truststore.password' = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.truststore.type'     = 'JKS',
       'properties.security.protocol'            = 'SSL',
       'properties.ssl.keystore.type'            = 'JKS',
       'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
@@ -156,6 +164,14 @@ data:
       'scan.startup.mode'                       = 'earliest-offset',
       'value.format'                            = 'avro-confluent',
       'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      -- SR REST client mTLS — separate from Kafka client SSL above. The avro-confluent
+      -- format uses its own CachedSchemaRegistryClient that does NOT inherit properties.ssl.*.
+      'value.avro-confluent.ssl.keystore.location'   = '/opt/certs/keystore.jks',
+      'value.avro-confluent.ssl.keystore.password'   = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.keystore.type'       = 'JKS',
+      'value.avro-confluent.ssl.truststore.location' = '/opt/certs/truststore.jks',
+      'value.avro-confluent.ssl.truststore.password' = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.truststore.type'     = 'JKS',
       'properties.security.protocol'            = 'SSL',
       'properties.ssl.keystore.type'            = 'JKS',
       'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
@@ -181,6 +197,14 @@ data:
       'properties.bootstrap.servers'            = 'kafka.confluent.svc.cluster.local:9092',
       'value.format'                            = 'avro-confluent',
       'value.avro-confluent.url'                = 'https://schemaregistry.confluent.svc.cluster.local:8081',
+      -- SR REST client mTLS — separate from Kafka client SSL above. The avro-confluent
+      -- format uses its own CachedSchemaRegistryClient that does NOT inherit properties.ssl.*.
+      'value.avro-confluent.ssl.keystore.location'   = '/opt/certs/keystore.jks',
+      'value.avro-confluent.ssl.keystore.password'   = '<PLACEHOLDER_KEYSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.keystore.type'       = 'JKS',
+      'value.avro-confluent.ssl.truststore.location' = '/opt/certs/truststore.jks',
+      'value.avro-confluent.ssl.truststore.password' = '<PLACEHOLDER_TRUSTSTORE_PASSWORD>',
+      'value.avro-confluent.ssl.truststore.type'     = 'JKS',
       'properties.security.protocol'            = 'SSL',
       'properties.ssl.keystore.type'            = 'JKS',
       'properties.ssl.keystore.location'        = '/opt/certs/keystore.jks',
