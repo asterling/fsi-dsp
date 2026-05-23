@@ -372,3 +372,31 @@ capabilities:
     name: "Metrics Mapping"
     path: "observability/metrics-mapping.md"
     description: "Cross-provider metric name mapping reference"
+
+  # ──────────────────────────────────────────────────
+  # Accelerators (1)
+  # ──────────────────────────────────────────────────
+  - id: "accelerator/confluent-on-linuxone"
+    type: accelerator
+    name: "confluent-on-linuxone"
+    path: "accelerators/confluent-on-linuxone"
+    description: "Confluent Platform on IBM LinuxONE — FSI-hardened RBAC + mTLS + SR governance + audit + Flink layers via Kustomize Components over Mondics's upstream base"
+    apply_sequence:
+      - layer: "01-rbac"
+        path: "accelerators/confluent-on-linuxone/layers/01-rbac"
+        canon_key: "fsi.security.mds-rbac"
+      - layer: "02-tls"
+        path: "accelerators/confluent-on-linuxone/layers/02-tls"
+        canon_key: "fsi.security.tls-fips"
+      - layer: "03-schema-governance"
+        path: "accelerators/confluent-on-linuxone/layers/03-schema-governance"
+        canon_key: "fsi.schema.compatibility-full-transitive"
+      - layer: "04-audit"
+        path: "accelerators/confluent-on-linuxone/layers/04-audit"
+        canon_key: "fsi.audit.events-retention"
+      - layer: "05-flink"
+        path: "accelerators/confluent-on-linuxone/layers/05-flink"
+        canon_key: "fsi.flink.environment-mtls"
+    build_command: "kustomize build overlays/prod"
+    dry_run_command: "kustomize build overlays/prod | oc apply --dry-run=server -f -"
+    apply_command: "kustomize build overlays/prod | oc apply -f -"
