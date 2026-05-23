@@ -15,11 +15,23 @@
 #   2. Group membership changes are captured in the IdP audit trail, satisfying
 #      SOX/FFIEC access-change logging requirements.
 #
-# The FlinkEnvironmentAdmin role grants:
-#   - Submit / cancel / savepoint FlinkApplication CRs in the confluent namespace
+# The FlinkDeveloper role grants:
+#   - Submit / cancel / savepoint FlinkApplication CRs in the environment
+#   - Manage Flink artifacts and workspaces
 #   - View FlinkApplication status and logs via CMF REST
 # It does NOT grant topic-level produce/consume — that is scoped to the Flink
 # job's service account (see flink-job-runtime.yaml).
+#
+# Role catalog reference (CMF / Confluent for Apache Flink RBAC):
+#   - FlinkDeveloper    — submit/run statements + manage own workspaces (this binding)
+#   - FlinkAdmin        — full Flink admin in env (manage compute pools)
+#   - Operator          — metadata-only access to tables/databases/catalogs
+# `FlinkEnvironmentAdmin` is NOT in the published role catalog — use FlinkDeveloper.
+#
+# Verify resourceType against the live CMF 2.3.x CRD at deploy time:
+#   `confluent iam rbac role list` (catalog) and `oc explain confluentrolebinding.spec.resourcePatterns`
+# CMF may identify Flink environments under a different resourceType string;
+# the FlinkEnvironment CRD kind is the most likely candidate.
 # =============================================================================
 apiVersion: platform.confluent.io/v1beta1
 kind: ConfluentRolebinding
@@ -36,9 +48,9 @@ spec:
     # or short name as configured in MDS LDAP settings (layer 01).
     type: group
     name: <PLACEHOLDER_FLINK_DEVELOPER_LDAP_GROUP>
-  # FlinkEnvironmentAdmin: manage Flink job lifecycle via CMF REST.
+  # FlinkDeveloper: manage Flink statements + own workspaces via CMF REST.
   # Scoped to the fsi-flink-env FlinkEnvironment (not cluster-wide admin).
-  role: FlinkEnvironmentAdmin
+  role: FlinkDeveloper
   resourcePatterns:
     - resourceType: FlinkEnvironment
       name: fsi-flink-env
