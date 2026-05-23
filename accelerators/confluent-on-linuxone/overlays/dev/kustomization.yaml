@@ -46,11 +46,12 @@ patches:
       kind: SchemaRegistry
       name: schemaregistry
 
-  # Schema Registry: relaxed subject naming for dev (allow test- prefix)
+  # Schema Registry: relaxed subject naming for dev (allow test- prefix +
+  # 1+ dot-separated segments — matches prod's multi-segment allowance).
   - patch: |-
       - op: add
         path: /spec/configOverrides/server/-
-        value: "schema.registry.subject.name.pattern=^(test-|[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*)(-(key|value))?$"
+        value: "schema.registry.subject.name.pattern=^(test-|[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+)-(key|value)$"
     target:
       kind: SchemaRegistry
       name: schemaregistry

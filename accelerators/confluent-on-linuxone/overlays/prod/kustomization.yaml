@@ -45,11 +45,15 @@ patches:
       kind: KafkaTopic
       name: confluent-audit-log-events
 
-  # Schema Registry: subject naming pattern for production (enforces domain.entity convention)
+  # Schema Registry: subject naming pattern for production.
+  # Permits 1+ dot-separated segments — e.g. payments.transaction-value (2
+  # segments) AND corebanking.transactions.v1.account-transaction-value
+  # (4 segments, as used by reference/flink-sql/ and layer 05 sinks).
+  # Each segment is lowercase, starts with a letter; final -(key|value) is required.
   - patch: |-
       - op: add
         path: /spec/configOverrides/server/-
-        value: "schema.registry.subject.name.pattern=^[a-z][a-z0-9-]*\\.[a-z][a-z0-9-]*-(key|value)$"
+        value: "schema.registry.subject.name.pattern=^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)+-(key|value)$"
     target:
       kind: SchemaRegistry
       name: schemaregistry
