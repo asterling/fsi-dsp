@@ -1,0 +1,19 @@
+---
+# =============================================================================
+# cp_mongodb -- Health validation pass-through (both directions)
+# =============================================================================
+- name: Delegate source validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_mongodb_source_connectors | default([]) }}"
+  when: (cp_mongodb_source_connectors | default([])) | length > 0
+
+- name: Delegate sink validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_mongodb_sink_connectors | default([]) }}"
+  when: (cp_mongodb_sink_connectors | default([])) | length > 0

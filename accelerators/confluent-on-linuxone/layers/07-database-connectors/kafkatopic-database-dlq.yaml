@@ -1,0 +1,114 @@
+---
+# =============================================================================
+# Database connector DLQ topics -- one per connector (ADR-012)
+# =============================================================================
+# Distinct prefix from lakehouse DLQs (database.dlq.* vs lakehouse.dlq.*)
+# so dashboards can filter by purpose. Best-effort tier with 7-day retention.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-mongodb-source-corebanking-member-profile
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-mongodb-source-corebanking-member-profile
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.mongodb-source-corebanking-member-profile
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-mongodb-sink-corebanking-account-txn
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-mongodb-sink-corebanking-account-txn
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.mongodb-sink-corebanking-account-txn
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-redis-sink-compliance-screening
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-redis-sink-compliance-screening
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.redis-sink-compliance-screening
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-cockroachdb-sink-corebanking-account-txn
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-cockroachdb-sink-corebanking-account-txn
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.cockroachdb-sink-corebanking-account-txn
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-postgres-source-corebanking-cdc
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-postgres-source-corebanking-cdc
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.postgres-source-corebanking-cdc
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: database-dlq-postgres-sink-compliance-reporting
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: database-postgres-sink-compliance-reporting
+    fsi.io/sla-tier: best-effort
+spec:
+  name: database.dlq.postgres-sink-compliance-reporting
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"

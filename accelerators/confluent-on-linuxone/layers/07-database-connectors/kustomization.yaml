@@ -1,0 +1,40 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# =============================================================================
+# 07-database-connectors -- MongoDB + Redis + CockroachDB + Postgres
+# =============================================================================
+# Adds a dedicated connect-databases Connect cluster plus six connector CRs
+# implementing ADR-012 self-managed paths on CFK on OCP on LinuxONE (s390x).
+#
+# DEPENDS ON:
+#   - 01-rbac: MDS authorizer + ConfluentRolebinding CRD
+#   - 02-tls:  cert-manager + confluent-ca-issuer for connect-databases TLS
+#   - 03-schema-governance: AvroConverter requires SR + governed subjects
+#
+# Independent of 04-audit, 05-flink, and 06-lakehouse-sinks. Order in
+# overlays/{dev,prod}/kustomization.yaml: 07 after 06.
+#
+# Why a separate connect-databases cluster (parallel to layer 06 rationale):
+#   - Operational isolation: a Postgres replication-slot stall must not back
+#     up the audit pipeline (layer 04) or the lakehouse sinks (layer 06).
+#   - Image isolation: MongoDB + Redis + JDBC + Debezium JARs add ~250MB.
+#   - Tuning: CDC sources favor fewer tasks for ordering; sinks favor more
+#     for throughput -- a single shared cluster can't optimize both.
+#
+# CockroachDB source is intentionally absent here -- the native
+# CREATE CHANGEFEED runs inside CRDB itself. See
+# reference/cockroachdb/changefeed-examples.sql.
+# =============================================================================
+
+resources:
+  # Pre-create DLQ topics for every sink + source (database.dlq.*)
+  - kafkatopic-database-dlq.yaml
+  # connect-databases cluster + six Connector CRs
+  - connect-cr.yaml
+  # MDS rolebindings for the database-connector principal
+  - rolebindings.yaml
+  # ServiceAccount for pod identity
+  - service-accounts.yaml
+  # Secret stub (Vault-Agent-managed; not committed with real values)
+  - secrets.template.yaml

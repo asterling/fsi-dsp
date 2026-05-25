@@ -1,0 +1,16 @@
+---
+- name: Delegate Postgres source deploy to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: deploy.yml
+  vars:
+    cp_connectors: "{{ cp_postgres_source_connectors | default([]) }}"
+  when: (cp_postgres_source_connectors | default([])) | length > 0
+
+- name: Delegate Postgres sink deploy to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: deploy.yml
+  vars:
+    cp_connectors: "{{ cp_postgres_sink_connectors | default([]) }}"
+  when: (cp_postgres_sink_connectors | default([])) | length > 0

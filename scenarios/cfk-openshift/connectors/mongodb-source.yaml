@@ -1,0 +1,46 @@
+---
+# =============================================================================
+# MongoDB Source Connector -- ADR-012 (Kafka <- MongoDB change streams)
+# =============================================================================
+# Requires the mongodb/kafka-connect-mongodb JAR in the Connect image.
+# See scenarios/cfk-openshift/connectors/README.md for the build recipe.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-mongodb-source-corebanking-member-profile
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: mongodb-source
+    fsi.io/sla-tier: standard
+spec:
+  class: com.mongodb.kafka.connect.MongoSourceConnector
+  taskMax: 4
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.uri: "${file:/mnt/secrets/database/mongodb:connection_uri}"
+    database: "corebanking"
+    collection: "member_profile"
+
+    topic.prefix: "corebanking.transactions.v1.member-update"
+    output.format.key: "json"
+    output.format.value: "schema"
+    output.schema.infer.value: "false"
+
+    change.stream.full.document: "updateLookup"
+    publish.full.document.only: "false"
+    copy.existing: "false"
+
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/database/sr:user_info}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.mongodb-source-corebanking-member-profile"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

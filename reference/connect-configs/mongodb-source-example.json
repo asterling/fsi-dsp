@@ -1,0 +1,36 @@
+{
+  "name": "database-mongodb-source-corebanking-member-profile",
+  "config": {
+    "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+
+    "connection.uri": "${vault:secret/fsi/mongodb#connection_uri}",
+    "database": "corebanking",
+    "collection": "member_profile",
+
+    "topic.prefix": "corebanking.transactions.v1.member-update",
+    "topic.suffix": "",
+
+    "output.format.key": "json",
+    "output.format.value": "schema",
+    "output.schema.infer.value": "false",
+    "output.json.formatter": "com.mongodb.kafka.connect.source.json.formatter.ExtendedJson",
+
+    "change.stream.full.document": "updateLookup",
+    "publish.full.document.only": "false",
+    "copy.existing": "false",
+
+    "tasks.max": "4",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.mongodb-source-corebanking-member-profile",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

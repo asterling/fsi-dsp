@@ -1,0 +1,33 @@
+{
+  "name": "database-postgres-sink-compliance-reporting",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+
+    "connection.url": "jdbc:postgresql://pg-reporting.fsi.internal:5432/reporting?sslmode=verify-full&sslrootcert=/mnt/sslcerts/postgres-ca.crt",
+    "connection.user": "${vault:secret/fsi/postgres#username}",
+    "connection.password": "${vault:secret/fsi/postgres#password}",
+
+    "topics": "compliance.screening.v1.match-result",
+    "tasks.max": "3",
+
+    "table.name.format": "compliance_screening_result",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "match_id",
+    "auto.create": false,
+    "auto.evolve": false,
+    "batch.size": "3000",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.postgres-sink-compliance-reporting",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

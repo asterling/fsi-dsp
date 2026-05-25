@@ -1,0 +1,149 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE -- Database connectors deployment playbook
+# =============================================================================
+# Deploys MongoDB, Redis, CockroachDB, and PostgreSQL connectors on a
+# CP-on-RHEL Connect worker running on s390x. Wraps the generic
+# ansible/playbooks/deploy-database-connectors.yml with LinuxONE-specific
+# overrides (IBM Semeru JDK paths, FIPS-mode JVM args, JCEKS credential
+# store fallback for closed z/IRD networks).
+#
+# Implements the self-managed paths from ADR-012 on LinuxONE.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml --ask-vault-pass \
+#     playbooks/deploy-database-connectors.yml
+# =============================================================================
+
+- name: Deploy database connectors on LinuxONE Connect worker
+  hosts: kafka_connect[0]
+  gather_facts: true
+  tags:
+    - database
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/databases.yml
+    - ../../../ansible/vars/database-connectors-example.yml
+  pre_tasks:
+    - name: Assert s390x architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture == 's390x'
+        fail_msg: >-
+          This playbook is LinuxONE-specific (s390x). Detected
+          {{ ansible_architecture }}. Use
+          ansible/playbooks/deploy-database-connectors.yml for non-L1
+          deployments.
+
+    - name: Assert IBM Semeru JDK
+      ansible.builtin.command: "{{ cp_jdk_home }}/bin/java -version"
+      register: _java_version
+      changed_when: false
+      check_mode: false
+
+    - name: Verify IBM Semeru / OpenJ9 in java -version output
+      ansible.builtin.assert:
+        that:
+          - "'IBM Semeru' in _java_version.stderr or 'OpenJ9' in _java_version.stderr"
+        fail_msg: >-
+          Connector worker JDK is not IBM Semeru/OpenJ9.
+          On s390x, IBM Semeru is required for CPACF crypto acceleration
+          (matters for TLS-heavy CDC pipelines). See docs/linuxone-fips-guide.md.
+
+    - name: Stat each required connector JAR path on s390x
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _jar_paths
+      loop:
+        - "{{ cp_database_mongodb_jar_path }}"
+        - "{{ cp_database_redis_jar_path }}"
+        - "{{ cp_database_jdbc_jar_path }}"
+        - "{{ cp_database_debezium_postgres_jar_path }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Assert connector JARs are installed in /opt/kafka-connect/plugins
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: >-
+          Connector JAR {{ item.item }} not found.
+          On LinuxONE, install via:
+            confluent-hub install --component-dir /opt/kafka-connect/plugins \
+              <connector-coords>
+          Then systemctl restart confluent-kafka-connect. All four JARs
+          (MongoDB, Redis, JDBC, Debezium Postgres) are pure Java and
+          run on s390x without recompilation.
+      loop: "{{ _jar_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Stat Postgres JDBC driver (required by JDBC sinks for Postgres and CRDB)
+      ansible.builtin.stat:
+        path: "{{ cp_database_postgresql_driver_path }}"
+      register: _pg_driver
+
+    - name: Assert Postgres JDBC driver is present in jdbc connector lib/
+      ansible.builtin.assert:
+        that:
+          - _pg_driver.stat.exists
+        fail_msg: >-
+          Postgres JDBC driver not found at {{ cp_database_postgresql_driver_path }}.
+          The JDBC sink connector ships without a Postgres driver; download
+          postgresql-42.7.x.jar into the jdbc connector's lib/ directory.
+          Required for both Postgres sink AND CockroachDB sink.
+
+    - name: Wait for Connect REST API
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+
+  tasks:
+    - name: Deploy MongoDB connectors via shared role
+      ansible.builtin.include_role:
+        name: cp_mongodb
+      tags:
+        - mongodb
+        - database
+
+    - name: Deploy Redis sink connectors via shared role
+      ansible.builtin.include_role:
+        name: cp_redis
+      tags:
+        - redis
+        - database
+
+    - name: Deploy CockroachDB sink connectors via shared role
+      ansible.builtin.include_role:
+        name: cp_cockroachdb
+      tags:
+        - cockroachdb
+        - database
+
+    - name: Deploy Postgres connectors via shared role
+      ansible.builtin.include_role:
+        name: cp_postgres
+      tags:
+        - postgres
+        - database
+
+  post_tasks:
+    - name: Summarize LinuxONE database connector deployment
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          LinuxONE Database Connector Deployment Summary
+          Architecture: {{ ansible_architecture }}
+          JDK: {{ _java_version.stderr_lines[0] | default('unknown') }}
+          FIPS: {{ fips_enabled | default('unknown') }}
+          ============================================
+          MongoDB:     source={{ cp_mongodb_results.source_created | default(0) }},
+                       sink={{ cp_mongodb_results.sink_created | default(0) }}
+          Redis:       sink={{ cp_redis_results.created | default(0) }}
+          CockroachDB: sink={{ cp_cockroachdb_results.created | default(0) }}
+                       (CRDB source = native CHANGEFEED, DBA-managed)
+          Postgres:    source={{ cp_postgres_results.source_created | default(0) }},
+                       sink={{ cp_postgres_results.sink_created | default(0) }}
+          ============================================

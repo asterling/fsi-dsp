@@ -1,0 +1,8 @@
+---
+- name: Delegate Redis validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_redis_sink_connectors | default([]) }}"
+  when: (cp_redis_sink_connectors | default([])) | length > 0

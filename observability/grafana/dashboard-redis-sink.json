@@ -1,0 +1,100 @@
+{
+  "__inputs": [
+    { "name": "DS_PROMETHEUS", "label": "Prometheus", "description": "Prometheus datasource for Connect JMX metrics", "type": "datasource", "pluginId": "prometheus", "pluginName": "Prometheus" },
+    { "name": "DS_JSON", "label": "JSON API", "description": "JSON API datasource for Connect REST API polling.", "type": "datasource", "pluginId": "marcusolsson-json-datasource", "pluginName": "JSON API" }
+  ],
+  "annotations": {
+    "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "FSI Kafka Platform", "type": "dashboard" }]
+  },
+  "description": "FSI Kafka Platform - Redis sink observability (ADR-012). Hot-cache rebuild from Kafka. ACL auth failures and DLQ rate are the leading indicators for credential rotation issues.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "title": "ADR-012 Database Connector Patterns", "url": "/docs/adr/012-database-connector-patterns.md" },
+    { "title": "Redis Integration Guide", "url": "/docs/redis-integration-guide.md" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Redis Sinks",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_JSON}",
+      "targets": [{ "method": "GET", "urlPath": "/connectors?expand=info", "fields": [{ "jsonPath": "$..[?(@.info.config['connector.class']=='io.confluent.connect.redis.RedisSinkConnector')]", "type": "number", "name": "count" }], "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#6B7280", "value": null }, { "color": "#22C55E", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 2,
+      "title": "FAILED Tasks",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(kafka_connect_connector_task_status{connector=~\"database-redis-.*\", state=\"failed\"})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EF4444", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 3,
+      "title": "ACL auth failures (per minute)",
+      "description": "Spikes indicate Redis ACL password rotation, expired credentials, or username drift.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(redis_sink_auth_failures_total{connector=~\"database-redis-.*\"}[1m])) * 60", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 1 }, { "color": "#EF4444", "value": 5 }] }, "unit": "short", "noValue": "Redis connector JMX metrics not yet scraped -- verify jmx-exporter-config.yaml." } }
+    },
+    {
+      "id": 4,
+      "title": "DLQ Rate (records/sec)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(confluent_kafka_server_received_records{topic=~\"database\\\\.dlq\\\\.redis-.*\"}[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 1 }, { "color": "#EF4444", "value": 10 }] }, "unit": "rps" } }
+    },
+    {
+      "id": 5,
+      "title": "Connector + Task State",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 6 },
+      "datasource": "${DS_JSON}",
+      "targets": [{ "method": "GET", "urlPath": "/connectors?expand=status&forConnector=database-redis-", "fields": [{ "jsonPath": "$.*", "type": "string" }], "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "title": "Redis commands/sec per task",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "rate(kafka_connect_sink_record_send_total{connector=~\"database-redis-.*\"}[5m])", "legendFormat": "{{connector}} task {{task}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "rps" } }
+    },
+    {
+      "id": 7,
+      "title": "Write latency p95 (ms)",
+      "description": "p95 time from Connect record receipt to Redis SET/HSET acknowledgement.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (connector, le) (rate(kafka_connect_sink_put_batch_duration_ms_bucket{connector=~\"database-redis-.*\"}[5m])))", "legendFormat": "{{connector}} p95", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "database", "redis", "observability"],
+  "templating": {
+    "list": [
+      { "name": "CONNECT_REST_URL", "label": "Connect REST URL", "type": "textbox", "current": { "value": "https://connect-databases.confluent.svc.cluster.local:8083" }, "options": [] },
+      { "name": "ENVIRONMENT", "label": "Environment", "type": "textbox", "current": { "value": "prod" }, "options": [] }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Redis Sink",
+  "uid": "fsi-kafka-redis-sink",
+  "version": 1,
+  "weekStart": ""
+}

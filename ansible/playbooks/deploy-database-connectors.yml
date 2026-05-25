@@ -1,0 +1,155 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- Database Connectors Deployment Playbook
+# =============================================================================
+# Deploys MongoDB (source + sink), Redis (sink), CockroachDB (sink), and
+# PostgreSQL (Debezium source + JDBC sink) connectors on the self-managed
+# Connect cluster used by CP / CFK / LinuxONE deployments. Implements the
+# self-managed paths from ADR-012.
+#
+# For CC-managed equivalents, see modules/db_connector/.
+# For CockroachDB source, see reference/cockroachdb/changefeed-examples.sql
+# (native changefeed -- no Kafka Connect involved).
+#
+# Usage:
+#   # All databases
+#   ansible-playbook -i inventories/prod playbooks/deploy-database-connectors.yml
+#
+#   # Selective
+#   ansible-playbook -i inventories/prod playbooks/deploy-database-connectors.yml \
+#     --tags mongodb         # or redis, cockroachdb, postgres
+#
+#   # Dry run
+#   ansible-playbook -i inventories/prod playbooks/deploy-database-connectors.yml --check
+# =============================================================================
+
+- name: Deploy database connectors
+  hosts: kafka_connect[0]
+  gather_facts: false
+  tags:
+    - database
+  vars_files:
+    - ../vars/database-connectors-example.yml
+  pre_tasks:
+    - name: Wait for Connect REST API to be available
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+
+    - name: List installed connector plugins
+      ansible.builtin.uri:
+        url: "{{ cp_connect_url }}/connector-plugins"
+        method: GET
+        return_content: true
+        status_code: [200]
+      register: _plugins
+      check_mode: false
+      changed_when: false
+
+    - name: Assert MongoDB connector plugins present (when mongodb connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'MongoSourceConnector|MongoSinkConnector') | list | length > 0
+        fail_msg: >-
+          MongoDB Kafka Connector plugins not found in Connect plugins.
+          Install via:
+            confluent-hub install mongodb/kafka-connect-mongodb
+          See reference/connect-configs/README-database-connectors.md.
+      when:
+        - ((cp_mongodb_source_connectors | default([])) + (cp_mongodb_sink_connectors | default([]))) | length > 0
+        - "'mongodb' in ansible_run_tags or 'database' in ansible_run_tags or ansible_run_tags == ['all']"
+
+    - name: Assert Redis Sink plugin present (when redis connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'RedisSinkConnector') | list | length > 0
+        fail_msg: >-
+          io.confluent.connect.redis.RedisSinkConnector not found.
+          Install via:
+            confluent-hub install confluentinc/kafka-connect-redis
+      when:
+        - (cp_redis_sink_connectors | default([])) | length > 0
+        - "'redis' in ansible_run_tags or 'database' in ansible_run_tags or ansible_run_tags == ['all']"
+
+    - name: Assert JDBC Sink plugin present (when cockroachdb or postgres sink connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'JdbcSinkConnector') | list | length > 0
+        fail_msg: >-
+          io.confluent.connect.jdbc.JdbcSinkConnector not found.
+          Install via:
+            confluent-hub install confluentinc/kafka-connect-jdbc
+          And install the postgresql JDBC driver into the jdbc connector
+          lib/ directory.
+      when:
+        - ((cp_cockroachdb_sink_connectors | default([])) + (cp_postgres_sink_connectors | default([]))) | length > 0
+        - "('cockroachdb' in ansible_run_tags or 'postgres' in ansible_run_tags or 'database' in ansible_run_tags or ansible_run_tags == ['all'])"
+
+    - name: Assert Debezium PostgreSQL plugin present (when postgres source connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'io.debezium.connector.postgresql.PostgresConnector') | list | length > 0
+        fail_msg: >-
+          io.debezium.connector.postgresql.PostgresConnector not found.
+          Install via:
+            confluent-hub install debezium/debezium-connector-postgresql
+      when:
+        - (cp_postgres_source_connectors | default([])) | length > 0
+        - "('postgres' in ansible_run_tags or 'database' in ansible_run_tags or ansible_run_tags == ['all'])"
+
+  tasks:
+    - name: Deploy MongoDB connectors
+      ansible.builtin.include_role:
+        name: cp_mongodb
+      tags:
+        - mongodb
+        - database
+
+    - name: Deploy Redis sink connectors
+      ansible.builtin.include_role:
+        name: cp_redis
+      tags:
+        - redis
+        - database
+
+    - name: Deploy CockroachDB sink connectors
+      ansible.builtin.include_role:
+        name: cp_cockroachdb
+      tags:
+        - cockroachdb
+        - database
+
+    - name: Deploy Postgres connectors
+      ansible.builtin.include_role:
+        name: cp_postgres
+      tags:
+        - postgres
+        - database
+
+  post_tasks:
+    - name: Summarize database connector deployment
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Database Connector Deployment Summary
+          ============================================
+          MongoDB:     source={{ cp_mongodb_results.source_created | default(0) }},
+                       sink={{ cp_mongodb_results.sink_created | default(0) }},
+                       healthy={{ cp_mongodb_results.healthy | default(0) }}/
+                       {{ (cp_mongodb_source_connectors | default([])) | length +
+                          (cp_mongodb_sink_connectors | default([])) | length }}
+          Redis:       sink={{ cp_redis_results.created | default(0) }},
+                       healthy={{ cp_redis_results.healthy | default(0) }}/
+                       {{ cp_redis_sink_connectors | default([]) | length }}
+          CockroachDB: sink={{ cp_cockroachdb_results.created | default(0) }},
+                       healthy={{ cp_cockroachdb_results.healthy | default(0) }}/
+                       {{ cp_cockroachdb_sink_connectors | default([]) | length }}
+                       (CRDB sources use native CREATE CHANGEFEED -- DBA-managed)
+          Postgres:    source={{ cp_postgres_results.source_created | default(0) }},
+                       sink={{ cp_postgres_results.sink_created | default(0) }},
+                       healthy={{ cp_postgres_results.healthy | default(0) }}/
+                       {{ (cp_postgres_source_connectors | default([])) | length +
+                          (cp_postgres_sink_connectors | default([])) | length }}
+          ============================================

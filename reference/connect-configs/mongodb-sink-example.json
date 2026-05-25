@@ -1,0 +1,32 @@
+{
+  "name": "database-mongodb-sink-corebanking-account-txn",
+  "config": {
+    "connector.class": "com.mongodb.kafka.connect.MongoSinkConnector",
+
+    "connection.uri": "${vault:secret/fsi/mongodb#connection_uri}",
+    "database": "kafka_corebanking",
+    "collection": "account_transaction",
+
+    "topics": "corebanking.transactions.v1.account-transaction",
+    "tasks.max": "6",
+
+    "document.id.strategy": "com.mongodb.kafka.connect.sink.processor.id.strategy.KafkaMetaDataStrategy",
+    "writemodel.strategy": "com.mongodb.kafka.connect.sink.writemodel.strategy.UpdateOneTimestampsStrategy",
+    "delete.on.null.values": "true",
+    "max.batch.size": "1000",
+    "rate.limiting.timeout": "0",
+    "rate.limiting.every.n": "0",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.mongodb-sink-corebanking-account-txn",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

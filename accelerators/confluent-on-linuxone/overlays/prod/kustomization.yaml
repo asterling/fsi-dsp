@@ -29,6 +29,9 @@ components:
   # Layer 06: Lakehouse sinks (Databricks + Snowflake). Depends on 01/02/03.
   # See docs/adr/011-lakehouse-integration-patterns.md.
   - ../../layers/06-lakehouse-sinks
+  # Layer 07: Database connectors (MongoDB, Redis, CockroachDB, Postgres).
+  # Depends on 01/02/03. See docs/adr/012-database-connector-patterns.md.
+  - ../../layers/07-database-connectors
 
 # Namespace for all resources
 namespace: confluent

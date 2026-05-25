@@ -1,0 +1,185 @@
+---
+# =============================================================================
+# Example database connector definitions
+# =============================================================================
+# Consumed by the cp_mongodb, cp_redis, cp_cockroachdb, and cp_postgres roles.
+# Copy into inventory group_vars/kafka_connect.yml (or a vault-encrypted
+# equivalent) and adapt. Credentials reference Vault keys -- never hardcode.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# MongoDB sources (change streams)
+# ---------------------------------------------------------------------------
+cp_mongodb_source_connectors:
+  - name: database-mongodb-source-corebanking-member-profile
+    config:
+      connector.class: com.mongodb.kafka.connect.MongoSourceConnector
+      connection.uri: "{{ vault_mongodb_connection_uri }}"
+      database: "corebanking"
+      collection: "member_profile"
+      topic.prefix: "corebanking.transactions.v1.member-update"
+      output.format.key: "json"
+      output.format.value: "schema"
+      output.schema.infer.value: "false"
+      change.stream.full.document: "updateLookup"
+      tasks.max: "4"
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.mongodb-source-corebanking-member-profile"
+      errors.deadletterqueue.context.headers.enable: "true"
+
+# ---------------------------------------------------------------------------
+# MongoDB sinks
+# ---------------------------------------------------------------------------
+cp_mongodb_sink_connectors:
+  - name: database-mongodb-sink-corebanking-account-txn
+    config:
+      connector.class: com.mongodb.kafka.connect.MongoSinkConnector
+      connection.uri: "{{ vault_mongodb_connection_uri }}"
+      database: "kafka_corebanking"
+      collection: "account_transaction"
+      topics: "corebanking.transactions.v1.account-transaction"
+      tasks.max: "6"
+      document.id.strategy: "com.mongodb.kafka.connect.sink.processor.id.strategy.KafkaMetaDataStrategy"
+      writemodel.strategy: "com.mongodb.kafka.connect.sink.writemodel.strategy.UpdateOneTimestampsStrategy"
+      delete.on.null.values: "true"
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.mongodb-sink-corebanking-account-txn"
+      errors.deadletterqueue.context.headers.enable: "true"
+
+# ---------------------------------------------------------------------------
+# Redis sinks (sink only -- no Redis source connectors)
+# ---------------------------------------------------------------------------
+cp_redis_sink_connectors:
+  - name: database-redis-sink-compliance-screening
+    config:
+      connector.class: io.confluent.connect.redis.RedisSinkConnector
+      redis.hosts: "{{ redis_cache_url }}"
+      redis.client.mode: "Standalone"
+      redis.username: "{{ vault_redis_username | default('') }}"
+      redis.password: "{{ vault_redis_password }}"
+      redis.tls.enabled: "true"
+      topics: "compliance.screening.v1.match-result"
+      redis.key.prefix: "compliance:screening:"
+      redis.expiration.time: "3600"
+      transforms: "extractKey"
+      transforms.extractKey.type: "org.apache.kafka.connect.transforms.ExtractField$Value"
+      transforms.extractKey.field: "match_id"
+      tasks.max: "1"
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.redis-sink-compliance-screening"
+      errors.deadletterqueue.context.headers.enable: "true"
+
+# ---------------------------------------------------------------------------
+# CockroachDB sinks (JDBC with Postgres driver on port 26257; no CRDB source --
+# use native CREATE CHANGEFEED in reference/cockroachdb/changefeed-examples.sql)
+# ---------------------------------------------------------------------------
+cp_cockroachdb_sink_connectors:
+  - name: database-cockroachdb-sink-corebanking-account-txn
+    config:
+      connector.class: io.confluent.connect.jdbc.JdbcSinkConnector
+      connection.url: "jdbc:postgresql://{{ cockroachdb_host }}:26257/banking?sslmode=verify-full"
+      connection.user: "{{ vault_cockroachdb_username }}"
+      connection.password: "{{ vault_cockroachdb_password }}"
+      topics: "corebanking.transactions.v1.account-transaction"
+      table.name.format: "kafka_account_transaction"
+      insert.mode: "upsert"
+      pk.mode: "record_value"
+      pk.fields: "transaction_id"
+      auto.create: "false"
+      auto.evolve: "false"
+      batch.size: "3000"
+      tasks.max: "6"
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.cockroachdb-sink-corebanking-account-txn"
+      errors.deadletterqueue.context.headers.enable: "true"
+
+# ---------------------------------------------------------------------------
+# Postgres CDC sources (Debezium via pgoutput -- the platform default per ADR-012)
+# ---------------------------------------------------------------------------
+cp_postgres_source_connectors:
+  - name: database-postgres-source-corebanking-cdc
+    config:
+      connector.class: io.debezium.connector.postgresql.PostgresConnector
+      database.hostname: "{{ postgres_primary_host }}"
+      database.port: "5432"
+      database.user: "{{ vault_postgres_cdc_username }}"
+      database.password: "{{ vault_postgres_cdc_password }}"
+      database.dbname: "banking"
+      database.server.name: "pg-east"
+      database.sslmode: "verify-full"
+      plugin.name: "pgoutput"
+      publication.name: "fsi_kafka_publication"
+      publication.autocreate.mode: "disabled"
+      slot.name: "fsi_kafka_prod"
+      slot.drop.on.stop: "false"
+      table.include.list: "banking.account_transaction,banking.member_profile"
+      snapshot.mode: "initial"
+      heartbeat.interval.ms: "30000"
+      tombstones.on.delete: "true"
+      transforms: "unwrap,route"
+      transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
+      transforms.unwrap.drop.tombstones: "false"
+      transforms.unwrap.delete.handling.mode: "rewrite"
+      transforms.route.type: "org.apache.kafka.connect.transforms.RegexRouter"
+      transforms.route.regex: "pg-east\\.banking\\.(.+)"
+      transforms.route.replacement: "corebanking.transactions.v1.$1"
+      tasks.max: "1"
+      key.converter: "io.confluent.connect.avro.AvroConverter"
+      key.converter.schema.registry.url: "{{ schema_registry_url }}"
+      key.converter.basic.auth.credentials.source: "USER_INFO"
+      key.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.postgres-source-corebanking-cdc"
+      errors.deadletterqueue.context.headers.enable: "true"
+
+# ---------------------------------------------------------------------------
+# Postgres sinks
+# ---------------------------------------------------------------------------
+cp_postgres_sink_connectors:
+  - name: database-postgres-sink-compliance-reporting
+    config:
+      connector.class: io.confluent.connect.jdbc.JdbcSinkConnector
+      connection.url: "jdbc:postgresql://{{ postgres_reporting_host }}:5432/reporting?sslmode=verify-full"
+      connection.user: "{{ vault_postgres_username }}"
+      connection.password: "{{ vault_postgres_password }}"
+      topics: "compliance.screening.v1.match-result"
+      table.name.format: "compliance_screening_result"
+      insert.mode: "upsert"
+      pk.mode: "record_value"
+      pk.fields: "match_id"
+      auto.create: "false"
+      auto.evolve: "false"
+      batch.size: "3000"
+      tasks.max: "3"
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "database.dlq.postgres-sink-compliance-reporting"
+      errors.deadletterqueue.context.headers.enable: "true"

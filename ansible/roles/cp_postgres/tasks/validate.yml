@@ -1,0 +1,16 @@
+---
+- name: Delegate Postgres source validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_postgres_source_connectors | default([]) }}"
+  when: (cp_postgres_source_connectors | default([])) | length > 0
+
+- name: Delegate Postgres sink validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_postgres_sink_connectors | default([]) }}"
+  when: (cp_postgres_sink_connectors | default([])) | length > 0

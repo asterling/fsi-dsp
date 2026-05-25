@@ -1,13 +1,43 @@
-# CFK Connector CRs — Lakehouse Sinks
+# CFK Connector CRs — Lakehouse Sinks & Database Connectors
 
-Self-managed Databricks Delta and Snowflake Snowpipe sinks for CFK on
-OpenShift. These manifests implement the DB-C and SF-A self-managed paths
-from [ADR-011](../../../docs/adr/011-lakehouse-integration-patterns.md).
+Self-managed Kafka Connect connectors for CFK on OpenShift, organized by
+the ADR that governs each:
 
-| File | Purpose |
-|---|---|
-| `databricks-delta-sink.yaml` | DB-C: Databricks Delta Lake Sink Connector CR |
-| `snowflake-snowpipe-sink.yaml` | SF-A: Snowflake Snowpipe Streaming Sink Connector CR |
+| File | Purpose | ADR |
+|---|---|---|
+| `databricks-delta-sink.yaml` | Databricks Delta Lake Sink (DB-C) | [ADR-011](../../../docs/adr/011-lakehouse-integration-patterns.md) |
+| `snowflake-snowpipe-sink.yaml` | Snowflake Snowpipe Streaming Sink (SF-A) | [ADR-011](../../../docs/adr/011-lakehouse-integration-patterns.md) |
+| `mongodb-source.yaml` | MongoDB change streams CDC source | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+| `mongodb-sink.yaml` | MongoDB document sink | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+| `redis-sink.yaml` | Redis hot-cache sink | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+| `cockroachdb-jdbc-sink.yaml` | CockroachDB JDBC sink (path B) | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+| `postgres-debezium-source.yaml` | Postgres Debezium CDC source | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+| `postgres-jdbc-sink.yaml` | Postgres JDBC sink | [ADR-012](../../../docs/adr/012-database-connector-patterns.md) |
+
+The lakehouse sinks reference `connectClusterRef: connect` (the default
+application Connect cluster); the database connectors reference
+`connectClusterRef: connect-databases` (a dedicated cluster — see the
+"Connect-cluster topology" section below for the operational-isolation
+rationale).
+
+For CockroachDB **source**, no Connect CR exists. CRDB emits CDC via
+its native `CREATE CHANGEFEED` SQL directly to Kafka — see
+[`reference/cockroachdb/changefeed-examples.sql`](../../../reference/cockroachdb/changefeed-examples.sql) and
+[`docs/cockroachdb-integration-guide.md`](../../../docs/cockroachdb-integration-guide.md).
+
+## Connect-cluster topology
+
+The platform uses three separate Connect clusters in the CFK accelerator
+to preserve operational isolation:
+
+| Cluster | Purpose | Layer | Image JARs |
+|---|---|---|---|
+| `connect` | Audit log shipping (Splunk, Dynatrace) | 04-audit | Splunk Sink + HTTP Sink |
+| `connect-lakehouse` | Databricks + Snowflake sinks | 06-lakehouse-sinks | Databricks Delta + Snowflake |
+| `connect-databases` | MongoDB + Redis + JDBC + Debezium Postgres | 07-database-connectors | MongoDB + Redis + JDBC + Debezium Postgres |
+
+A Postgres replication-slot stall must not back up the audit pipeline,
+and a Databricks credential rotation must not interrupt MongoDB CDC.
 
 ## Prerequisites
 
@@ -17,6 +47,7 @@ The base Confluent Connect image does not include these connectors. Build a
 custom image:
 
 ```dockerfile
+# Lakehouse cluster image (connect-lakehouse)
 FROM confluentinc/cp-server-connect:7.6.0
 
 USER root
@@ -24,6 +55,20 @@ RUN confluent-hub install --no-prompt \
       confluentinc/kafka-connect-databricks-delta-lake-sink:latest && \
     confluent-hub install --no-prompt \
       snowflakeinc/snowflake-kafka-connector:latest
+USER 1000
+```
+
+```dockerfile
+# Database connectors cluster image (connect-databases)
+FROM confluentinc/cp-server-connect:7.6.0
+
+USER root
+RUN confluent-hub install --no-prompt mongodb/kafka-connect-mongodb:latest && \
+    confluent-hub install --no-prompt confluentinc/kafka-connect-redis:latest && \
+    confluent-hub install --no-prompt debezium/debezium-connector-postgresql:latest && \
+    confluent-hub install --no-prompt confluentinc/kafka-connect-jdbc:latest && \
+    curl -L https://jdbc.postgresql.org/download/postgresql-42.7.3.jar \
+      -o /usr/share/confluent-hub-components/confluentinc-kafka-connect-jdbc/lib/postgresql-42.7.3.jar
 USER 1000
 ```
 

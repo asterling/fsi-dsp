@@ -1,0 +1,94 @@
+---
+# =============================================================================
+# cp_mongodb role -- Entry point
+# =============================================================================
+# Thin wrapper around cp_connect handling both MongoDB source (change streams)
+# and sink connectors. Asserts the correct connector class per direction and
+# delegates deployment to cp_connect.
+# =============================================================================
+
+- name: Initialize MongoDB connector result counters
+  ansible.builtin.set_fact:
+    _mongodb_source_created: 0
+    _mongodb_sink_created: 0
+    _mongodb_healthy: 0
+    _mongodb_unhealthy: 0
+
+- name: Assert MongoDB source connectors use MongoSourceConnector class
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'com.mongodb.kafka.connect.MongoSourceConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_mongodb_source_connectors entries must use MongoSourceConnector.
+  loop: "{{ cp_mongodb_source_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert MongoDB sink connectors use MongoSinkConnector class
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'com.mongodb.kafka.connect.MongoSinkConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_mongodb_sink_connectors entries must use MongoSinkConnector.
+  loop: "{{ cp_mongodb_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate MongoDB DLQ topic naming convention
+  ansible.builtin.assert:
+    that:
+      - item.config['errors.deadletterqueue.topic.name'] is defined
+      - item.config['errors.deadletterqueue.topic.name'] is match('^database\\.dlq\\..+')
+    fail_msg: >-
+      Connector {{ item.name }} DLQ must follow naming convention
+      database.dlq.<connector-name>. ADR-012 requires per-connector DLQ topics.
+  loop: "{{ (cp_mongodb_source_connectors | default([])) + (cp_mongodb_sink_connectors | default([])) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Deploy MongoDB source connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_mongodb_source_connectors | default([]) }}"
+  when: (cp_mongodb_source_connectors | default([])) | length > 0
+
+- name: Capture MongoDB source results
+  ansible.builtin.set_fact:
+    _mongodb_source_created: "{{ cp_connect_results.created | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Deploy MongoDB sink connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_mongodb_sink_connectors | default([]) }}"
+  when: (cp_mongodb_sink_connectors | default([])) | length > 0
+
+- name: Capture MongoDB sink results
+  ansible.builtin.set_fact:
+    _mongodb_sink_created: "{{ cp_connect_results.created | default(0) }}"
+    _mongodb_healthy: "{{ cp_connect_results.healthy | default(0) }}"
+    _mongodb_unhealthy: "{{ cp_connect_results.unhealthy | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Report MongoDB connector results
+  ansible.builtin.debug:
+    msg: >-
+      cp_mongodb results:
+      source_created={{ _mongodb_source_created }},
+      sink_created={{ _mongodb_sink_created }},
+      healthy={{ _mongodb_healthy }},
+      unhealthy={{ _mongodb_unhealthy }}
+
+- name: Set cp_mongodb_results output variable
+  ansible.builtin.set_fact:
+    cp_mongodb_results:
+      source_created: "{{ _mongodb_source_created | int }}"
+      sink_created: "{{ _mongodb_sink_created | int }}"
+      healthy: "{{ _mongodb_healthy | int }}"
+      unhealthy: "{{ _mongodb_unhealthy | int }}"

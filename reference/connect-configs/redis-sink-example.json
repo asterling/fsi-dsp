@@ -1,0 +1,36 @@
+{
+  "name": "database-redis-sink-compliance-screening",
+  "config": {
+    "connector.class": "io.confluent.connect.redis.RedisSinkConnector",
+
+    "redis.hosts": "rediss://redis-prod.fsi.internal:6380",
+    "redis.client.mode": "Standalone",
+    "redis.username": "${vault:secret/fsi/redis#username}",
+    "redis.password": "${vault:secret/fsi/redis#password}",
+    "redis.tls.enabled": "true",
+    "redis.tls.truststore.path": "/mnt/sslcerts/kafka-client.truststore.jks",
+    "redis.tls.truststore.password": "${vault:secret/fsi/redis-tls#truststore_password}",
+
+    "topics": "compliance.screening.v1.match-result",
+    "tasks.max": "1",
+
+    "redis.key.prefix": "compliance:screening:",
+    "redis.expiration.time": "3600",
+
+    "transforms": "extractKey",
+    "transforms.extractKey.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
+    "transforms.extractKey.field": "match_id",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.redis-sink-compliance-screening",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

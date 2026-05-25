@@ -28,6 +28,10 @@ components:
   # Snowflake credential coupling; enable when the dev cluster has a
   # lakehouse-creds Secret reconciled by Vault-Agent.
   # - ../../layers/06-lakehouse-sinks
+  # Layer 07: Database connectors. Commented out in dev to avoid MongoDB /
+  # Redis / CRDB / Postgres credential coupling; enable when the dev cluster
+  # has a database-creds Secret reconciled by Vault-Agent.
+  # - ../../layers/07-database-connectors
 
 namespace: confluent
 

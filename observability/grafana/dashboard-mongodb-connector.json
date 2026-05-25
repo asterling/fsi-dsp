@@ -1,0 +1,137 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource for Connect JMX metrics",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_JSON",
+      "label": "JSON API",
+      "description": "JSON API datasource for Connect REST API polling (connect-databases endpoint).",
+      "type": "datasource",
+      "pluginId": "marcusolsson-json-datasource",
+      "pluginName": "JSON API"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - MongoDB connector observability (ADR-012). Covers both directions: source (change streams CDC) and sink (collection writes). Auto-discovers database-mongodb-* connectors on the connect-databases cluster.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "title": "ADR-012 Database Connector Patterns", "url": "/docs/adr/012-database-connector-patterns.md" },
+    { "title": "MongoDB Integration Guide", "url": "/docs/mongodb-integration-guide.md" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active MongoDB Connectors",
+      "description": "Total MongoDB source + sink connectors registered.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_JSON}",
+      "targets": [
+        {
+          "method": "GET",
+          "urlPath": "/connectors?expand=info",
+          "fields": [
+            { "jsonPath": "$..[?(@.info.config['connector.class']=='com.mongodb.kafka.connect.MongoSourceConnector' || @.info.config['connector.class']=='com.mongodb.kafka.connect.MongoSinkConnector')]", "type": "number", "name": "count" }
+          ],
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#6B7280", "value": null }, { "color": "#22C55E", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 2,
+      "title": "FAILED Tasks",
+      "description": "MongoDB connector tasks in FAILED state.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(kafka_connect_connector_task_status{connector=~\"database-mongodb-.*\", state=\"failed\"})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EF4444", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 3,
+      "title": "DLQ Rate (records/sec)",
+      "description": "Records routed to database.dlq.mongodb-* topics.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(confluent_kafka_server_received_records{topic=~\"database\\\\.dlq\\\\.mongodb-.*\"}[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 1 }, { "color": "#EF4444", "value": 10 }] }, "unit": "rps" } }
+    },
+    {
+      "id": 4,
+      "title": "Throughput (records/sec)",
+      "description": "Total records flowing through MongoDB connectors (sources read, sinks write).",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(kafka_connect_source_record_send_total{connector=~\"database-mongodb-source-.*\"}[5m])) + sum(rate(kafka_connect_sink_record_send_total{connector=~\"database-mongodb-sink-.*\"}[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "rps" } }
+    },
+    {
+      "id": 5,
+      "title": "Connector + Task State",
+      "type": "table",
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 6 },
+      "datasource": "${DS_JSON}",
+      "targets": [{ "method": "GET", "urlPath": "/connectors?expand=status&forConnector=database-mongodb-", "fields": [{ "jsonPath": "$.*", "type": "string" }], "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "title": "Source: change stream cursor age (sec)",
+      "description": "Age of the oldest unconsumed change in the change stream. Spikes indicate the connector is falling behind the oplog window.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "mongodb_kafka_connect_source_cursor_age_seconds{connector=~\"database-mongodb-source-.*\"}", "legendFormat": "{{connector}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "noValue": "MongoDB connector JMX metrics not yet scraped -- verify jmx-exporter-config.yaml is updated." } }
+    },
+    {
+      "id": 7,
+      "title": "Sink: write latency p95 (ms)",
+      "description": "p95 time from Connect record receipt to Mongo acknowledgement.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 18 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (connector, le) (rate(kafka_connect_sink_put_batch_duration_ms_bucket{connector=~\"database-mongodb-sink-.*\"}[5m])))", "legendFormat": "{{connector}} p95", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "database", "mongodb", "observability"],
+  "templating": {
+    "list": [
+      { "name": "CONNECT_REST_URL", "label": "Connect REST URL", "type": "textbox", "current": { "value": "https://connect-databases.confluent.svc.cluster.local:8083" }, "options": [] },
+      { "name": "ENVIRONMENT", "label": "Environment", "type": "textbox", "current": { "value": "prod" }, "options": [] }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - MongoDB Connector",
+  "uid": "fsi-kafka-mongodb-connector",
+  "version": 1,
+  "weekStart": ""
+}

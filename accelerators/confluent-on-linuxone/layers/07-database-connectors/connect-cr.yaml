@@ -1,0 +1,333 @@
+---
+# =============================================================================
+# connect-databases Connect cluster + 6 database connector CRs (ADR-012)
+# =============================================================================
+# Dedicated Connect cluster -- isolated from `connect` (audit, layer 04) and
+# `connect-lakehouse` (layer 06). Image bakes in MongoDB + Redis + JDBC +
+# Debezium Postgres JARs. All pure Java; s390x runtime via the base image.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connect
+metadata:
+  name: connect-databases
+  namespace: confluent
+spec:
+  replicas: 2
+  image:
+    # Custom Connect image with:
+    #   - mongodb/kafka-connect-mongodb
+    #   - confluentinc/kafka-connect-redis
+    #   - debezium/debezium-connector-postgresql
+    #   - confluentinc/kafka-connect-jdbc + postgresql-42.7.x.jar
+    # Build for s390x via: docker buildx build --platform linux/s390x ...
+    # See scenarios/cfk-openshift/connectors/README.md for the recipe.
+    application: <PLACEHOLDER_S390X_CONNECT_DATABASES_IMAGE>
+    init: confluentinc/confluent-init-container:2.8.0
+  tls:
+    secretRef: connect-databases-tls
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+    tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "s390x"
+        effect: "NoSchedule"
+  mountedSecrets:
+    # Vault-Agent-managed K8s Secret containing the database credentials.
+    - secretRef: database-creds
+      keyItems:
+        - key: mongodb_connection_uri
+          path: database/mongodb-connection-uri
+        - key: redis_username
+          path: database/redis-username
+        - key: redis_password
+          path: database/redis-password
+        - key: cockroachdb_username
+          path: database/cockroachdb-username
+        - key: cockroachdb_password
+          path: database/cockroachdb-password
+        - key: postgres_cdc_username
+          path: database/postgres-cdc-username
+        - key: postgres_cdc_password
+          path: database/postgres-cdc-password
+        - key: postgres_username
+          path: database/postgres-username
+        - key: postgres_password
+          path: database/postgres-password
+        - key: sr_user_info
+          path: database/sr-user-info
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9092
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: https://schemaregistry.confluent.svc.cluster.local:8081
+      tls:
+        enabled: true
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true
+---
+# =============================================================================
+# MongoDB Source -- change streams from corebanking.member_profile
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-mongodb-source-corebanking-member-profile
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: mongodb-source
+spec:
+  class: com.mongodb.kafka.connect.MongoSourceConnector
+  taskMax: 4
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.uri: "${file:/mnt/sslcerts/database/mongodb-connection-uri:value}"
+    database: "corebanking"
+    collection: "member_profile"
+    topic.prefix: "corebanking.transactions.v1.member-update"
+    output.format.value: "schema"
+    output.schema.infer.value: "false"
+    change.stream.full.document: "updateLookup"
+    publish.full.document.only: "false"
+    copy.existing: "false"
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.mongodb-source-corebanking-member-profile"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# MongoDB Sink -- corebanking.account_transaction -> Mongo collection
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-mongodb-sink-corebanking-account-txn
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: mongodb-sink
+spec:
+  class: com.mongodb.kafka.connect.MongoSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.uri: "${file:/mnt/sslcerts/database/mongodb-connection-uri:value}"
+    database: "kafka_corebanking"
+    collection: "account_transaction"
+    topics: "corebanking.transactions.v1.account-transaction"
+    document.id.strategy: "com.mongodb.kafka.connect.sink.processor.id.strategy.KafkaMetaDataStrategy"
+    writemodel.strategy: "com.mongodb.kafka.connect.sink.writemodel.strategy.UpdateOneTimestampsStrategy"
+    delete.on.null.values: "true"
+    max.batch.size: "1000"
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.mongodb-sink-corebanking-account-txn"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# Redis Sink -- compliance.screening.match-result -> Redis hot cache
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-redis-sink-compliance-screening
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: redis-sink
+spec:
+  class: io.confluent.connect.redis.RedisSinkConnector
+  taskMax: 1
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    redis.hosts: "<PLACEHOLDER_REDIS_URI>"
+    redis.client.mode: "Standalone"
+    redis.username: "${file:/mnt/sslcerts/database/redis-username:value}"
+    redis.password: "${file:/mnt/sslcerts/database/redis-password:value}"
+    redis.tls.enabled: "true"
+    redis.tls.truststore.path: "/mnt/sslcerts/kafka-client.truststore.jks"
+    topics: "compliance.screening.v1.match-result"
+    redis.key.prefix: "compliance:screening:"
+    redis.expiration.time: "3600"
+    transforms: "extractKey"
+    transforms.extractKey.type: "org.apache.kafka.connect.transforms.ExtractField$Value"
+    transforms.extractKey.field: "match_id"
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.redis-sink-compliance-screening"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# CockroachDB Sink -- corebanking.account_transaction -> CRDB via JDBC pg-wire
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-cockroachdb-sink-corebanking-account-txn
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: cockroachdb-sink
+spec:
+  class: io.confluent.connect.jdbc.JdbcSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.url: "jdbc:postgresql://<PLACEHOLDER_CRDB_HOST>:26257/banking?sslmode=verify-full&sslrootcert=/mnt/sslcerts/cockroachdb-ca.crt&sslcert=/mnt/sslcerts/cockroachdb-client.crt&sslkey=/mnt/sslcerts/cockroachdb-client.key"
+    connection.user: "${file:/mnt/sslcerts/database/cockroachdb-username:value}"
+    connection.password: "${file:/mnt/sslcerts/database/cockroachdb-password:value}"
+    topics: "corebanking.transactions.v1.account-transaction"
+    table.name.format: "kafka_account_transaction"
+    insert.mode: "upsert"
+    pk.mode: "record_value"
+    pk.fields: "transaction_id"
+    auto.create: "false"
+    auto.evolve: "false"
+    batch.size: "3000"
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.cockroachdb-sink-corebanking-account-txn"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# Postgres Debezium Source -- banking schema -> Kafka (logical decoding)
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-postgres-source-corebanking-cdc
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: postgres-source-cdc
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  taskMax: 1
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    database.hostname: "<PLACEHOLDER_POSTGRES_HOST>"
+    database.port: "5432"
+    database.user: "${file:/mnt/sslcerts/database/postgres-cdc-username:value}"
+    database.password: "${file:/mnt/sslcerts/database/postgres-cdc-password:value}"
+    database.dbname: "banking"
+    database.server.name: "pg-east"
+    database.sslmode: "verify-full"
+    database.sslrootcert: "/mnt/sslcerts/postgres-ca.crt"
+    plugin.name: "pgoutput"
+    publication.name: "fsi_kafka_publication"
+    publication.autocreate.mode: "disabled"
+    slot.name: "fsi_kafka_prod"
+    slot.drop.on.stop: "false"
+    table.include.list: "banking.account_transaction,banking.member_profile"
+    snapshot.mode: "initial"
+    heartbeat.interval.ms: "30000"
+    tombstones.on.delete: "true"
+    transforms: "unwrap,route"
+    transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
+    transforms.unwrap.drop.tombstones: "false"
+    transforms.unwrap.delete.handling.mode: "rewrite"
+    transforms.route.type: "org.apache.kafka.connect.transforms.RegexRouter"
+    transforms.route.regex: "pg-east\\.banking\\.(.+)"
+    transforms.route.replacement: "corebanking.transactions.v1.$1"
+    key.converter: "io.confluent.connect.avro.AvroConverter"
+    key.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    key.converter.basic.auth.credentials.source: "USER_INFO"
+    key.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.postgres-source-corebanking-cdc"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# Postgres JDBC Sink -- compliance results -> reporting Postgres
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-postgres-sink-compliance-reporting
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: postgres-sink
+spec:
+  class: io.confluent.connect.jdbc.JdbcSinkConnector
+  taskMax: 3
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.url: "jdbc:postgresql://<PLACEHOLDER_POSTGRES_REPORTING_HOST>:5432/reporting?sslmode=verify-full&sslrootcert=/mnt/sslcerts/postgres-ca.crt"
+    connection.user: "${file:/mnt/sslcerts/database/postgres-username:value}"
+    connection.password: "${file:/mnt/sslcerts/database/postgres-password:value}"
+    topics: "compliance.screening.v1.match-result"
+    table.name.format: "compliance_screening_result"
+    insert.mode: "upsert"
+    pk.mode: "record_value"
+    pk.fields: "match_id"
+    auto.create: "false"
+    auto.evolve: "false"
+    batch.size: "3000"
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/database/sr-user-info:value}"
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.postgres-sink-compliance-reporting"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

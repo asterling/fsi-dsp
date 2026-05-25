@@ -1,0 +1,10 @@
+---
+# =============================================================================
+# cp_postgres defaults
+# =============================================================================
+cp_postgres_source_connectors: []
+cp_postgres_sink_connectors: []
+
+cp_connect_validate_health: true
+cp_connect_health_retries: 12
+cp_connect_health_delay: 10

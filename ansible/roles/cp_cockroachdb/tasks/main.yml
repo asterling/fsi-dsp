@@ -1,0 +1,83 @@
+---
+# =============================================================================
+# cp_cockroachdb role -- Entry point (JDBC sink only -- ADR-012)
+# =============================================================================
+# Thin wrapper around cp_connect for CockroachDB JDBC sink connectors. Uses
+# the Postgres JDBC driver pointed at port 26257 (CRDB is pg-wire-compatible).
+#
+# CRDB source is NOT supported via this role -- use the native CREATE CHANGEFEED
+# SQL (DBA-driven on the CRDB side). See reference/cockroachdb/changefeed-examples.sql
+# and docs/cockroachdb-integration-guide.md.
+# =============================================================================
+
+- name: Initialize CockroachDB connector result counters
+  ansible.builtin.set_fact:
+    _cockroachdb_created: 0
+    _cockroachdb_healthy: 0
+    _cockroachdb_unhealthy: 0
+
+- name: Assert CockroachDB sink connectors use JdbcSinkConnector class
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'io.confluent.connect.jdbc.JdbcSinkConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_cockroachdb_sink_connectors entries must use JdbcSinkConnector.
+  loop: "{{ cp_cockroachdb_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert CockroachDB JDBC URL targets port 26257 with postgresql driver
+  ansible.builtin.assert:
+    that:
+      - item.config['connection.url'] is match('^jdbc:postgresql://[^/]+:26257/')
+    fail_msg: >-
+      Connector {{ item.name }} connection.url is '{{ item.config['connection.url'] }}'.
+      CockroachDB requires the postgresql JDBC driver on port 26257.
+      Confirm port is 26257 (not 5432) and scheme is jdbc:postgresql:// (not jdbc:cockroachdb://).
+  loop: "{{ cp_cockroachdb_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate CockroachDB DLQ topic naming convention
+  ansible.builtin.assert:
+    that:
+      - item.config['errors.deadletterqueue.topic.name'] is defined
+      - item.config['errors.deadletterqueue.topic.name'] is match('^database\\.dlq\\..+')
+    fail_msg: >-
+      Connector {{ item.name }} DLQ must follow naming convention
+      database.dlq.<connector-name>.
+  loop: "{{ cp_cockroachdb_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Deploy CockroachDB sink connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_cockroachdb_sink_connectors | default([]) }}"
+  when: (cp_cockroachdb_sink_connectors | default([])) | length > 0
+
+- name: Capture CockroachDB sink results
+  ansible.builtin.set_fact:
+    _cockroachdb_created: "{{ cp_connect_results.created | default(0) }}"
+    _cockroachdb_healthy: "{{ cp_connect_results.healthy | default(0) }}"
+    _cockroachdb_unhealthy: "{{ cp_connect_results.unhealthy | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Report CockroachDB connector results
+  ansible.builtin.debug:
+    msg: >-
+      cp_cockroachdb results:
+      created={{ _cockroachdb_created }},
+      healthy={{ _cockroachdb_healthy }},
+      unhealthy={{ _cockroachdb_unhealthy }}
+      (CRDB sources use native CREATE CHANGEFEED -- not managed by this role)
+
+- name: Set cp_cockroachdb_results output variable
+  ansible.builtin.set_fact:
+    cp_cockroachdb_results:
+      created: "{{ _cockroachdb_created | int }}"
+      healthy: "{{ _cockroachdb_healthy | int }}"
+      unhealthy: "{{ _cockroachdb_unhealthy | int }}"

@@ -1,0 +1,57 @@
+{
+  "name": "database-postgres-source-corebanking-cdc",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+
+    "database.hostname": "pg-east.fsi.internal",
+    "database.port": "5432",
+    "database.user": "${vault:secret/fsi/postgres#cdc_username}",
+    "database.password": "${vault:secret/fsi/postgres#cdc_password}",
+    "database.dbname": "banking",
+    "database.server.name": "pg-east",
+    "database.sslmode": "verify-full",
+    "database.sslrootcert": "/mnt/sslcerts/postgres-ca.crt",
+
+    "_comment_plugin": "pgoutput is built into Postgres 10+ -- no extension install required. The DBA pre-creates the publication and slot per security policy; we do not use publication.autocreate.mode=all_tables.",
+    "plugin.name": "pgoutput",
+    "publication.name": "fsi_kafka_publication",
+    "publication.autocreate.mode": "disabled",
+    "slot.name": "fsi_kafka_prod",
+    "slot.drop.on.stop": "false",
+
+    "table.include.list": "banking.account_transaction,banking.member_profile",
+    "snapshot.mode": "initial",
+    "snapshot.fetch.size": "10240",
+    "heartbeat.interval.ms": "30000",
+
+    "tombstones.on.delete": "true",
+    "decimal.handling.mode": "string",
+    "time.precision.mode": "connect",
+
+    "_comment_route": "Route Debezium's default <server>.<schema>.<table> topic naming to the platform standard <domain>.<application>.<v>.<entity> per ADR-007.",
+    "transforms": "unwrap,route",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite",
+    "transforms.route.type": "org.apache.kafka.connect.transforms.RegexRouter",
+    "transforms.route.regex": "pg-east\\.banking\\.(.+)",
+    "transforms.route.replacement": "corebanking.transactions.v1.$1",
+
+    "tasks.max": "1",
+
+    "key.converter": "io.confluent.connect.avro.AvroConverter",
+    "key.converter.schema.registry.url": "https://schema.fsi.internal",
+    "key.converter.basic.auth.credentials.source": "USER_INFO",
+    "key.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.postgres-source-corebanking-cdc",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

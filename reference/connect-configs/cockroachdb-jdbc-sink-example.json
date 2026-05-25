@@ -1,0 +1,34 @@
+{
+  "name": "database-cockroachdb-sink-corebanking-account-txn",
+  "config": {
+    "connector.class": "io.confluent.connect.jdbc.JdbcSinkConnector",
+
+    "_comment_url": "CockroachDB is Postgres-wire-compatible. Same JDBC driver, port 26257 not 5432. sslmode=verify-full enforces the CRDB-managed CA chain.",
+    "connection.url": "jdbc:postgresql://crdb-east.fsi.internal:26257/banking?sslmode=verify-full&sslrootcert=/mnt/sslcerts/cockroachdb-ca.crt&sslcert=/mnt/sslcerts/cockroachdb-client.crt&sslkey=/mnt/sslcerts/cockroachdb-client.key",
+    "connection.user": "${vault:secret/fsi/cockroachdb#username}",
+    "connection.password": "${vault:secret/fsi/cockroachdb#password}",
+
+    "topics": "corebanking.transactions.v1.account-transaction",
+    "tasks.max": "6",
+
+    "table.name.format": "kafka_account_transaction",
+    "insert.mode": "upsert",
+    "pk.mode": "record_value",
+    "pk.fields": "transaction_id",
+    "auto.create": false,
+    "auto.evolve": false,
+    "batch.size": "3000",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "database.dlq.cockroachdb-sink-corebanking-account-txn",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

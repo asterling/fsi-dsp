@@ -99,6 +99,68 @@ operator needs them.
 
 ---
 
+## Database Connector Metrics (ADR-012)
+
+Metrics for the MongoDB / Redis / CockroachDB / PostgreSQL connectors.
+Connect-based connectors emit JMX (scraped via the platform JMX exporter);
+CockroachDB native changefeed metrics live in the CRDB Prometheus endpoint,
+not in Connect.
+
+### Connect-based connectors (MongoDB, Redis, JDBC sinks, Debezium Postgres)
+
+The Lakehouse-section metrics (`kafka_connect_sink_record_send_total`,
+`kafka_connect_connector_task_status`, `kafka_connect_sink_put_batch_duration_ms`)
+apply identically; filter by `connector=~"database-.*"` instead of
+`connector=~"lakehouse-.*"`.
+
+DLQ queries change prefix from `lakehouse.dlq.*` to `database.dlq.*`:
+
+| Metric | Grafana (PromQL) |
+|---|---|
+| DLQ rate -- all database connectors | `sum(rate(confluent_kafka_server_received_records{topic=~"database\\.dlq\\..*"}[5m]))` |
+| DLQ rate -- MongoDB only | `sum(rate(confluent_kafka_server_received_records{topic=~"database\\.dlq\\.mongodb-.*"}[5m]))` |
+| DLQ rate -- Postgres CDC only | `sum(rate(confluent_kafka_server_received_records{topic=~"database\\.dlq\\.postgres-source-.*"}[5m]))` |
+
+### CDC-specific JMX metrics
+
+| Metric | Description | Grafana (PromQL) | Datadog | Splunk |
+|---|---|---|---|---|
+| `mongodb_kafka_connect_source_cursor_age_seconds` | Age of oldest unconsumed change-stream change | `mongodb_kafka_connect_source_cursor_age_seconds{connector=~"database-mongodb-source-.*"}` | `mongodb.kafka_connect.source.cursor_age{connector:database-mongodb-source-*}` | `index=kafka sourcetype=jmx metric_name="mongodb_kafka_connect_source_cursor_age_seconds"` |
+| `debezium_metrics_milliseconds_behind_source` | Postgres CDC consumer lag in ms | `debezium_metrics_milliseconds_behind_source{connector=~"database-postgres-source-.*"}` | `debezium.metrics.milliseconds_behind_source{connector:database-postgres-source-*}` | `index=kafka sourcetype=jmx metric_name="debezium_metrics_milliseconds_behind_source"` |
+| `debezium_metrics_rows_scanned` | Rows snapshotted during initial sync | `debezium_metrics_rows_scanned{connector=~"database-postgres-source-.*"}` | `debezium.metrics.rows_scanned` | `index=kafka sourcetype=jmx metric_name="debezium_metrics_rows_scanned"` |
+
+### Postgres slot lag (Postgres exporter, NOT Connect)
+
+The single most important Postgres CDC metric: if the slot lag grows
+unbounded, Postgres disk fills. **Alert > 1 GiB.** Source is
+`postgres_exporter`, not Connect.
+
+| Metric | Description | Grafana (PromQL) |
+|---|---|---|
+| `pg_replication_slots_pg_wal_lsn_diff` | Bytes of WAL retained by the slot | `max(pg_replication_slots_pg_wal_lsn_diff{slot_name=~"fsi_kafka_.*"})` |
+| Alert condition | Slot lag > 1 GiB | `max(pg_replication_slots_pg_wal_lsn_diff{slot_name=~"fsi_kafka_.*"}) > 1073741824` |
+
+### CockroachDB native changefeed (NOT Connect-based)
+
+Metrics live in the CRDB Prometheus endpoint (port 8080 by default;
+26258 on CRDB 23.2+). The Grafana dashboard for this path requires a
+separate Prometheus scrape job targeting CRDB nodes.
+
+| Metric | Description | Grafana (PromQL) |
+|---|---|---|
+| `changefeed_running` | Currently running changefeed jobs | `count(changefeed_running{cluster="$CRDB_CLUSTER"})` |
+| `changefeed_emitted_messages` | Events delivered to Kafka | `rate(changefeed_emitted_messages{cluster="$CRDB_CLUSTER"}[5m])` |
+| `changefeed_emit_latency` | CRDB-to-Kafka emit latency (histogram, nanoseconds) | `histogram_quantile(0.95, sum by (le) (rate(changefeed_emit_latency_bucket{cluster="$CRDB_CLUSTER"}[5m]))) / 1000000` (ms) |
+| `changefeed_error_retries` | Sink errors retried | `sum(rate(changefeed_error_retries{cluster="$CRDB_CLUSTER"}[1m])) * 60` |
+| `changefeed_checkpoint_progress` | Highest resolved-timestamp emitted (nanoseconds) | `(time() - changefeed_checkpoint_progress{cluster="$CRDB_CLUSTER"} / 1000000000)` (sec lag) |
+
+Equivalents for other vendors follow the same shape -- substitute the
+metric name into the vendor's query syntax. Grafana ships as the baseline
+in this phase; promote to first-class dashboards in Datadog / Dynatrace /
+NewRelic / Instana / Splunk when operator demand emerges.
+
+---
+
 ## Provider Reference
 
 | Provider | Metrics Ingestion Endpoint | Authentication | Documentation |

@@ -1,0 +1,47 @@
+---
+# =============================================================================
+# Redis Sink Connector -- ADR-012 (Kafka -> Redis hot cache)
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-redis-sink-compliance-screening
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: redis-sink
+    fsi.io/sla-tier: best-effort
+spec:
+  class: io.confluent.connect.redis.RedisSinkConnector
+  taskMax: 1
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    redis.hosts: "<PLACEHOLDER_REDIS_URI>"
+    redis.client.mode: "Standalone"
+    redis.username: "${file:/mnt/secrets/database/redis:username}"
+    redis.password: "${file:/mnt/secrets/database/redis:password}"
+    redis.tls.enabled: "true"
+    redis.tls.truststore.path: "/mnt/sslcerts/kafka-client.truststore.jks"
+    redis.tls.truststore.password: "${file:/mnt/secrets/sr-tls/credentials:truststore.password}"
+
+    topics: "compliance.screening.v1.match-result"
+
+    redis.key.prefix: "compliance:screening:"
+    redis.expiration.time: "3600"
+
+    transforms: "extractKey"
+    transforms.extractKey.type: "org.apache.kafka.connect.transforms.ExtractField$Value"
+    transforms.extractKey.field: "match_id"
+
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/database/sr:user_info}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.redis-sink-compliance-screening"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

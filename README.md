@@ -33,6 +33,24 @@ See [ADR-011](docs/adr/011-lakehouse-integration-patterns.md),
 [Snowflake Integration Guide](docs/snowflake-integration-guide.md), and
 [Tableflow Guide](docs/tableflow-guide.md).
 
+### Database integration (ADR-012)
+
+All scenarios support MongoDB, Redis, CockroachDB, and PostgreSQL connectors
+— both CDC source and sink directions where applicable:
+
+| Path | Source (Kafka ← DB) | Sink (Kafka → DB) | CC managed | Self-managed |
+|---|---|---|---|---|
+| **MongoDB** | Change streams via `MongoSourceConnector` | `MongoSinkConnector` | ✅ via `modules/db_connector/` | ✅ via `reference/connect-configs/mongodb-*-example.json` + `ansible/roles/cp_mongodb/` |
+| **Redis** | ❌ (cache, not source of truth) | `RedisSinkConnector` | ✅ via `modules/db_connector/` | ✅ via `reference/connect-configs/redis-sink-example.json` + `ansible/roles/cp_redis/` |
+| **CockroachDB** | ✅ Native `CREATE CHANGEFEED` SQL (no Kafka Connect — DBA-driven, see [`reference/cockroachdb/changefeed-examples.sql`](reference/cockroachdb/changefeed-examples.sql)) | JDBC sink with Postgres driver on port 26257 | ✅ via `modules/db_connector/` (sink only) | ✅ via `reference/connect-configs/cockroachdb-jdbc-sink-example.json` + `ansible/roles/cp_cockroachdb/` |
+| **PostgreSQL** | Debezium `PostgresConnector` (logical decoding) | `JdbcSinkConnector` | ✅ via `modules/db_connector/` | ✅ via `reference/connect-configs/postgres-*-example.json` + `ansible/roles/cp_postgres/` |
+
+See [ADR-012](docs/adr/012-database-connector-patterns.md),
+[MongoDB Integration Guide](docs/mongodb-integration-guide.md),
+[Redis Integration Guide](docs/redis-integration-guide.md),
+[CockroachDB Integration Guide](docs/cockroachdb-integration-guide.md), and
+[PostgreSQL Integration Guide](docs/postgres-integration-guide.md).
+
 ## Accelerators
 
 Where `scenarios/` are starter kits, `accelerators/` are opinionated, end-to-end, production-grade deployments.

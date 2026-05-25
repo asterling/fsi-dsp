@@ -1,0 +1,69 @@
+---
+# =============================================================================
+# Postgres Debezium Source Connector -- ADR-012 path A (Postgres CDC -> Kafka)
+# =============================================================================
+# Requires Postgres-side: wal_level=logical; replication role; publication
+# pre-created (publication.autocreate.mode=disabled); REPLICA IDENTITY FULL
+# on captured tables. See docs/postgres-integration-guide.md.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-postgres-source-corebanking-cdc
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: postgres-source-cdc
+    fsi.io/sla-tier: critical
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  taskMax: 1
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    database.hostname: "<PLACEHOLDER_POSTGRES_HOST>"
+    database.port: "5432"
+    database.user: "${file:/mnt/secrets/database/postgres:cdc_username}"
+    database.password: "${file:/mnt/secrets/database/postgres:cdc_password}"
+    database.dbname: "banking"
+    database.server.name: "pg-east"
+    database.sslmode: "verify-full"
+    database.sslrootcert: "/mnt/sslcerts/postgres-ca.crt"
+
+    plugin.name: "pgoutput"
+    publication.name: "fsi_kafka_publication"
+    publication.autocreate.mode: "disabled"
+    slot.name: "fsi_kafka_prod"
+    slot.drop.on.stop: "false"
+
+    table.include.list: "banking.account_transaction,banking.member_profile"
+    snapshot.mode: "initial"
+    snapshot.fetch.size: "10240"
+    heartbeat.interval.ms: "30000"
+
+    tombstones.on.delete: "true"
+    decimal.handling.mode: "string"
+    time.precision.mode: "connect"
+
+    transforms: "unwrap,route"
+    transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
+    transforms.unwrap.drop.tombstones: "false"
+    transforms.unwrap.delete.handling.mode: "rewrite"
+    transforms.route.type: "org.apache.kafka.connect.transforms.RegexRouter"
+    transforms.route.regex: "pg-east\\.banking\\.(.+)"
+    transforms.route.replacement: "corebanking.transactions.v1.$1"
+
+    key.converter: "io.confluent.connect.avro.AvroConverter"
+    key.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    key.converter.basic.auth.credentials.source: "USER_INFO"
+    key.converter.basic.auth.user.info: "${file:/mnt/secrets/database/sr:user_info}"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/database/sr:user_info}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.postgres-source-corebanking-cdc"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

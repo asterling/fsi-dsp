@@ -1,0 +1,81 @@
+# =============================================================================
+# CFK on OpenShift on LinuxONE (s390x) -- connect-databases Helm overrides
+# =============================================================================
+# Lightweight scenario variant of accelerators/confluent-on-linuxone/layers/07-
+# database-connectors/. Use when you want the CFK Connect cluster sized and
+# scheduled for database connectors but do not need the full Kustomize layering
+# of the accelerator.
+#
+# Pairs with scenarios/cfk-openshift-linuxone/values/kafka.yaml and
+# values/connect-lakehouse.yaml. To deploy the actual Connector CRs, apply:
+#   scenarios/cfk-openshift/connectors/{mongodb,redis,cockroachdb,postgres}-*.yaml
+# against the connect-databases cluster defined here.
+# =============================================================================
+
+connect:
+  # Dedicated cluster name -- isolates database connector lifecycle from the
+  # default application and lakehouse Connect clusters.
+  name: connect-databases
+  replicas: 2
+
+  image:
+    # Custom multi-arch (or s390x-only) Connect image with:
+    #   - mongodb/kafka-connect-mongodb
+    #   - confluentinc/kafka-connect-redis
+    #   - debezium/debezium-connector-postgresql
+    #   - confluentinc/kafka-connect-jdbc + postgresql-42.7.x.jar
+    # See scenarios/cfk-openshift/connectors/README.md for build recipe.
+    application: <PLACEHOLDER_S390X_CONNECT_DATABASES_IMAGE>
+    init: confluentinc/confluent-init-container:2.8.0
+    pullPolicy: IfNotPresent
+
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+    tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "s390x"
+        effect: "NoSchedule"
+
+  # FIPS posture inherited from cluster (linuxone-fips-guide.md).
+  # CDC and JDBC sinks are TLS-heavy; CPACF accelerates AES and SHA
+  # operations transparently on s390x.
+
+  tls:
+    enabled: true
+
+  # Database credentials reconciled by Vault-Agent. The actual Secret
+  # contract is in accelerators/confluent-on-linuxone/layers/07-database-
+  # connectors/secrets.template.yaml.
+  mountedSecrets:
+    - secretRef: database-creds
+
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9092
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: https://schemaregistry.confluent.svc.cluster.local:8081
+      tls:
+        enabled: true
+
+  # Resource sizing tuned for CDC throughput. Sources (Debezium, MongoDB
+  # change streams) hold long-lived connections; sinks batch records.
+  resources:
+    requests:
+      cpu: "1500m"
+      memory: "3Gi"
+    limits:
+      cpu: "6000m"
+      memory: "12Gi"

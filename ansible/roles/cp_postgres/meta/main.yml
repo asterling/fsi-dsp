@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: cp_postgres
+  author: FSI Kafka Platform C4E
+  description: >-
+    Deploy and validate PostgreSQL connectors on CP / CFK / LinuxONE.
+    Source uses Debezium PostgresConnector (logical decoding via pgoutput);
+    sink uses JdbcSinkConnector. ADR-012 picks Debezium as the default
+    Postgres CDC mechanism; the existing JDBC polling source remains valid
+    for low-throughput edge cases via the generic cp_connect role.
+  license: Internal
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions: ["8", "9"]
+
+dependencies:
+  - role: cp_connect

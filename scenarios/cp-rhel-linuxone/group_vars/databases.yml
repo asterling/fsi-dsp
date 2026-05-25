@@ -1,0 +1,68 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE (s390x) -- Database Connector Variables
+# =============================================================================
+# Overrides for cp_mongodb / cp_redis / cp_cockroachdb / cp_postgres roles
+# when running on LinuxONE. Sourced by scenarios/cp-rhel-linuxone/playbooks/
+# deploy-database-connectors.yml.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# JDK
+# ---------------------------------------------------------------------------
+cp_jdk_home: "/opt/ibm/semeru-17"
+
+# ---------------------------------------------------------------------------
+# Connector JAR paths
+# ---------------------------------------------------------------------------
+# Confluent Hub installs into versioned subdirs; pin the parent dir name
+# (the role only checks existence, not a specific version subdir).
+cp_database_mongodb_jar_path: "/opt/kafka-connect/plugins/mongodb-kafka-connect-mongodb"
+cp_database_redis_jar_path: "/opt/kafka-connect/plugins/confluentinc-kafka-connect-redis"
+cp_database_jdbc_jar_path: "/opt/kafka-connect/plugins/confluentinc-kafka-connect-jdbc"
+cp_database_debezium_postgres_jar_path: "/opt/kafka-connect/plugins/debezium-debezium-connector-postgresql"
+
+# Postgres JDBC driver -- required by JDBC sinks (Postgres and CRDB).
+# Confluent Hub does not bundle this; install postgresql-42.7.x.jar
+# into the jdbc connector's lib/ subdirectory.
+cp_database_postgresql_driver_path: "/opt/kafka-connect/plugins/confluentinc-kafka-connect-jdbc/lib/postgresql-42.7.3.jar"
+
+# ---------------------------------------------------------------------------
+# FIPS-mode Connect worker JVM settings
+# ---------------------------------------------------------------------------
+cp_connect_jvm_extra_args:
+  - "-Dkeystore.pkcs12.macAlgorithm=HmacPBESHA256"
+  - "-Dcom.ibm.fips.mode=true"          # IBM Semeru FIPS toggle
+  - "-Djava.security.properties=/etc/kafka-connect/security.fips.properties"
+
+# ---------------------------------------------------------------------------
+# Credential store: Vault preferred; JCEKS fallback for closed z/IRD networks
+# ---------------------------------------------------------------------------
+cp_database_use_jceks: false
+cp_database_jceks_path: "/etc/kafka-connect/database-creds.jceks"
+cp_database_jceks_keystore_password: "{{ vault_database_jceks_password | default('') }}"
+
+# Per-key paths within the JCEKS store (when cp_database_use_jceks=true)
+cp_database_jceks_keys:
+  mongodb_connection_uri: "mongodb.connection_uri"
+  redis_username: "redis.username"
+  redis_password: "redis.password"
+  cockroachdb_username: "cockroachdb.username"
+  cockroachdb_password: "cockroachdb.password"
+  postgres_cdc_username: "postgres.cdc_username"
+  postgres_cdc_password: "postgres.cdc_password"
+  postgres_username: "postgres.username"
+  postgres_password: "postgres.password"
+
+# ---------------------------------------------------------------------------
+# Source DB endpoints (override per environment)
+# ---------------------------------------------------------------------------
+# These shadow the placeholders in ansible/vars/database-connectors-example.yml
+# so the L1 deployment can target environment-specific hosts.
+schema_registry_url: "https://schema.fsi.internal"
+
+mongodb_connection_uri_default: "mongodb+srv://cluster0.fsi.internal/?retryWrites=true&w=majority"
+redis_cache_url: "rediss://redis-prod.fsi.internal:6380"
+cockroachdb_host: "crdb-east.fsi.internal"
+postgres_primary_host: "pg-east.fsi.internal"
+postgres_reporting_host: "pg-reporting.fsi.internal"

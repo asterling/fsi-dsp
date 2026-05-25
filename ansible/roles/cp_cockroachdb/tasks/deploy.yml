@@ -1,0 +1,8 @@
+---
+- name: Delegate CockroachDB deploy to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: deploy.yml
+  vars:
+    cp_connectors: "{{ cp_cockroachdb_sink_connectors | default([]) }}"
+  when: (cp_cockroachdb_sink_connectors | default([])) | length > 0

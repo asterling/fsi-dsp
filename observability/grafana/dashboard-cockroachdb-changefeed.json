@@ -1,0 +1,113 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource scraping the CockroachDB Prometheus endpoint (default :8080 or :26258 for CRDB 23.2+). NOT the Kafka Connect REST API -- native changefeed runs inside CRDB, not Connect.",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "FSI Kafka Platform", "type": "dashboard" }]
+  },
+  "description": "FSI Kafka Platform - CockroachDB native changefeed observability (ADR-012 path A). This dashboard is STRUCTURALLY DIFFERENT from other connector dashboards: native changefeed runs inside CRDB and emits to Kafka without Kafka Connect. Metrics come from the CRDB Prometheus endpoint, not the Connect REST API.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "title": "CockroachDB Integration Guide", "url": "/docs/cockroachdb-integration-guide.md" },
+    { "title": "ADR-012 Database Connector Patterns", "url": "/docs/adr/012-database-connector-patterns.md" },
+    { "title": "Changefeed SQL Examples", "url": "/reference/cockroachdb/changefeed-examples.sql" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Changefeed Jobs",
+      "description": "Currently running CHANGEFEED jobs across the CRDB cluster. SHOW CHANGEFEED JOBS for details.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "count(changefeed_running{cluster=\"$CRDB_CLUSTER\"})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#6B7280", "value": null }, { "color": "#22C55E", "value": 1 }] }, "unit": "short", "noValue": "No CRDB Prometheus endpoint configured. Check that DS_PROMETHEUS points at the CRDB cluster, NOT the Confluent cluster." } }
+    },
+    {
+      "id": 2,
+      "title": "Failed Jobs (last 1h)",
+      "description": "Changefeed jobs that entered 'failed' state. Inspect via SHOW CHANGEFEED JOBS WHERE status='failed'.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(increase(changefeed_failures{cluster=\"$CRDB_CLUSTER\"}[1h]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EF4444", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 3,
+      "title": "Error retries (per minute)",
+      "description": "Sink errors that triggered retries. Persistent non-zero rate suggests Kafka broker unavailability or auth drift.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(changefeed_error_retries{cluster=\"$CRDB_CLUSTER\"}[1m])) * 60", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 1 }, { "color": "#EF4444", "value": 10 }] }, "unit": "short" } }
+    },
+    {
+      "id": 4,
+      "title": "Emit latency p95 (ms)",
+      "description": "p95 time from CRDB MVCC commit to Kafka acknowledgement.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "histogram_quantile(0.95, sum by (le) (rate(changefeed_emit_latency_bucket{cluster=\"$CRDB_CLUSTER\"}[5m]))) / 1000000", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ms" } }
+    },
+    {
+      "id": 5,
+      "title": "Emitted messages per second (per changefeed)",
+      "description": "Events delivered to Kafka, broken down by changefeed job.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "rate(changefeed_emitted_messages{cluster=\"$CRDB_CLUSTER\"}[5m])", "legendFormat": "{{job_id}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "rps" } }
+    },
+    {
+      "id": 6,
+      "title": "Checkpoint watermark lag (sec)",
+      "description": "Time between now and the highest resolved-timestamp emitted. Critical SLA-tier targets 10s; standard 60s.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "(time() - changefeed_checkpoint_progress{cluster=\"$CRDB_CLUSTER\"} / 1000000000)", "legendFormat": "{{job_id}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 30 }, { "color": "#EF4444", "value": 120 }] } } }
+    },
+    {
+      "id": 7,
+      "title": "Rangefeed processor load (per CRDB node)",
+      "description": "The internal CRDB mechanism that feeds changefeeds. Persistent high load = upstream bottleneck before Kafka.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "rate(distsender_rangefeed_total_ranges{cluster=\"$CRDB_CLUSTER\"}[5m])", "legendFormat": "node {{node_id}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "database", "cockroachdb", "changefeed", "observability"],
+  "templating": {
+    "list": [
+      { "name": "CRDB_CLUSTER", "label": "CRDB Cluster", "type": "textbox", "current": { "value": "" }, "options": [], "description": "CockroachDB cluster ID label (matches the scrape job)." },
+      { "name": "ENVIRONMENT", "label": "Environment", "type": "textbox", "current": { "value": "prod" }, "options": [] }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - CockroachDB Native Changefeed",
+  "uid": "fsi-kafka-cockroachdb-changefeed",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,9 @@
+---
+# =============================================================================
+# cp_cockroachdb defaults
+# =============================================================================
+cp_cockroachdb_sink_connectors: []
+
+cp_connect_validate_health: true
+cp_connect_health_retries: 12
+cp_connect_health_delay: 10

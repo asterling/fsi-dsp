@@ -1,0 +1,111 @@
+---
+# =============================================================================
+# cp_postgres role -- Entry point (Debezium source + JDBC sink, ADR-012)
+# =============================================================================
+# Handles both directions:
+#   - source: Debezium PostgresConnector (logical decoding via pgoutput)
+#   - sink:   JdbcSinkConnector
+# =============================================================================
+
+- name: Initialize Postgres connector result counters
+  ansible.builtin.set_fact:
+    _postgres_source_created: 0
+    _postgres_sink_created: 0
+    _postgres_healthy: 0
+    _postgres_unhealthy: 0
+
+- name: Assert Postgres source connectors use Debezium PostgresConnector
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'io.debezium.connector.postgresql.PostgresConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_postgres_source_connectors entries must use
+      io.debezium.connector.postgresql.PostgresConnector (ADR-012 chose
+      Debezium as the default Postgres CDC source; JDBC polling source is
+      a separate connector -- use the generic cp_connect role for that).
+  loop: "{{ cp_postgres_source_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert Postgres source connectors disable publication autocreate
+  ansible.builtin.assert:
+    that:
+      - item.config['publication.autocreate.mode'] | default('') == 'disabled'
+    fail_msg: >-
+      Connector {{ item.name }} publication.autocreate.mode is
+      '{{ item.config['publication.autocreate.mode'] | default('unset') }}'.
+      ADR-012 requires DBA-managed publications; use
+      publication.autocreate.mode=disabled and pre-create via
+      CREATE PUBLICATION on the Postgres side.
+  loop: "{{ cp_postgres_source_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert Postgres sink connectors use JdbcSinkConnector with postgresql URL
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'io.confluent.connect.jdbc.JdbcSinkConnector'
+      - item.config['connection.url'] is match('^jdbc:postgresql://')
+    fail_msg: >-
+      Connector {{ item.name }} must use JdbcSinkConnector with a
+      jdbc:postgresql:// URL.
+  loop: "{{ cp_postgres_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate Postgres DLQ topic naming convention
+  ansible.builtin.assert:
+    that:
+      - item.config['errors.deadletterqueue.topic.name'] is defined
+      - item.config['errors.deadletterqueue.topic.name'] is match('^database\\.dlq\\..+')
+    fail_msg: >-
+      Connector {{ item.name }} DLQ must follow naming convention
+      database.dlq.<connector-name>.
+  loop: "{{ (cp_postgres_source_connectors | default([])) + (cp_postgres_sink_connectors | default([])) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Deploy Postgres source connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_postgres_source_connectors | default([]) }}"
+  when: (cp_postgres_source_connectors | default([])) | length > 0
+
+- name: Capture Postgres source results
+  ansible.builtin.set_fact:
+    _postgres_source_created: "{{ cp_connect_results.created | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Deploy Postgres sink connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_postgres_sink_connectors | default([]) }}"
+  when: (cp_postgres_sink_connectors | default([])) | length > 0
+
+- name: Capture Postgres sink results
+  ansible.builtin.set_fact:
+    _postgres_sink_created: "{{ cp_connect_results.created | default(0) }}"
+    _postgres_healthy: "{{ cp_connect_results.healthy | default(0) }}"
+    _postgres_unhealthy: "{{ cp_connect_results.unhealthy | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Report Postgres connector results
+  ansible.builtin.debug:
+    msg: >-
+      cp_postgres results:
+      source_created={{ _postgres_source_created }},
+      sink_created={{ _postgres_sink_created }},
+      healthy={{ _postgres_healthy }},
+      unhealthy={{ _postgres_unhealthy }}
+
+- name: Set cp_postgres_results output variable
+  ansible.builtin.set_fact:
+    cp_postgres_results:
+      source_created: "{{ _postgres_source_created | int }}"
+      sink_created: "{{ _postgres_sink_created | int }}"
+      healthy: "{{ _postgres_healthy | int }}"
+      unhealthy: "{{ _postgres_unhealthy | int }}"

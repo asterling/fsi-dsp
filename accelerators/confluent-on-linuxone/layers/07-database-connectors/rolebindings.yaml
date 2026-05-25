@@ -1,0 +1,111 @@
+---
+# =============================================================================
+# MDS RBAC for the database-connector principal (ADR-012)
+# =============================================================================
+# Depends on layer 01-rbac (ConfluentServerAuthorizer must be active).
+# The connector authenticates to Kafka via mTLS with CN=database-connector.
+# =============================================================================
+
+# Sinks need DeveloperRead on source topics; sources need DeveloperWrite on
+# target topic prefixes. Listed explicitly per connector for least-privilege.
+
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-source-topic-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Topic
+      name: "corebanking.transactions.v1.account-transaction"
+      patternType: LITERAL
+    - resourceType: Topic
+      name: "compliance.screening.v1.match-result"
+      patternType: LITERAL
+---
+# Source: write to CDC target topic prefixes
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-target-topic-write
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperWrite
+  resourcePatterns:
+    - resourceType: Topic
+      name: "corebanking.transactions.v1."
+      patternType: PREFIXED
+---
+# Every connector: write to its DLQ
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-dlq-write
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperWrite
+  resourcePatterns:
+    - resourceType: Topic
+      name: "database.dlq."
+      patternType: PREFIXED
+---
+# Sinks: read consumer-group offsets (connect-databases-*)
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-consumer-group-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Group
+      name: "connect-databases-"
+      patternType: PREFIXED
+---
+# Sinks: read SR subjects for the source topics
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-sr-subject-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Subject
+      name: "corebanking.transactions.v1.account-transaction-value"
+      patternType: LITERAL
+    - resourceType: Subject
+      name: "compliance.screening.v1.match-result-value"
+      patternType: LITERAL
+---
+# Sources: write SR subjects (auto-register CDC schemas)
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: database-connector-sr-subject-write
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: database-connector
+  role: DeveloperWrite
+  resourcePatterns:
+    - resourceType: Subject
+      name: "corebanking.transactions.v1."
+      patternType: PREFIXED

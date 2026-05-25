@@ -1,0 +1,69 @@
+---
+# =============================================================================
+# cp_redis role -- Entry point (sink only -- ADR-012)
+# =============================================================================
+# Thin wrapper around cp_connect for Redis sink connectors. Asserts the
+# correct connector class and delegates deployment.
+#
+# Redis source is not supported -- Redis is a cache, not a source of truth
+# (ADR-012). This role intentionally has no source variable.
+# =============================================================================
+
+- name: Initialize Redis connector result counters
+  ansible.builtin.set_fact:
+    _redis_created: 0
+    _redis_healthy: 0
+    _redis_unhealthy: 0
+
+- name: Assert Redis sink connectors use RedisSinkConnector class
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'io.confluent.connect.redis.RedisSinkConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_redis_sink_connectors entries must use RedisSinkConnector.
+  loop: "{{ cp_redis_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate Redis DLQ topic naming convention
+  ansible.builtin.assert:
+    that:
+      - item.config['errors.deadletterqueue.topic.name'] is defined
+      - item.config['errors.deadletterqueue.topic.name'] is match('^database\\.dlq\\..+')
+    fail_msg: >-
+      Connector {{ item.name }} DLQ must follow naming convention
+      database.dlq.<connector-name>. ADR-012 requires per-connector DLQ topics.
+  loop: "{{ cp_redis_sink_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Deploy Redis sink connectors via cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_redis_sink_connectors | default([]) }}"
+  when: (cp_redis_sink_connectors | default([])) | length > 0
+
+- name: Capture Redis sink results
+  ansible.builtin.set_fact:
+    _redis_created: "{{ cp_connect_results.created | default(0) }}"
+    _redis_healthy: "{{ cp_connect_results.healthy | default(0) }}"
+    _redis_unhealthy: "{{ cp_connect_results.unhealthy | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Report Redis connector results
+  ansible.builtin.debug:
+    msg: >-
+      cp_redis results:
+      created={{ _redis_created }},
+      healthy={{ _redis_healthy }},
+      unhealthy={{ _redis_unhealthy }}
+
+- name: Set cp_redis_results output variable
+  ansible.builtin.set_fact:
+    cp_redis_results:
+      created: "{{ _redis_created | int }}"
+      healthy: "{{ _redis_healthy | int }}"
+      unhealthy: "{{ _redis_unhealthy | int }}"

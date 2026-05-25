@@ -1,0 +1,41 @@
+---
+# =============================================================================
+# MongoDB Sink Connector -- ADR-012 (Kafka -> MongoDB collection)
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: database-mongodb-sink-corebanking-account-txn
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/connector-type: mongodb-sink
+    fsi.io/sla-tier: critical
+spec:
+  class: com.mongodb.kafka.connect.MongoSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect-databases
+  configs:
+    connection.uri: "${file:/mnt/secrets/database/mongodb:connection_uri}"
+    database: "kafka_corebanking"
+    collection: "account_transaction"
+
+    topics: "corebanking.transactions.v1.account-transaction"
+
+    document.id.strategy: "com.mongodb.kafka.connect.sink.processor.id.strategy.KafkaMetaDataStrategy"
+    writemodel.strategy: "com.mongodb.kafka.connect.sink.writemodel.strategy.UpdateOneTimestampsStrategy"
+    delete.on.null.values: "true"
+    max.batch.size: "1000"
+
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/database/sr:user_info}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "database.dlq.mongodb-sink-corebanking-account-txn"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

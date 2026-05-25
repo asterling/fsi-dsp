@@ -1,0 +1,114 @@
+{
+  "__inputs": [
+    { "name": "DS_PROMETHEUS", "label": "Prometheus", "description": "Prometheus datasource for both Connect JMX metrics AND Postgres exporter metrics (slot lag, WAL position).", "type": "datasource", "pluginId": "prometheus", "pluginName": "Prometheus" },
+    { "name": "DS_JSON", "label": "JSON API", "description": "Connect REST API endpoint (connect-databases cluster).", "type": "datasource", "pluginId": "marcusolsson-json-datasource", "pluginName": "JSON API" }
+  ],
+  "annotations": {
+    "list": [{ "builtIn": 1, "datasource": "-- Grafana --", "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "FSI Kafka Platform", "type": "dashboard" }]
+  },
+  "description": "FSI Kafka Platform - Postgres CDC observability (Debezium, ADR-012 path A). Slot lag is the metric that matters: if the connector stops, the slot retains WAL and Postgres disk fills. Alert on slot lag > 1 GiB.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    { "title": "Postgres Integration Guide", "url": "/docs/postgres-integration-guide.md" },
+    { "title": "ADR-012 Database Connector Patterns", "url": "/docs/adr/012-database-connector-patterns.md" }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Active Postgres CDC Sources",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_JSON}",
+      "targets": [{ "method": "GET", "urlPath": "/connectors?expand=info", "fields": [{ "jsonPath": "$..[?(@.info.config['connector.class']=='io.debezium.connector.postgresql.PostgresConnector')]", "type": "number", "name": "count" }], "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#6B7280", "value": null }, { "color": "#22C55E", "value": 1 }] }, "unit": "short" } }
+    },
+    {
+      "id": 2,
+      "title": "Slot lag (bytes)",
+      "description": "The replication slot's retained WAL. ALERT > 1 GiB -- Postgres disk fills if the connector cannot consume.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "max(pg_replication_slots_pg_wal_lsn_diff{slot_name=~\"fsi_kafka_.*\"})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 268435456 }, { "color": "#EF4444", "value": 1073741824 }] }, "noValue": "No Postgres exporter metrics. Install postgres_exporter and scrape pg_replication_slots." } }
+    },
+    {
+      "id": 3,
+      "title": "Milliseconds behind source (Debezium)",
+      "description": "Time gap between the source LSN and the Debezium consumer position.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "max(debezium_metrics_milliseconds_behind_source{connector=~\"database-postgres-source-.*\"})", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "ms", "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 5000 }, { "color": "#EF4444", "value": 60000 }] } } }
+    },
+    {
+      "id": 4,
+      "title": "DLQ Rate (records/sec)",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "sum(rate(confluent_kafka_server_received_records{topic=~\"database\\\\.dlq\\\\.postgres-(source|sink)-.*\"}[5m]))", "refId": "A" }],
+      "fieldConfig": { "defaults": { "thresholds": { "mode": "absolute", "steps": [{ "color": "#22C55E", "value": null }, { "color": "#EAB308", "value": 1 }, { "color": "#EF4444", "value": 10 }] }, "unit": "rps" } }
+    },
+    {
+      "id": 5,
+      "title": "Connector + Task State",
+      "type": "table",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 6 },
+      "datasource": "${DS_JSON}",
+      "targets": [{ "method": "GET", "urlPath": "/connectors?expand=status&forConnector=database-postgres-", "fields": [{ "jsonPath": "$.*", "type": "string" }], "refId": "A" }]
+    },
+    {
+      "id": 6,
+      "title": "WAL position (LSN, bytes)",
+      "description": "Postgres write-ahead-log position. The Debezium consumer lags this by 'slot lag bytes'.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "pg_replication_slots_pg_wal_lsn_diff{slot_name=~\"fsi_kafka_.*\"} + pg_replication_slots_pg_wal_lsn_diff{slot_name=~\"fsi_kafka_.*\"}", "legendFormat": "WAL position", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "bytes" } }
+    },
+    {
+      "id": 7,
+      "title": "Snapshot progress",
+      "description": "Rows snapshotted during initial sync. Returns to 0 after snapshot completion.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [{ "expr": "debezium_metrics_rows_scanned{connector=~\"database-postgres-source-.*\"}", "legendFormat": "{{connector}}", "refId": "A" }],
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+    {
+      "id": 8,
+      "title": "Records emitted (per source) and sink throughput",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        { "expr": "rate(kafka_connect_source_record_send_total{connector=~\"database-postgres-source-.*\"}[5m])", "legendFormat": "source: {{connector}}", "refId": "A" },
+        { "expr": "rate(kafka_connect_sink_record_send_total{connector=~\"database-postgres-sink-.*\"}[5m])", "legendFormat": "sink: {{connector}}", "refId": "B" }
+      ],
+      "fieldConfig": { "defaults": { "unit": "rps" } }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "database", "postgres", "debezium", "cdc", "observability"],
+  "templating": {
+    "list": [
+      { "name": "CONNECT_REST_URL", "label": "Connect REST URL", "type": "textbox", "current": { "value": "https://connect-databases.confluent.svc.cluster.local:8083" }, "options": [] },
+      { "name": "ENVIRONMENT", "label": "Environment", "type": "textbox", "current": { "value": "prod" }, "options": [] }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Postgres CDC (Debezium)",
+  "uid": "fsi-kafka-postgres-cdc",
+  "version": 1,
+  "weekStart": ""
+}
