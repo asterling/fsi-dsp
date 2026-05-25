@@ -1,0 +1,220 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Prometheus",
+      "description": "Prometheus datasource backing Confluent Cloud metrics export.",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "FSI Kafka Platform",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "FSI Kafka Platform - Tableflow materialization observability (CC-only). Tracks DB-A and SF-B paths from ADR-011: materialization lag, file size, catalog sync status. Tableflow metrics are CC-only — these panels return No data when pointed at CP/CFK/LinuxONE clusters.",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "title": "Tableflow Guide",
+      "url": "/docs/tableflow-guide.md"
+    },
+    {
+      "title": "ADR-011 Lakehouse Integration Patterns",
+      "url": "/docs/adr/011-lakehouse-integration-patterns.md"
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Tableflow Topics Active",
+      "description": "Count of topics with Tableflow materialization enabled (per CC environment).",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "count(io_confluent_kafka_server_tableflow_topic_state{kafka_id=\"$CLUSTER_ID\", state=\"ACTIVE\"})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 1 }
+            ]
+          },
+          "unit": "short",
+          "noValue": "Tableflow is CC-only. If this cluster is CP/CFK/LinuxONE, use the DB-C / SF-A sink dashboards instead."
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Materialization lag p95 (sec)",
+      "description": "p95 time between record append to Kafka and visibility in the materialized Iceberg/Delta table.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(io_confluent_kafka_server_tableflow_materialization_lag_seconds_bucket{kafka_id=\"$CLUSTER_ID\"}[5m])))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#22C55E", "value": null },
+              { "color": "#EAB308", "value": 120 },
+              { "color": "#EF4444", "value": 300 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Catalog Integrations Healthy",
+      "description": "Unity Catalog + Snowflake Horizon integrations reachable. < total = a downstream catalog endpoint is failing.",
+      "type": "stat",
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "count(io_confluent_kafka_server_tableflow_catalog_integration_state{kafka_id=\"$CLUSTER_ID\", state=\"HEALTHY\"})",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "#6B7280", "value": null },
+              { "color": "#22C55E", "value": 1 }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Storage Format Split",
+      "description": "Distribution of Tableflow topics by storage format. ICEBERG works for both Databricks (UniForm) and Snowflake; DELTA is Databricks-only.",
+      "type": "piechart",
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "count by (storage_format) (io_confluent_kafka_server_tableflow_topic_state{kafka_id=\"$CLUSTER_ID\"})",
+          "legendFormat": "{{storage_format}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Materialization throughput (records/sec)",
+      "description": "Records processed by Tableflow per topic. Cadence is minute-scale; expect sawtooth pattern.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(io_confluent_kafka_server_tableflow_records_materialized_total{kafka_id=\"$CLUSTER_ID\"}[5m])",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "rps" }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Average file size on object storage (MB)",
+      "description": "Tableflow batches records into Iceberg/Delta files. Average size should sit between 64MB and 512MB for query performance; under 8MB indicates an over-eager flush; over 1GB indicates back-pressure.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "avg by (topic) (io_confluent_kafka_server_tableflow_file_size_bytes{kafka_id=\"$CLUSTER_ID\"}) / 1024 / 1024",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "decmbytes" }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Catalog sync errors",
+      "description": "Errors writing table metadata to Unity Catalog or Snowflake Horizon. Persistent errors mean the downstream catalog endpoint is unreachable or auth expired.",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 14 },
+      "datasource": "${DS_PROMETHEUS}",
+      "targets": [
+        {
+          "expr": "rate(io_confluent_kafka_server_tableflow_catalog_sync_errors_total{kafka_id=\"$CLUSTER_ID\"}[5m])",
+          "legendFormat": "{{topic}} -> {{catalog_target}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "rps" }
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["fsi-kafka", "lakehouse", "tableflow", "cc-only", "observability"],
+  "templating": {
+    "list": [
+      {
+        "name": "CLUSTER_ID",
+        "label": "CC Cluster ID",
+        "type": "textbox",
+        "current": { "value": "" },
+        "options": [],
+        "description": "Confluent Cloud Kafka cluster ID (lkc-*)"
+      },
+      {
+        "name": "ENVIRONMENT",
+        "label": "Environment",
+        "type": "textbox",
+        "current": { "value": "prod" },
+        "options": []
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FSI Kafka - Tableflow (DB-A / SF-B) — CC only",
+  "uid": "fsi-kafka-tableflow",
+  "version": 1,
+  "weekStart": ""
+}

@@ -1,0 +1,38 @@
+{
+  "name": "lakehouse-databricks-corebanking-account-txn",
+  "config": {
+    "connector.class": "io.confluent.connect.databricks.DatabricksDeltaLakeSinkConnector",
+
+    "topics": "corebanking.transactions.v1.account-transaction",
+    "tasks.max": "6",
+
+    "delta.lake.host.name": "https://adb-1234567890.123.azuredatabricks.net",
+    "delta.lake.token": "${vault:secret/fsi/databricks#token}",
+    "delta.lake.catalog.name": "fsi_prod",
+    "delta.lake.database.name": "kafka_corebanking",
+    "delta.lake.table.format": "${topic}",
+    "delta.lake.topic2table.map": "corebanking.transactions.v1.account-transaction:account_transaction",
+    "delta.lake.staging.location.s3.bucket": "fsi-kafka-databricks-staging",
+    "delta.lake.staging.location.s3.prefix": "kafka-staging/corebanking",
+    "delta.lake.s3.access.key.id": "${vault:secret/fsi/aws-databricks-staging#access_key_id}",
+    "delta.lake.s3.secret.access.key": "${vault:secret/fsi/aws-databricks-staging#secret_access_key}",
+    "delta.lake.s3.region": "us-east-1",
+
+    "auto.create": false,
+    "auto.evolve": false,
+
+    "flush.interval.ms": 5000,
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "lakehouse.dlq.databricks-corebanking-account-txn",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

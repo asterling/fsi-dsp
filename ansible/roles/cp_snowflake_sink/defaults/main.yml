@@ -1,0 +1,9 @@
+---
+# =============================================================================
+# cp_snowflake_sink defaults
+# =============================================================================
+cp_snowflake_connectors: []
+
+cp_connect_validate_health: true
+cp_connect_health_retries: 12
+cp_connect_health_delay: 10

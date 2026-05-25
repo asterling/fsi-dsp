@@ -1,0 +1,52 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE (s390x) -- Lakehouse Sink Variables
+# =============================================================================
+# Overrides for cp_databricks_sink and cp_snowflake_sink roles when running
+# on LinuxONE. Sourced by scenarios/cp-rhel-linuxone/playbooks/deploy-lakehouse-sinks.yml.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# JDK and JAR paths
+# ---------------------------------------------------------------------------
+# IBM Semeru OpenJ9 root (matches the cp_jdk_vendor=ibm-semeru convention)
+cp_jdk_home: "/opt/ibm/semeru-17"
+
+# Connector JAR paths (Confluent Hub installs into a versioned subdir; check
+# both standard paths to tolerate package version differences)
+cp_lakehouse_databricks_jar_path: "/opt/kafka-connect/plugins/confluentinc-kafka-connect-databricks-delta-lake-sink"
+cp_lakehouse_snowflake_jar_path: "/opt/kafka-connect/plugins/snowflakeinc-snowflake-kafka-connector"
+
+# ---------------------------------------------------------------------------
+# FIPS-mode connector worker settings (inherited from group_vars/all.yml)
+# ---------------------------------------------------------------------------
+# These mirror the broker FIPS settings so the Connect worker's JVM behaves
+# consistently with the broker on PKCS12 MAC algorithms and cipher suites.
+cp_connect_jvm_extra_args:
+  - "-Dkeystore.pkcs12.macAlgorithm=HmacPBESHA256"
+  - "-Dcom.ibm.fips.mode=true"          # IBM Semeru FIPS toggle
+  - "-Djava.security.properties=/etc/kafka-connect/security.fips.properties"
+
+# ---------------------------------------------------------------------------
+# Credential store: Vault preferred; JCEKS fallback for closed z/IRD networks
+# ---------------------------------------------------------------------------
+# When Vault is reachable, the standard cp_connect role substitutes
+# ${vault:...} at deploy time and these JCEKS keys are unused.
+#
+# When Vault is NOT reachable from the LPAR (closed z/IRD pattern), set
+# cp_lakehouse_use_jceks=true and populate the JCEKS keystore via the
+# ansible-vault-encrypted vault.yml. The connector workers must be
+# configured to use the FileConfigProvider pointing at JCEKS-exported
+# credential files.
+cp_lakehouse_use_jceks: false
+cp_lakehouse_jceks_path: "/etc/kafka-connect/lakehouse-creds.jceks"
+cp_lakehouse_jceks_keystore_password: "{{ vault_lakehouse_jceks_password | default('') }}"
+
+# Override the Vault-style placeholders in lakehouse-connectors-example.yml
+# when running in JCEKS mode -- per-key path within the JCEKS store
+cp_lakehouse_jceks_keys:
+  databricks_token: "databricks.token"
+  databricks_s3_access_key_id: "databricks.s3_access_key_id"
+  databricks_s3_secret_access_key: "databricks.s3_secret_access_key"
+  snowflake_private_key: "snowflake.private_key"
+  snowflake_private_key_passphrase: "snowflake.private_key_passphrase"

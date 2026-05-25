@@ -17,6 +17,7 @@ implementation.
 | `layers/03-schema-governance/` | GoodLabs | FULL_TRANSITIVE compatibility, SR bootstrap Job, hard-delete RBAC enforcement |
 | `layers/04-audit/` | GoodLabs | Audit event routing, 7y-retention audit topic, Splunk + Dynatrace sinks |
 | `layers/05-flink/` | GoodLabs | Flink stream processing: FlinkEnvironment, CMFRestClass, mTLS, RBAC, FSI example jobs |
+| `layers/06-lakehouse-sinks/` | GoodLabs | Databricks Delta Lake + Snowflake Snowpipe Streaming sinks on a dedicated connect-lakehouse cluster (ADR-011 DB-C / SF-A) |
 | Flox env | GoodLabs | Pinned dev toolchain (oc, helm, kubectl, kustomize, cfssl, yq, jq, confluent) |
 
 **Attribution:** The upstream base is Matt Mondics's public reference for Confluent Platform

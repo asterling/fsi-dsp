@@ -1,0 +1,42 @@
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+
+# =============================================================================
+# 06-lakehouse-sinks -- Databricks + Snowflake lakehouse integration layer
+# =============================================================================
+# Adds a dedicated connect-lakehouse Connect cluster plus Databricks Delta
+# and Snowflake Snowpipe Streaming sink connectors. Implements ADR-011 DB-C
+# and SF-A self-managed paths on CFK on OCP on LinuxONE (s390x).
+#
+# DEPENDS ON:
+#   - layer 01-rbac: MDS authorizer + ConfluentRolebinding CRD for sink SA
+#   - layer 02-tls: cert-manager + confluent-ca-issuer for connect-lakehouse TLS
+#   - layer 03-schema-governance: AvroConverter requires SR + governed subjects
+#
+# Component ordering in overlays/{dev,prod}/kustomization.yaml enforces this:
+# 06 must come AFTER 01, 02, 03. It does NOT depend on 04-audit or 05-flink.
+#
+# Why a separate connect-lakehouse cluster (not extending layer 04's connect):
+#   - Operational isolation: lakehouse sink failures must not impact the
+#     audit pipeline (which has compliance retention SLAs).
+#   - Image isolation: lakehouse JARs are large (Databricks Delta + Snowflake
+#     JARs together ~200MB); baking them into the audit Connect image
+#     bloats unrelated pulls.
+#   - Tuning: lakehouse sinks tune for throughput; audit sinks tune for
+#     low-overhead event shipping.
+# =============================================================================
+
+resources:
+  # Pre-create DLQ topics for both sinks (best-effort tier, 7-day retention)
+  - kafkatopic-lakehouse-dlq.yaml
+  # Connect-lakehouse cluster + connector CRs
+  - connect-cr.yaml
+  # MDS rolebindings for the connector service principal
+  - rolebindings.yaml
+  # Service account + secret references (cert-manager owns TLS; Vault-Agent
+  # owns lakehouse-creds K8s Secret)
+  - service-accounts.yaml
+  # Secret stub (placeholder pointing at Vault-Agent-managed K8s Secret;
+  # the actual lakehouse-creds Secret is reconciled by Vault-Agent and not
+  # committed)
+  - secrets.template.yaml

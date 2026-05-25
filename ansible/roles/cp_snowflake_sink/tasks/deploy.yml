@@ -1,0 +1,10 @@
+---
+# =============================================================================
+# cp_snowflake_sink -- Deploy pass-through
+# =============================================================================
+- name: Delegate deploy to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: deploy.yml
+  vars:
+    cp_connectors: "{{ cp_snowflake_connectors | default([]) }}"

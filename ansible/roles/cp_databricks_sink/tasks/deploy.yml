@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# cp_databricks_sink -- Deploy pass-through
+# =============================================================================
+# Deploy is delegated to cp_connect with cp_connectors substituted for
+# cp_databricks_connectors. This file exists for symmetry with cp_connect's
+# task structure; main.yml routes to cp_connect's deploy.yml automatically.
+# =============================================================================
+
+- name: Delegate deploy to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: deploy.yml
+  vars:
+    cp_connectors: "{{ cp_databricks_connectors | default([]) }}"

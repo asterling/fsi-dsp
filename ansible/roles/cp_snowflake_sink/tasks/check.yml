@@ -1,0 +1,10 @@
+---
+# =============================================================================
+# cp_snowflake_sink -- Check mode pass-through
+# =============================================================================
+- name: Delegate check mode to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: check.yml
+  vars:
+    cp_connectors: "{{ cp_snowflake_connectors | default([]) }}"

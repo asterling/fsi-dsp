@@ -1,0 +1,61 @@
+---
+# =============================================================================
+# Snowflake Snowpipe Streaming Sink Connector -- SF-A (CFK on OpenShift)
+# =============================================================================
+# Self-managed path from ADR-011. Mirrors the structure of mm2/ connector CRs.
+# Requires the snowflake-kafka-connector JAR (snowflakeinc/snowflake-kafka-connector)
+# in the Connect cluster image. See scenarios/cfk-openshift/connectors/README.md
+# for the build recipe.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: lakehouse-snowflake-fraud-alert-signal
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/sink-type: snowflake-snowpipe
+    fsi.io/sla-tier: critical
+spec:
+  class: com.snowflake.kafka.connector.SnowflakeSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect
+  configs:
+    topics: "fraud.detection.v1.alert-signal"
+
+    # --- Snowflake target (key-pair auth; user/password not supported for streaming) ---
+    snowflake.url.name: "<PLACEHOLDER_SNOWFLAKE_ACCOUNT_URL>"
+    snowflake.user.name: "FSI_PROD_KAFKA_CONNECTOR_SVC"
+    snowflake.private.key: "${file:/mnt/secrets/lakehouse/snowflake:private_key}"
+    snowflake.private.key.passphrase: "${file:/mnt/secrets/lakehouse/snowflake:private_key_passphrase}"
+    snowflake.database.name: "FSI_PROD"
+    snowflake.schema.name: "KAFKA_FRAUD"
+    snowflake.role.name: "FSI_PROD_KAFKA_INGEST_ROLE"
+    snowflake.topic2table.map: "fraud.detection.v1.alert-signal:ALERT_SIGNAL"
+
+    # --- Streaming ingestion (sub-second latency) ---
+    snowflake.ingestion.method: "SNOWPIPE_STREAMING"
+    snowflake.enable.schematization: "true"
+    snowflake.streaming.max.client.lag: "1"
+
+    # --- Batching ---
+    buffer.count.records: "10000"
+    buffer.flush.time: "5"
+    buffer.size.bytes: "5000000"
+
+    # --- Avro + Schema Registry ---
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/lakehouse/sr:user_info}"
+    value.converter.schema.registry.ssl.truststore.location: "/mnt/sslcerts/kafka-client.truststore.jks"
+    value.converter.schema.registry.ssl.truststore.password: "${file:/mnt/secrets/sr-tls/credentials:truststore.password}"
+
+    # --- DLQ ---
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "lakehouse.dlq.snowflake-fraud-alert-signal"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

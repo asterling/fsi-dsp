@@ -1,0 +1,13 @@
+---
+# =============================================================================
+# cp_databricks_sink defaults
+# =============================================================================
+# Override in inventory group_vars or via --extra-vars.
+
+# Empty by default; populate via inventory group_vars/kafka_connect.yml
+cp_databricks_connectors: []
+
+# Tag pass-through to cp_connect health validation
+cp_connect_validate_health: true
+cp_connect_health_retries: 12
+cp_connect_health_delay: 10

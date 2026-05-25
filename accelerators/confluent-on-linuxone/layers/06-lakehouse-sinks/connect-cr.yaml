@@ -1,0 +1,177 @@
+---
+# =============================================================================
+# connect-lakehouse Connect cluster + Databricks/Snowflake sink connectors
+# =============================================================================
+# Dedicated Connect cluster (not extending layer 04's connect). The image
+# bakes in the Databricks Delta Lake Sink + Snowflake Sink JARs; both are
+# pure Java and run on s390x without modification. The Connect base image
+# must be s390x — see KNOWN-GAPS.md.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connect
+metadata:
+  name: connect-lakehouse
+  namespace: confluent
+spec:
+  replicas: 2
+  image:
+    # Custom Connect image with kafka-connect-databricks-delta-lake-sink and
+    # snowflake-kafka-connector JARs pre-installed. Must be built for s390x.
+    # Build reference: docker buildx build --platform linux/s390x \
+    #   --tag <registry>/fsi-cp-connect-lakehouse:7.6.0 \
+    #   -f scenarios/cfk-openshift/connectors/Dockerfile.lakehouse .
+    application: <PLACEHOLDER_S390X_CONNECT_LAKEHOUSE_IMAGE>
+    init: confluentinc/confluent-init-container:2.8.0
+  tls:
+    secretRef: connect-lakehouse-tls
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+    tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "s390x"
+        effect: "NoSchedule"
+  mountedSecrets:
+    # Vault-Agent-managed K8s Secret containing the lakehouse credentials.
+    # File-based credential providers in connector configs reference these
+    # paths: /mnt/secrets/lakehouse/databricks, /mnt/secrets/lakehouse/snowflake.
+    - secretRef: lakehouse-creds
+      keyItems:
+        - key: databricks_token
+          path: lakehouse/databricks-token
+        - key: databricks_s3_access_key_id
+          path: lakehouse/databricks-s3-access-key-id
+        - key: databricks_s3_secret_access_key
+          path: lakehouse/databricks-s3-secret-access-key
+        - key: snowflake_private_key
+          path: lakehouse/snowflake-private-key
+        - key: snowflake_private_key_passphrase
+          path: lakehouse/snowflake-private-key-passphrase
+        - key: sr_user_info
+          path: lakehouse/sr-user-info
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9092
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: https://schemaregistry.confluent.svc.cluster.local:8081
+      tls:
+        enabled: true
+    mds:
+      endpoint: <PLACEHOLDER_MDS_ENDPOINT>
+      tokenKeyPair:
+        secretRef: mds-token-keypair
+      authentication:
+        type: bearer
+        bearer:
+          secretRef: mds-client-credentials
+      tls:
+        enabled: true
+---
+# =============================================================================
+# Databricks Delta Lake Sink Connector
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: lakehouse-databricks-corebanking-account-txn
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/sink-type: databricks-delta
+    fsi.io/sla-tier: critical
+spec:
+  class: io.confluent.connect.databricks.DatabricksDeltaLakeSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect-lakehouse
+  configs:
+    topics: "corebanking.transactions.v1.account-transaction"
+
+    delta.lake.host.name: "<PLACEHOLDER_DATABRICKS_WORKSPACE_URL>"
+    delta.lake.token: "${file:/mnt/sslcerts/lakehouse/databricks-token:value}"
+    delta.lake.catalog.name: "fsi_prod"
+    delta.lake.database.name: "kafka_corebanking"
+    delta.lake.topic2table.map: "corebanking.transactions.v1.account-transaction:account_transaction"
+
+    delta.lake.staging.location.s3.bucket: "<PLACEHOLDER_DATABRICKS_STAGING_BUCKET>"
+    delta.lake.staging.location.s3.prefix: "kafka-staging/corebanking"
+    delta.lake.s3.access.key.id: "${file:/mnt/sslcerts/lakehouse/databricks-s3-access-key-id:value}"
+    delta.lake.s3.secret.access.key: "${file:/mnt/sslcerts/lakehouse/databricks-s3-secret-access-key:value}"
+    delta.lake.s3.region: "us-east-1"
+
+    auto.create: "false"
+    auto.evolve: "false"
+    flush.interval.ms: "5000"
+
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/lakehouse/sr-user-info:value}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "lakehouse.dlq.databricks-corebanking-account-txn"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"
+---
+# =============================================================================
+# Snowflake Snowpipe Streaming Sink Connector
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: lakehouse-snowflake-fraud-alert-signal
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/sink-type: snowflake-snowpipe
+    fsi.io/sla-tier: critical
+spec:
+  class: com.snowflake.kafka.connector.SnowflakeSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect-lakehouse
+  configs:
+    topics: "fraud.detection.v1.alert-signal"
+
+    snowflake.url.name: "<PLACEHOLDER_SNOWFLAKE_ACCOUNT_URL>"
+    snowflake.user.name: "FSI_PROD_KAFKA_CONNECTOR_SVC"
+    snowflake.private.key: "${file:/mnt/sslcerts/lakehouse/snowflake-private-key:value}"
+    snowflake.private.key.passphrase: "${file:/mnt/sslcerts/lakehouse/snowflake-private-key-passphrase:value}"
+    snowflake.database.name: "FSI_PROD"
+    snowflake.schema.name: "KAFKA_FRAUD"
+    snowflake.role.name: "FSI_PROD_KAFKA_INGEST_ROLE"
+    snowflake.topic2table.map: "fraud.detection.v1.alert-signal:ALERT_SIGNAL"
+
+    snowflake.ingestion.method: "SNOWPIPE_STREAMING"
+    snowflake.enable.schematization: "true"
+    snowflake.streaming.max.client.lag: "1"
+
+    buffer.count.records: "10000"
+    buffer.flush.time: "5"
+    buffer.size.bytes: "5000000"
+
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/sslcerts/lakehouse/sr-user-info:value}"
+
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "lakehouse.dlq.snowflake-fraud-alert-signal"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

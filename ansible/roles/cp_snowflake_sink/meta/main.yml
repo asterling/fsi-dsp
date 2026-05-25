@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  role_name: cp_snowflake_sink
+  author: FSI Kafka Platform C4E
+  description: >-
+    Deploy and validate Snowflake Snowpipe Streaming Sink Connectors on a CP /
+    CFK / LinuxONE Connect cluster. Thin wrapper around cp_connect with class
+    and ingestion-method validation. Implements ADR-011 SF-A self-managed path.
+  license: Internal
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+dependencies:
+  - role: cp_connect

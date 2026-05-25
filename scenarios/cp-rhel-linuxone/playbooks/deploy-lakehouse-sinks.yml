@@ -1,0 +1,117 @@
+---
+# =============================================================================
+# CP on RHEL on LinuxONE -- Lakehouse sinks deployment playbook
+# =============================================================================
+# Deploys Databricks Delta Lake and Snowflake Snowpipe Streaming sinks on a
+# CP-on-RHEL Connect worker running on s390x. Wraps the generic
+# ansible/playbooks/deploy-lakehouse-sinks.yml with LinuxONE-specific
+# group_vars (IBM Semeru JDK paths, FIPS-mode connector worker settings,
+# PKCS12 MAC algorithm flag, optional JCEKS credential store for closed
+# z/IRD networks where Vault is unreachable).
+#
+# Implements ADR-011 DB-C and SF-A self-managed paths on LinuxONE.
+#
+# Usage:
+#   ansible-playbook -i inventory/hosts.yml --ask-vault-pass \
+#     playbooks/deploy-lakehouse-sinks.yml
+# =============================================================================
+
+- name: Deploy lakehouse sinks on LinuxONE Connect worker
+  hosts: kafka_connect[0]
+  gather_facts: true
+  tags:
+    - lakehouse
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/lakehouse.yml
+    - ../../../ansible/vars/lakehouse-connectors-example.yml
+  pre_tasks:
+    - name: Assert s390x architecture
+      ansible.builtin.assert:
+        that:
+          - ansible_architecture == 's390x'
+        fail_msg: >-
+          This playbook is LinuxONE-specific (s390x). Detected
+          {{ ansible_architecture }}. Use
+          ansible/playbooks/deploy-lakehouse-sinks.yml for non-L1 deployments.
+
+    - name: Assert IBM Semeru JDK
+      ansible.builtin.command: "{{ cp_jdk_home }}/bin/java -version"
+      register: _java_version
+      changed_when: false
+      check_mode: false
+
+    - name: Verify IBM Semeru / OpenJ9 in java -version output
+      ansible.builtin.assert:
+        that:
+          - "'IBM Semeru' in _java_version.stderr or 'OpenJ9' in _java_version.stderr"
+        fail_msg: >-
+          Connector worker JDK is not IBM Semeru/OpenJ9.
+          On s390x, the IBM JDK is required for CPACF crypto acceleration
+          and predictable PKCS12 MAC algorithm behavior. See
+          docs/linuxone-fips-guide.md.
+
+    - name: Ensure connector JAR paths exist for s390x
+      ansible.builtin.stat:
+        path: "{{ item }}"
+      register: _jar_paths
+      loop:
+        - "{{ cp_lakehouse_databricks_jar_path }}"
+        - "{{ cp_lakehouse_snowflake_jar_path }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Assert connector JARs are installed in /opt/kafka-connect/plugins
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: >-
+          Connector JAR {{ item.item }} not found.
+          On LinuxONE, install via:
+            confluent-hub install --component-dir /opt/kafka-connect/plugins \
+              <connector-coords>
+          Then systemctl restart confluent-kafka-connect. The Confluent
+          Hub bundle is pure Java and runs on s390x without re-build.
+      loop: "{{ _jar_paths.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+
+    - name: Wait for Connect REST API
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+
+  tasks:
+    - name: Deploy Databricks Delta Lake sinks via shared role
+      ansible.builtin.include_role:
+        name: cp_databricks_sink
+      tags:
+        - databricks
+        - lakehouse
+
+    - name: Deploy Snowflake Snowpipe Streaming sinks via shared role
+      ansible.builtin.include_role:
+        name: cp_snowflake_sink
+      tags:
+        - snowflake
+        - lakehouse
+
+  post_tasks:
+    - name: Summarize LinuxONE lakehouse deployment
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          LinuxONE Lakehouse Sink Deployment Summary
+          Architecture: {{ ansible_architecture }}
+          JDK: {{ _java_version.stderr_lines[0] | default('unknown') }}
+          FIPS: {{ fips_enabled | default('unknown') }}
+          ============================================
+          Databricks: created={{ cp_databricks_sink_results.created | default(0) }},
+                      healthy={{ cp_databricks_sink_results.healthy | default(0) }}/
+                      {{ cp_databricks_connectors | default([]) | length }}
+          Snowflake:  created={{ cp_snowflake_sink_results.created | default(0) }},
+                      healthy={{ cp_snowflake_sink_results.healthy | default(0) }}/
+                      {{ cp_snowflake_connectors | default([]) | length }}
+          ============================================

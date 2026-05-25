@@ -1,0 +1,88 @@
+---
+# =============================================================================
+# Example lakehouse sink connector definitions
+# =============================================================================
+# Consumed by cp_databricks_sink and cp_snowflake_sink roles. Copy into your
+# inventory group_vars/kafka_connect.yml (or a vault-encrypted equivalent)
+# and adapt for your environment.
+#
+# Credentials reference Vault keys -- the cp_connect role substitutes them at
+# deploy time. Never hardcode secrets in this file.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Databricks Delta Lake Sinks
+# ---------------------------------------------------------------------------
+cp_databricks_connectors:
+  - name: lakehouse-databricks-corebanking-account-txn
+    config:
+      connector.class: io.confluent.connect.databricks.DatabricksDeltaLakeSinkConnector
+      topics: "corebanking.transactions.v1.account-transaction"
+      tasks.max: "6"
+
+      delta.lake.host.name: "{{ databricks_workspace_url }}"
+      delta.lake.token: "{{ vault_databricks_token }}"
+      delta.lake.catalog.name: "fsi_prod"
+      delta.lake.database.name: "kafka_corebanking"
+      delta.lake.topic2table.map: "corebanking.transactions.v1.account-transaction:account_transaction"
+
+      delta.lake.staging.location.s3.bucket: "{{ databricks_staging_bucket }}"
+      delta.lake.staging.location.s3.prefix: "kafka-staging/corebanking"
+      delta.lake.s3.access.key.id: "{{ vault_databricks_staging_access_key }}"
+      delta.lake.s3.secret.access.key: "{{ vault_databricks_staging_secret_key }}"
+      delta.lake.s3.region: "us-east-1"
+
+      auto.create: "false"
+      auto.evolve: "false"
+      flush.interval.ms: "5000"
+
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "lakehouse.dlq.databricks-corebanking-account-txn"
+      errors.deadletterqueue.context.headers.enable: "true"
+      errors.log.enable: "true"
+      errors.log.include.messages: "false"
+
+# ---------------------------------------------------------------------------
+# Snowflake Snowpipe Streaming Sinks
+# ---------------------------------------------------------------------------
+cp_snowflake_connectors:
+  - name: lakehouse-snowflake-fraud-alert-signal
+    config:
+      connector.class: com.snowflake.kafka.connector.SnowflakeSinkConnector
+      topics: "fraud.detection.v1.alert-signal"
+      tasks.max: "6"
+
+      snowflake.url.name: "{{ snowflake_account_url }}"
+      snowflake.user.name: "FSI_PROD_KAFKA_CONNECTOR_SVC"
+      snowflake.private.key: "{{ vault_snowflake_private_key }}"
+      snowflake.private.key.passphrase: "{{ vault_snowflake_private_key_passphrase | default('') }}"
+      snowflake.database.name: "FSI_PROD"
+      snowflake.schema.name: "KAFKA_FRAUD"
+      snowflake.role.name: "FSI_PROD_KAFKA_INGEST_ROLE"
+      snowflake.topic2table.map: "fraud.detection.v1.alert-signal:ALERT_SIGNAL"
+
+      snowflake.ingestion.method: "SNOWPIPE_STREAMING"
+      snowflake.enable.schematization: "true"
+      snowflake.streaming.max.client.lag: "1"
+
+      buffer.count.records: "10000"
+      buffer.flush.time: "5"
+      buffer.size.bytes: "5000000"
+
+      key.converter: "org.apache.kafka.connect.storage.StringConverter"
+      value.converter: "io.confluent.connect.avro.AvroConverter"
+      value.converter.schema.registry.url: "{{ schema_registry_url }}"
+      value.converter.basic.auth.credentials.source: "USER_INFO"
+      value.converter.basic.auth.user.info: "{{ vault_sr_api_key }}:{{ vault_sr_api_secret }}"
+
+      errors.tolerance: "all"
+      errors.deadletterqueue.topic.name: "lakehouse.dlq.snowflake-fraud-alert-signal"
+      errors.deadletterqueue.context.headers.enable: "true"
+      errors.log.enable: "true"
+      errors.log.include.messages: "false"

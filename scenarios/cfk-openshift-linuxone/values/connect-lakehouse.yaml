@@ -1,0 +1,80 @@
+# =============================================================================
+# CFK on OpenShift on LinuxONE (s390x) -- connect-lakehouse Helm overrides
+# =============================================================================
+# Lightweight scenario variant of accelerators/confluent-on-linuxone/layers/06-
+# lakehouse-sinks/. Use this when you want the CFK Connect cluster sized and
+# scheduled for lakehouse sinks but do not need the full Kustomize layering
+# of the accelerator.
+#
+# Pairs with scenarios/cfk-openshift-linuxone/values/kafka.yaml (Kafka,
+# SchemaRegistry, default Connect overrides for s390x).
+#
+# To deploy the actual Databricks / Snowflake Connector CRs, apply:
+#   scenarios/cfk-openshift/connectors/databricks-delta-sink.yaml
+#   scenarios/cfk-openshift/connectors/snowflake-snowpipe-sink.yaml
+# against the connect-lakehouse cluster defined here.
+# =============================================================================
+
+connect:
+  # Dedicated cluster name -- isolates lakehouse sink lifecycle from the
+  # default application Connect cluster in scenarios/cfk-openshift-linuxone/values/kafka.yaml.
+  name: connect-lakehouse
+  replicas: 2
+
+  image:
+    # Custom multi-arch (or s390x-only) Connect image with the Databricks
+    # Delta Lake Sink + Snowflake Sink JARs pre-installed. See
+    # scenarios/cfk-openshift/connectors/README.md for the build recipe.
+    application: <PLACEHOLDER_S390X_CONNECT_LAKEHOUSE_IMAGE>
+    init: confluentinc/confluent-init-container:2.8.0
+    pullPolicy: IfNotPresent
+
+  podTemplate:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: kubernetes.io/arch
+                  operator: In
+                  values:
+                    - s390x
+    tolerations:
+      - key: "arch"
+        operator: "Equal"
+        value: "s390x"
+        effect: "NoSchedule"
+
+  # FIPS posture inherited from cluster (see linuxone-fips-guide.md).
+  # The Snowflake and Databricks JARs are pure Java; CPACF accelerates AES
+  # and SHA operations transparently.
+
+  tls:
+    enabled: true
+
+  # Lakehouse credentials reconciled by Vault-Agent (see
+  # accelerators/confluent-on-linuxone/layers/06-lakehouse-sinks/secrets.template.yaml
+  # for the contract).
+  mountedSecrets:
+    - secretRef: lakehouse-creds
+
+  dependencies:
+    kafka:
+      bootstrapEndpoint: kafka.confluent.svc.cluster.local:9092
+      authentication:
+        type: mtls
+      tls:
+        enabled: true
+    schemaRegistry:
+      url: https://schemaregistry.confluent.svc.cluster.local:8081
+      tls:
+        enabled: true
+
+  # Resource sizing for lakehouse throughput. Override per environment.
+  resources:
+    requests:
+      cpu: "1000m"
+      memory: "2Gi"
+    limits:
+      cpu: "4000m"
+      memory: "8Gi"

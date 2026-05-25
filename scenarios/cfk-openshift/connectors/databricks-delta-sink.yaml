@@ -1,0 +1,63 @@
+---
+# =============================================================================
+# Databricks Delta Lake Sink Connector -- DB-C (CFK on OpenShift)
+# =============================================================================
+# Self-managed path from ADR-011. Mirrors the structure of mm2/ connector CRs.
+# Requires the kafka-connect-databricks-delta-lake-sink JAR to be present in
+# the Connect cluster image (see scenarios/cfk-openshift/connectors/README.md).
+#
+# Secret resolution: Connect ships with the FileConfigProvider; secrets are
+# mounted at /mnt/secrets/lakehouse/ via the secretsRef on the Connect CR.
+# Vault-Agent on-cluster syncs from Vault to the K8s Secret.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: Connector
+metadata:
+  name: lakehouse-databricks-corebanking-account-txn
+  namespace: confluent
+  labels:
+    app.kubernetes.io/part-of: fsi-kafka-platform
+    fsi.io/sink-type: databricks-delta
+    fsi.io/sla-tier: critical
+spec:
+  class: io.confluent.connect.databricks.DatabricksDeltaLakeSinkConnector
+  taskMax: 6
+  connectClusterRef:
+    name: connect
+  configs:
+    topics: "corebanking.transactions.v1.account-transaction"
+
+    # --- Databricks target ---
+    delta.lake.host.name: "<PLACEHOLDER_DATABRICKS_WORKSPACE_URL>"
+    delta.lake.token: "${file:/mnt/secrets/lakehouse/databricks:token}"
+    delta.lake.catalog.name: "fsi_prod"
+    delta.lake.database.name: "kafka_corebanking"
+    delta.lake.topic2table.map: "corebanking.transactions.v1.account-transaction:account_transaction"
+
+    # --- Staging bucket for Delta commits ---
+    delta.lake.staging.location.s3.bucket: "<PLACEHOLDER_DATABRICKS_STAGING_BUCKET>"
+    delta.lake.staging.location.s3.prefix: "kafka-staging/corebanking"
+    delta.lake.s3.access.key.id: "${file:/mnt/secrets/lakehouse/databricks:s3_access_key_id}"
+    delta.lake.s3.secret.access.key: "${file:/mnt/secrets/lakehouse/databricks:s3_secret_access_key}"
+    delta.lake.s3.region: "us-east-1"
+
+    # --- Behavior per ADR-002: explicit DDL, no auto-evolve ---
+    auto.create: "false"
+    auto.evolve: "false"
+    flush.interval.ms: "5000"
+
+    # --- Avro + Schema Registry ---
+    key.converter: "org.apache.kafka.connect.storage.StringConverter"
+    value.converter: "io.confluent.connect.avro.AvroConverter"
+    value.converter.schema.registry.url: "https://schemaregistry.confluent.svc.cluster.local:8081"
+    value.converter.basic.auth.credentials.source: "USER_INFO"
+    value.converter.basic.auth.user.info: "${file:/mnt/secrets/lakehouse/sr:user_info}"
+    value.converter.schema.registry.ssl.truststore.location: "/mnt/sslcerts/kafka-client.truststore.jks"
+    value.converter.schema.registry.ssl.truststore.password: "${file:/mnt/secrets/sr-tls/credentials:truststore.password}"
+
+    # --- DLQ ---
+    errors.tolerance: "all"
+    errors.deadletterqueue.topic.name: "lakehouse.dlq.databricks-corebanking-account-txn"
+    errors.deadletterqueue.context.headers.enable: "true"
+    errors.log.enable: "true"
+    errors.log.include.messages: "false"

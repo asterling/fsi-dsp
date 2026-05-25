@@ -1,0 +1,109 @@
+---
+# =============================================================================
+# FSI Kafka Platform -- Lakehouse Sinks Deployment Playbook
+# =============================================================================
+# Deploys Databricks Delta Lake and Snowflake Snowpipe Streaming sinks on the
+# self-managed Connect cluster used by CP / CFK / LinuxONE deployments.
+# Implements the DB-C and SF-A self-managed paths from ADR-011.
+#
+# For CC-managed equivalents, see modules/lakehouse_sink/.
+#
+# Usage:
+#   # All lakehouse sinks
+#   ansible-playbook -i inventories/prod playbooks/deploy-lakehouse-sinks.yml
+#
+#   # Databricks only
+#   ansible-playbook -i inventories/prod playbooks/deploy-lakehouse-sinks.yml \
+#     --tags databricks
+#
+#   # Snowflake only
+#   ansible-playbook -i inventories/prod playbooks/deploy-lakehouse-sinks.yml \
+#     --tags snowflake
+#
+#   # Dry run (no PUT/POST)
+#   ansible-playbook -i inventories/prod playbooks/deploy-lakehouse-sinks.yml \
+#     --check
+# =============================================================================
+
+- name: Deploy lakehouse sink connectors
+  hosts: kafka_connect[0]
+  gather_facts: false
+  tags:
+    - lakehouse
+  vars_files:
+    - ../vars/lakehouse-connectors-example.yml
+  pre_tasks:
+    - name: Wait for Connect REST API to be available
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host | default('localhost') }}"
+        port: 8083
+        timeout: 120
+        state: started
+
+    - name: Verify Databricks Delta Lake sink plugin is installed
+      ansible.builtin.uri:
+        url: "{{ cp_connect_url }}/connector-plugins"
+        method: GET
+        return_content: true
+        status_code: [200]
+      register: _plugins
+      check_mode: false
+      changed_when: false
+
+    - name: Assert Databricks connector plugin present (when databricks connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'DatabricksDeltaLakeSinkConnector') | list | length > 0
+        fail_msg: >-
+          io.confluent.connect.databricks.DatabricksDeltaLakeSinkConnector not
+          found in Connect plugins. Install via:
+            confluent-hub install confluentinc/kafka-connect-databricks-delta-lake-sink
+          See reference/connect-configs/README-lakehouse-sinks.md.
+      when:
+        - cp_databricks_connectors | default([]) | length > 0
+        - "'databricks' in ansible_run_tags or 'lakehouse' in ansible_run_tags or ansible_run_tags == ['all']"
+
+    - name: Assert Snowflake connector plugin present (when snowflake connectors defined)
+      ansible.builtin.assert:
+        that:
+          - _plugins.json | selectattr('class', 'search', 'SnowflakeSinkConnector') | list | length > 0
+        fail_msg: >-
+          com.snowflake.kafka.connector.SnowflakeSinkConnector not found in
+          Connect plugins. Install via:
+            confluent-hub install snowflakeinc/snowflake-kafka-connector
+          See reference/connect-configs/README-lakehouse-sinks.md.
+      when:
+        - cp_snowflake_connectors | default([]) | length > 0
+        - "'snowflake' in ansible_run_tags or 'lakehouse' in ansible_run_tags or ansible_run_tags == ['all']"
+
+  tasks:
+    - name: Deploy Databricks Delta Lake sinks
+      ansible.builtin.include_role:
+        name: cp_databricks_sink
+      tags:
+        - databricks
+        - lakehouse
+
+    - name: Deploy Snowflake Snowpipe Streaming sinks
+      ansible.builtin.include_role:
+        name: cp_snowflake_sink
+      tags:
+        - snowflake
+        - lakehouse
+
+  post_tasks:
+    - name: Summarize lakehouse sink deployment
+      ansible.builtin.debug:
+        msg: |
+          ============================================
+          Lakehouse Sink Deployment Summary
+          ============================================
+          Databricks: created={{ cp_databricks_sink_results.created | default(0) }},
+                      updated={{ cp_databricks_sink_results.updated | default(0) }},
+                      healthy={{ cp_databricks_sink_results.healthy | default(0) }}/
+                      {{ cp_databricks_connectors | default([]) | length }}
+          Snowflake:  created={{ cp_snowflake_sink_results.created | default(0) }},
+                      updated={{ cp_snowflake_sink_results.updated | default(0) }},
+                      healthy={{ cp_snowflake_sink_results.healthy | default(0) }}/
+                      {{ cp_snowflake_connectors | default([]) | length }}
+          ============================================

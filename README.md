@@ -17,6 +17,22 @@ A universal, automation-first platform for standing up governed Kafka, Flink, an
 
 All eight scenarios enforce identical governance: topic naming, schema compatibility, RBAC patterns, and SLA-tier defaults.
 
+### Lakehouse integration (ADR-011)
+
+All scenarios support Databricks and Snowflake ingest:
+
+| Path | Mechanism | CC | CP / CFK / LinuxONE |
+|---|---|---|---|
+| **DB-A** | Confluent Tableflow → Databricks Unity Catalog | ✅ via `modules/tableflow/` | ❌ Tableflow is CC-only — fall back to DB-C |
+| **DB-C** | Databricks Delta Lake Sink Connector | ✅ via `modules/lakehouse_sink/` (managed) | ✅ via `reference/connect-configs/` + `ansible/roles/cp_databricks_sink` (self-managed) |
+| **SF-A** | Snowflake Snowpipe Streaming Connector | ✅ via `modules/lakehouse_sink/` (managed) | ✅ via `reference/connect-configs/` + `ansible/roles/cp_snowflake_sink` (self-managed) |
+| **SF-B** | Tableflow → Iceberg + Open Data Catalog → Snowflake | ✅ via `modules/tableflow/` | ❌ Tableflow is CC-only — fall back to SF-A |
+
+See [ADR-011](docs/adr/011-lakehouse-integration-patterns.md),
+[Databricks Integration Guide](docs/databricks-integration-guide.md),
+[Snowflake Integration Guide](docs/snowflake-integration-guide.md), and
+[Tableflow Guide](docs/tableflow-guide.md).
+
 ## Accelerators
 
 Where `scenarios/` are starter kits, `accelerators/` are opinionated, end-to-end, production-grade deployments.

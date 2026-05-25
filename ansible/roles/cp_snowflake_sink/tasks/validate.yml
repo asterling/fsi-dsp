@@ -1,0 +1,10 @@
+---
+# =============================================================================
+# cp_snowflake_sink -- Health validation pass-through
+# =============================================================================
+- name: Delegate validation to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: validate.yml
+  vars:
+    cp_connectors: "{{ cp_snowflake_connectors | default([]) }}"

@@ -1,0 +1,43 @@
+---
+# =============================================================================
+# Lakehouse DLQ topics -- pre-created so connectors can write on first event
+# =============================================================================
+# Per ADR-011 each sink writes failed records to a per-sink DLQ named
+# lakehouse.dlq.<connector-name>. SLA tier is best-effort with 7-day
+# retention for forensic review (overlay can extend for compliance).
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: lakehouse-dlq-databricks-corebanking-account-txn
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: lakehouse-databricks-corebanking-account-txn
+    fsi.io/sla-tier: best-effort
+spec:
+  name: lakehouse.dlq.databricks-corebanking-account-txn
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"   # 7 days; overlay may extend for compliance
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: KafkaTopic
+metadata:
+  name: lakehouse-dlq-snowflake-fraud-alert-signal
+  namespace: confluent
+  labels:
+    fsi.io/dlq-for: lakehouse-snowflake-fraud-alert-signal
+    fsi.io/sla-tier: best-effort
+spec:
+  name: lakehouse.dlq.snowflake-fraud-alert-signal
+  replicas: 3
+  partitionCount: 3
+  configs:
+    retention.ms: "604800000"
+    cleanup.policy: "delete"
+    compression.type: "zstd"
+    min.insync.replicas: "2"

@@ -1,0 +1,88 @@
+---
+# =============================================================================
+# cp_snowflake_sink role -- Entry point
+# =============================================================================
+# Thin wrapper around cp_connect: substitutes cp_snowflake_connectors for
+# cp_connectors so the same idempotent PUT-based deploy + validate path
+# handles Snowflake Snowpipe Streaming sinks specifically.
+# =============================================================================
+
+- name: Initialize snowflake sink result counters
+  ansible.builtin.set_fact:
+    _snowflake_created: 0
+    _snowflake_updated: 0
+    _snowflake_failed: 0
+    _snowflake_healthy: 0
+    _snowflake_unhealthy: 0
+
+- name: Assert all configured connectors use the Snowflake sink class
+  ansible.builtin.assert:
+    that:
+      - item.config['connector.class'] == 'com.snowflake.kafka.connector.SnowflakeSinkConnector'
+    fail_msg: >-
+      Connector {{ item.name }} has connector.class
+      '{{ item.config['connector.class'] }}'.
+      cp_snowflake_sink only handles
+      com.snowflake.kafka.connector.SnowflakeSinkConnector.
+  loop: "{{ cp_snowflake_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Assert SNOWPIPE_STREAMING ingestion method
+  ansible.builtin.assert:
+    that:
+      - item.config['snowflake.ingestion.method'] | default('') == 'SNOWPIPE_STREAMING'
+    fail_msg: >-
+      Connector {{ item.name }} ingestion.method is
+      '{{ item.config['snowflake.ingestion.method'] | default('unset') }}'.
+      Platform standard is SNOWPIPE_STREAMING (sub-second latency).
+      Legacy SNOWPIPE (object-storage based) is not supported by this role.
+  loop: "{{ cp_snowflake_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Validate DLQ topic naming convention
+  ansible.builtin.assert:
+    that:
+      - item.config['errors.deadletterqueue.topic.name'] is defined
+      - item.config['errors.deadletterqueue.topic.name'] is match('^lakehouse\\.dlq\\..+')
+    fail_msg: >-
+      Connector {{ item.name }} DLQ must follow naming convention
+      lakehouse.dlq.<sink-name>. ADR-011 requires per-sink DLQ topics.
+  loop: "{{ cp_snowflake_connectors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Deploy snowflake sinks via cp_connect role
+  ansible.builtin.include_role:
+    name: cp_connect
+  vars:
+    cp_connectors: "{{ cp_snowflake_connectors | default([]) }}"
+
+- name: Capture per-sink-type results from cp_connect
+  ansible.builtin.set_fact:
+    _snowflake_created: "{{ cp_connect_results.created | default(0) }}"
+    _snowflake_updated: "{{ cp_connect_results.updated | default(0) }}"
+    _snowflake_failed: "{{ cp_connect_results.failed | default(0) }}"
+    _snowflake_healthy: "{{ cp_connect_results.healthy | default(0) }}"
+    _snowflake_unhealthy: "{{ cp_connect_results.unhealthy | default(0) }}"
+  when: cp_connect_results is defined
+
+- name: Report Snowflake sink results
+  ansible.builtin.debug:
+    msg: >-
+      cp_snowflake_sink results:
+      created={{ _snowflake_created }},
+      updated={{ _snowflake_updated }},
+      failed={{ _snowflake_failed }},
+      healthy={{ _snowflake_healthy }},
+      unhealthy={{ _snowflake_unhealthy }}
+
+- name: Set cp_snowflake_sink_results output variable
+  ansible.builtin.set_fact:
+    cp_snowflake_sink_results:
+      created: "{{ _snowflake_created | int }}"
+      updated: "{{ _snowflake_updated | int }}"
+      failed: "{{ _snowflake_failed | int }}"
+      healthy: "{{ _snowflake_healthy | int }}"
+      unhealthy: "{{ _snowflake_unhealthy | int }}"

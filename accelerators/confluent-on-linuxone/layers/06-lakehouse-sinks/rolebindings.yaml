@@ -1,0 +1,73 @@
+---
+# =============================================================================
+# MDS RBAC for lakehouse sink connector principal
+# =============================================================================
+# Depends on layer 01-rbac (ConfluentServerAuthorizer must be active for these
+# rolebindings to take effect). The connector authenticates to Kafka via mTLS
+# with the certificate subject CN=lakehouse-sink-connector.
+# =============================================================================
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: lakehouse-sink-source-topic-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: lakehouse-sink-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Topic
+      name: "corebanking.transactions.v1.account-transaction"
+      patternType: LITERAL
+    - resourceType: Topic
+      name: "fraud.detection.v1.alert-signal"
+      patternType: LITERAL
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: lakehouse-sink-dlq-write
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: lakehouse-sink-connector
+  role: DeveloperWrite
+  resourcePatterns:
+    - resourceType: Topic
+      name: "lakehouse.dlq."
+      patternType: PREFIXED
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: lakehouse-sink-consumer-group-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: lakehouse-sink-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Group
+      name: "connect-lakehouse-"
+      patternType: PREFIXED
+---
+apiVersion: platform.confluent.io/v1beta1
+kind: ConfluentRolebinding
+metadata:
+  name: lakehouse-sink-sr-subject-read
+  namespace: confluent
+spec:
+  principal:
+    type: user
+    name: lakehouse-sink-connector
+  role: DeveloperRead
+  resourcePatterns:
+    - resourceType: Subject
+      name: "corebanking.transactions.v1.account-transaction-value"
+      patternType: LITERAL
+    - resourceType: Subject
+      name: "fraud.detection.v1.alert-signal-value"
+      patternType: LITERAL

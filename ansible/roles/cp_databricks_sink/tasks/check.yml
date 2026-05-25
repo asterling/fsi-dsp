@@ -1,0 +1,15 @@
+---
+# =============================================================================
+# cp_databricks_sink -- Check mode pass-through
+# =============================================================================
+# Check mode is delegated to cp_connect with cp_connectors substituted for
+# cp_databricks_connectors. This file exists for symmetry with cp_connect's
+# task structure; main.yml routes to cp_connect's check.yml automatically.
+# =============================================================================
+
+- name: Delegate check mode to cp_connect
+  ansible.builtin.include_role:
+    name: cp_connect
+    tasks_from: check.yml
+  vars:
+    cp_connectors: "{{ cp_databricks_connectors | default([]) }}"

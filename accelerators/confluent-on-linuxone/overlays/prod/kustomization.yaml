@@ -26,6 +26,9 @@ components:
   - ../../layers/03-schema-governance
   - ../../layers/04-audit
   - ../../layers/05-flink
+  # Layer 06: Lakehouse sinks (Databricks + Snowflake). Depends on 01/02/03.
+  # See docs/adr/011-lakehouse-integration-patterns.md.
+  - ../../layers/06-lakehouse-sinks
 
 # Namespace for all resources
 namespace: confluent

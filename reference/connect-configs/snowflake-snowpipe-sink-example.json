@@ -1,0 +1,38 @@
+{
+  "name": "lakehouse-snowflake-fraud-alert-signal",
+  "config": {
+    "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+
+    "topics": "fraud.detection.v1.alert-signal",
+    "tasks.max": "6",
+
+    "snowflake.url.name": "https://abc12345.us-east-1.snowflakecomputing.com:443",
+    "snowflake.user.name": "FSI_PROD_KAFKA_CONNECTOR_SVC",
+    "snowflake.private.key": "${vault:secret/fsi/snowflake#private_key}",
+    "snowflake.private.key.passphrase": "${vault:secret/fsi/snowflake#private_key_passphrase}",
+    "snowflake.database.name": "FSI_PROD",
+    "snowflake.schema.name": "KAFKA_FRAUD",
+    "snowflake.role.name": "FSI_PROD_KAFKA_INGEST_ROLE",
+    "snowflake.topic2table.map": "fraud.detection.v1.alert-signal:ALERT_SIGNAL",
+
+    "snowflake.ingestion.method": "SNOWPIPE_STREAMING",
+    "snowflake.enable.schematization": true,
+    "snowflake.streaming.max.client.lag": 1,
+
+    "buffer.count.records": "10000",
+    "buffer.flush.time": "5",
+    "buffer.size.bytes": "5000000",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "https://schema.fsi.internal",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "${vault:secret/fsi/sr#api_key}:${vault:secret/fsi/sr#api_secret}",
+
+    "errors.tolerance": "all",
+    "errors.deadletterqueue.topic.name": "lakehouse.dlq.snowflake-fraud-alert-signal",
+    "errors.deadletterqueue.context.headers.enable": true,
+    "errors.log.enable": true,
+    "errors.log.include.messages": false
+  }
+}

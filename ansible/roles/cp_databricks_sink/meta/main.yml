@@ -1,0 +1,19 @@
+---
+galaxy_info:
+  role_name: cp_databricks_sink
+  author: FSI Kafka Platform C4E
+  description: >-
+    Deploy and validate Databricks Delta Lake Sink Connectors on a CP / CFK /
+    LinuxONE Connect cluster. Thin wrapper around cp_connect with class
+    validation and per-sink-type result reporting. Implements ADR-011 DB-C
+    self-managed path.
+  license: Internal
+  min_ansible_version: "2.14"
+  platforms:
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+
+dependencies:
+  - role: cp_connect
