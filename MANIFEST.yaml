@@ -400,3 +400,123 @@ capabilities:
     build_command: "kustomize build overlays/prod"
     dry_run_command: "kustomize build overlays/prod | oc apply --dry-run=server -f -"
     apply_command: "kustomize build overlays/prod | oc apply -f -"
+
+  # ──────────────────────────────────────────────────
+  # Registrations from ADR-011 (lakehouse) + ADR-012 (database connectors)
+  # + LinuxONE scenarios + miscellaneous strays — landed via stray-asset
+  # gate enforcement from cflt-ai check-canon-parity.py. Each entry below
+  # was previously on disk but not registered; canon governance requires
+  # explicit registration so cflt-ai can resolve fsi-dsp:// URIs and gate
+  # per-type compliance.
+  # ──────────────────────────────────────────────────
+
+  # ── Terraform modules (3 — new from ADR-011, ADR-012) ──
+  - id: "module/db_connector"
+    type: terraform-module
+    name: "db_connector"
+    path: "modules/db_connector"
+    description: "Polymorphic Confluent Cloud managed connector for operational databases (MongoDB, Redis, CockroachDB, PostgreSQL — source or sink). Per ADR-012."
+    canon_key: "connector_config"
+
+  - id: "module/lakehouse_sink"
+    type: terraform-module
+    name: "lakehouse_sink"
+    path: "modules/lakehouse_sink"
+    description: "Confluent Cloud managed connector for Databricks Delta Lake or Snowflake Snowpipe Streaming sink. Per ADR-011."
+    canon_key: "lakehouse_sink_config"
+
+  - id: "module/tableflow"
+    type: terraform-module
+    name: "tableflow"
+    path: "modules/tableflow"
+    description: "Enables Confluent Tableflow on a topic and wires the materialized table (Iceberg or Delta) into Databricks Unity Catalog or Snowflake Open Catalog. Per ADR-011."
+    canon_key: "tableflow_config"
+
+  # ── Ansible roles (8 — DB connectors + lakehouse sinks + flink operators + pre-existing mTLS) ──
+  - id: "role/cp_cockroachdb"
+    type: ansible-role
+    name: "cp_cockroachdb"
+    path: "ansible/roles/cp_cockroachdb"
+    description: "Deploy CockroachDB CDC source connector (changefeed → Kafka) for self-managed Confluent Platform. Per ADR-012."
+
+  - id: "role/cp_mongodb"
+    type: ansible-role
+    name: "cp_mongodb"
+    path: "ansible/roles/cp_mongodb"
+    description: "Deploy MongoDB source/sink connectors for self-managed Confluent Platform. Per ADR-012."
+
+  - id: "role/cp_postgres"
+    type: ansible-role
+    name: "cp_postgres"
+    path: "ansible/roles/cp_postgres"
+    description: "Deploy PostgreSQL Debezium CDC source + JDBC sink connectors for self-managed Confluent Platform. Per ADR-012."
+
+  - id: "role/cp_redis"
+    type: ansible-role
+    name: "cp_redis"
+    path: "ansible/roles/cp_redis"
+    description: "Deploy Redis sink connector for self-managed Confluent Platform. Per ADR-012."
+
+  - id: "role/cp_databricks_sink"
+    type: ansible-role
+    name: "cp_databricks_sink"
+    path: "ansible/roles/cp_databricks_sink"
+    description: "Deploy Databricks Delta Lake sink connector for self-managed Confluent Platform. Per ADR-011 (DB-C path)."
+
+  - id: "role/cp_snowflake_sink"
+    type: ansible-role
+    name: "cp_snowflake_sink"
+    path: "ansible/roles/cp_snowflake_sink"
+    description: "Deploy Snowflake Snowpipe Streaming sink connector for self-managed Confluent Platform. Per ADR-011 (SF-A path)."
+
+  - id: "role/cp_mtls"
+    type: ansible-role
+    name: "cp_mtls"
+    path: "ansible/roles/cp_mtls"
+    description: "Configure mTLS on listeners + client truststore/keystore for self-managed Confluent Platform brokers."
+
+  - id: "role/flink_operators"
+    type: ansible-role
+    name: "flink_operators"
+    path: "ansible/roles/flink_operators"
+    description: "Install Confluent Flink Operator + Confluent Manager for Flink Helm charts on OCP for the LinuxONE accelerator's layer 05-flink prerequisite."
+
+  # ── Scenarios (2 — LinuxONE variants from v3.0 milestone) ──
+  - id: "scenario/cfk-openshift-linuxone"
+    type: scenario
+    name: "cfk-openshift-linuxone"
+    path: "scenarios/cfk-openshift-linuxone"
+    description: "CFK on OCP deployment scenario targeting IBM LinuxONE / s390x worker nodes. Helm-values + Ansible orchestration; precedes the kustomize-based accelerator/confluent-on-linuxone."
+
+  - id: "scenario/cp-rhel-linuxone"
+    type: scenario
+    name: "cp-rhel-linuxone"
+    path: "scenarios/cp-rhel-linuxone"
+    description: "Confluent Platform on RHEL deployment scenario targeting IBM LinuxONE / s390x with IBM Semeru JDK + FIPS + JCEKS keystore overrides. Lakehouse playbooks per ADR-011."
+
+  # ── References (1 — new from ADR-012) ──
+  - id: "reference/cockroachdb"
+    type: reference
+    name: "cockroachdb"
+    path: "reference/cockroachdb"
+    description: "CockroachDB changefeed reference examples (SQL statements + connector wiring) for CDC to Kafka. Per ADR-012."
+
+  # ── Scripts (1 — manifest-stability CI guard) ──
+  - id: "script/check-manifest-stability"
+    type: script
+    name: "check-manifest-stability.py"
+    path: "scripts/check-manifest-stability.py"
+    description: "CNTR-04 CI enforcement: asserts no MANIFEST capability ID has been removed between versions without a major version bump. Run in CI on every PR."
+
+  # ── ADRs (2 — ADR-011 lakehouse, ADR-012 database connectors) ──
+  - id: "adr/011-lakehouse-integration-patterns"
+    type: adr
+    name: "ADR-011: Lakehouse Integration Patterns"
+    path: "docs/adr/011-lakehouse-integration-patterns.md"
+    description: "Four lakehouse paths (Tableflow→Databricks UC, Tableflow→Snowflake Open Catalog, Databricks Delta Lake Sink, Snowflake Snowpipe Streaming) across deployment models. Scoped exception to ADR-004 for CC-source SaaS-lakehouse pairs only."
+
+  - id: "adr/012-database-connector-patterns"
+    type: adr
+    name: "ADR-012: Database Connector Patterns"
+    path: "docs/adr/012-database-connector-patterns.md"
+    description: "MongoDB, Redis, CockroachDB, PostgreSQL CDC/sink connectors across CC managed, CP self-managed, CFK, and CP-on-RHEL-on-LinuxONE deployment models. Polymorphic module/db_connector packages CC variants; ansible roles wrap self-managed."
