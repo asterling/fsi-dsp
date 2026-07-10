@@ -1,4 +1,4 @@
-# ADR-009: LinuxONE / s390x Deployment Guidance
+# ADR-013: LinuxONE / s390x Deployment Guidance
 
 ## Status
 

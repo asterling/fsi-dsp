@@ -33,7 +33,7 @@ All eight share identical governance rules — topic naming, schema compatibilit
 - 3 DR backends with 103 shell tests + 662 Ansible tests
 - 6 observability providers with dashboard templates
 - 3 reference client languages (Java, Python, .NET) with DLQ patterns
-- 12 ADRs documenting key architectural decisions
+- 13 ADRs documenting key architectural decisions
 
 ## Bottom line
 

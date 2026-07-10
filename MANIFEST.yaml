@@ -1,7 +1,7 @@
 # MANIFEST.yaml v1 — Stable contract between fsi-dsp and cflt-ai
 # Every asset in this file has a stable ID that MUST NOT be removed
 # without a major version bump. See CNTR-04 CI enforcement.
-version: "1.1.0"
+version: "1.2.0"
 schema: "fsi-dsp/manifest/v1"
 
 capabilities:
@@ -397,6 +397,12 @@ capabilities:
       - layer: "05-flink"
         path: "accelerators/confluent-on-linuxone/layers/05-flink"
         canon_key: "fsi.flink.environment-mtls"
+      - layer: "06-lakehouse-sinks"
+        path: "accelerators/confluent-on-linuxone/layers/06-lakehouse-sinks"
+        canon_key: "lakehouse_sink_config"
+      - layer: "07-database-connectors"
+        path: "accelerators/confluent-on-linuxone/layers/07-database-connectors"
+        canon_key: "connector_config"
     build_command: "kustomize build overlays/prod"
     dry_run_command: "kustomize build overlays/prod | oc apply --dry-run=server -f -"
     apply_command: "kustomize build overlays/prod | oc apply -f -"
@@ -508,7 +514,15 @@ capabilities:
     path: "scripts/check-manifest-stability.py"
     description: "CNTR-04 CI enforcement: asserts no MANIFEST capability ID has been removed between versions without a major version bump. Run in CI on every PR."
 
-  # ── ADRs (2 — ADR-011 lakehouse, ADR-012 database connectors) ──
+  # ── ADRs (3 — ADR-011 lakehouse, ADR-012 database connectors,
+  # ADR-013 LinuxONE deployment guidance) ──
+  - id: "adr/013"
+    type: adr
+    name: "LinuxONE deployment guidance (s390x platform decisions)"
+    path: "docs/adr/013-linuxone-deployment-guidance.md"
+    status: accepted
+    description: "Companion to adr/009 (z/OS Kafka offload): IBM Semeru JDK, PKCS12 keystores, CPACF crypto decisions for s390x. Renumbered from an unregistered duplicate ADR-009 file at registration time; cross-linked from accelerator layer READMEs."
+
   - id: "adr/011-lakehouse-integration-patterns"
     type: adr
     name: "ADR-011: Lakehouse Integration Patterns"
