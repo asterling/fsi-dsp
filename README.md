@@ -57,7 +57,7 @@ Where `scenarios/` are starter kits, `accelerators/` are opinionated, end-to-end
 
 ### Confluent on LinuxONE (`accelerators/confluent-on-linuxone/`)
 
-FSI-hardened Confluent Platform on IBM LinuxONE (s390x) via the CFK operator on OpenShift. Forks IBM / Matt Mondics's public reference runbook (pulled by pinned SHA — fetch-by-SHA, not vendored) as a clean base, then layers five Kustomize Components on top:
+FSI-hardened Confluent Platform on IBM LinuxONE (s390x) via the CFK operator on OpenShift. Forks IBM / Matt Mondics's public reference runbook (pulled by pinned SHA — fetch-by-SHA, not vendored) as a clean base, then layers seven Kustomize Components on top:
 
 | Layer | Control |
 |-------|---------|
@@ -66,6 +66,8 @@ FSI-hardened Confluent Platform on IBM LinuxONE (s390x) via the CFK operator on 
 | `03-schema-governance` | FULL_TRANSITIVE compatibility, subject-naming enforcement, hard-delete controls |
 | `04-audit` | Broker audit log → 7-year retention topic → Splunk / Dynatrace SIEM sinks |
 | `05-flink` | Apache Flink via Confluent Manager for Apache Flink (CMF) — `FlinkApplication` CRs, self-contained mTLS + RBAC, FSI example jobs |
+| `06-lakehouse-sinks` | Governed Databricks Delta Lake + Snowflake Snowpipe Streaming sink Connect cluster with per-sink DLQs (ADR-011 DB-C / SF-A paths) |
+| `07-database-connectors` | Governed MongoDB / PostgreSQL / Redis / CockroachDB connector Connect cluster with per-connector DLQs (ADR-012) |
 
 Composed by `overlays/{dev,prod}`; `flox activate` pins the toolchain. Flink's prerequisite operators (FKO + CMF) install via the `flink_operators` Ansible role. See `accelerators/confluent-on-linuxone/README.md`, `DESIGN.md`, and `KNOWN-GAPS.md`.
 
@@ -73,7 +75,7 @@ Composed by `overlays/{dev,prod}`; `flox activate` pins the toolchain. Flink's p
 
 ```bash
 # 1. Pick your deployment model
-cd scenarios/cc-aws/          # or cc-azure, cc-gcp, cfk-openshift, cp-rhel, private-cloud
+cd scenarios/cc-aws/          # or cc-azure, cc-gcp, cfk-openshift, cp-rhel, private-cloud, cfk-openshift-linuxone, cp-rhel-linuxone
 
 # 2. Configure environment
 cp .env.example .env          # fill in cluster details
