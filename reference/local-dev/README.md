@@ -17,16 +17,33 @@ Single-node local development environment for the FSI Kafka Platform. Provides K
 
 ## Quick Start
 
+The marked blocks below are executed verbatim by CI on every change to this
+directory (`.github/workflows/local-dev-smoke.yml` via
+`ci/scripts/run-documented-commands.py`) — if these instructions stop
+working, the build goes red.
+
+<!-- ci-verify: boot core services and wait until healthy -->
 ```bash
-# Start core services (Kafka, SR, Connect)
+# Start core services (Kafka, SR, Connect) and block until all healthchecks pass
 cd reference/local-dev
-docker compose up -d
-
-# Wait for all services to be healthy
+docker compose up -d --wait --wait-timeout 300
 docker compose ps
+```
 
-# Start with Flink (optional)
+```bash
+# Start with Flink (optional — not exercised by CI)
+cd reference/local-dev
 docker compose --profile flink up -d
+```
+
+## Verify the Environment
+
+<!-- ci-verify: roundtrip test, twice (rerun-safety is part of the contract) -->
+```bash
+# Produce -> register schema -> consume -> verify, then again:
+# the environment must survive a rerun, not just a first run.
+./reference/integration-test/roundtrip-test.sh
+./reference/integration-test/roundtrip-test.sh
 ```
 
 ## Register a Schema

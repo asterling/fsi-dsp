@@ -1,0 +1,38 @@
+name: Local-Dev Smoke Test
+
+# Executes the local-dev README's own quick-start and verify blocks verbatim
+# (ci/scripts/run-documented-commands.py). The README is the test: there is
+# no second copy of the instructions that can drift. The weekly schedule
+# catches breakage that arrives with no commit (image/registry/runner drift).
+
+on:
+  pull_request:
+    paths:
+      - 'reference/local-dev/**'
+      - 'reference/integration-test/**'
+      - 'schemas/examples/**'
+      - 'ci/scripts/run-documented-commands.py'
+      - '.github/workflows/local-dev-smoke.yml'
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the documented quick-start and verify blocks
+        run: python3 ci/scripts/run-documented-commands.py reference/local-dev/README.md
+
+      # A failing documented command must never fail silently: surface what
+      # the containers actually said.
+      - name: Container logs on failure
+        if: failure()
+        run: cd reference/local-dev && docker compose logs --tail 150
+
+      - name: Teardown
+        if: always()
+        run: cd reference/local-dev && docker compose down -v --remove-orphans
