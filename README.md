@@ -169,7 +169,7 @@ Plus: Kafka Connect JDBC configs (East/West), Docker Compose local dev (Kafka + 
 
 ### Ansible Automation (`ansible/`)
 
-Eleven roles providing full lifecycle management for Confluent Platform and CFK deployments:
+Seventeen roles providing full lifecycle management for Confluent Platform and CFK deployments:
 
 | Role | Purpose |
 |------|---------|
@@ -184,6 +184,12 @@ Eleven roles providing full lifecycle management for Confluent Platform and CFK 
 | `cfk_topic` | KafkaTopic CRD generation from CPTopic YAML with governance parity |
 | `cp_mtls` | mTLS certificate provisioning (CA, broker/client keystores, truststores) |
 | `flink_operators` | Flink Kubernetes Operator + Confluent Manager for Apache Flink (CMF) Helm install with readiness gates |
+| `cp_cockroachdb` | Deploy CockroachDB CDC source connector (changefeed → Kafka) for self-managed Confluent Platform. Per ADR-012. |
+| `cp_mongodb` | Deploy MongoDB source/sink connectors for self-managed Confluent Platform. Per ADR-012. |
+| `cp_postgres` | Deploy PostgreSQL Debezium CDC source + JDBC sink connectors for self-managed Confluent Platform. Per ADR-012. |
+| `cp_redis` | Deploy Redis sink connector for self-managed Confluent Platform. Per ADR-012. |
+| `cp_databricks_sink` | Deploy Databricks Delta Lake sink connector for self-managed Confluent Platform. Per ADR-011 (DB-C path). |
+| `cp_snowflake_sink` | Deploy Snowflake Snowpipe Streaming sink connector for self-managed Confluent Platform. Per ADR-011 (SF-A path). |
 
 All roles support `--check` mode for audit-ready dry runs. Orchestrated by `site.yml` with tag-isolated selective execution.
 

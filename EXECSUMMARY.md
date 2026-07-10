@@ -1,6 +1,6 @@
 # FSI Data Streaming Platform — Executive Summary
 
-**FSI Data Streaming Platform** is a turnkey infrastructure kit that lets any financial institution stand up a fully governed, observable, DR-ready Kafka/Flink/Schema Registry environment across six deployment models — with a single automation run.
+**FSI Data Streaming Platform** is a turnkey infrastructure kit that lets any financial institution stand up a fully governed, observable, DR-ready Kafka/Flink/Schema Registry environment across eight deployment models — with a single automation run.
 
 ## What it solves
 
@@ -15,7 +15,7 @@ FSI teams typically spend months wiring up Kafka with the governance, security, 
 | Confluent Platform on RHEL | Ansible (cp-ansible) | Bare metal / on-prem |
 | Confluent Private Cloud | Terraform | Self-managed control plane |
 
-All six share identical governance rules — topic naming, schema compatibility, RBAC, SLA-tier defaults — enforced by shared modules and filter plugins regardless of deployment model.
+All eight share identical governance rules — topic naming, schema compatibility, RBAC, SLA-tier defaults — enforced by shared modules and filter plugins regardless of deployment model.
 
 ## Key capabilities
 
@@ -28,12 +28,12 @@ All six share identical governance rules — topic naming, schema compatibility,
 
 ## By the numbers
 
-- 6 deployment scenarios with governance parity
-- 9 Ansible roles + 4-play orchestration pipeline
+- 8 deployment scenarios with governance parity
+- 17 Ansible roles + 6-play orchestration pipeline
 - 3 DR backends with 103 shell tests + 662 Ansible tests
 - 6 observability providers with dashboard templates
 - 3 reference client languages (Java, Python, .NET) with DLQ patterns
-- 8 ADRs documenting key architectural decisions
+- 12 ADRs documenting key architectural decisions
 
 ## Bottom line
 

@@ -30,7 +30,12 @@ jobs:
       - name: Install dependencies
         run: pip install pyyaml
 
-      # Report mode: surfaces drift in the job log without failing CI.
-      # Flip to --enforce in a follow-up once the existing doc drift is fixed.
+      # Enforce mode: doc-claim/path/stray drift fails CI. Fix count/table
+      # drift locally with:
+      #   python ci/scripts/check-doc-drift.py --fix
+      # --allow-strays is TEMPORARY: it keeps the known unregistered strays
+      # (1 ADR + 2 accelerator layers) warning-only so enforcement can land
+      # now. Remove --allow-strays once the stray-registration PR registers
+      # them, so strays block unconditionally.
       - name: Check MANIFEST/disk/doc parity
-        run: python ci/scripts/check-doc-drift.py
+        run: python ci/scripts/check-doc-drift.py --enforce --allow-strays

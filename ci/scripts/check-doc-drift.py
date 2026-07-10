@@ -14,20 +14,33 @@ it as ground truth, three invariants must hold:
   3. Documentation count claims (README.md, EXECSUMMARY.md) match the
      counts derived from MANIFEST.yaml / repo state -- no stale prose.
 
-This tool only checks; it never modifies files.
-
-Usage: python ci/scripts/check-doc-drift.py [--enforce]
+Usage: python ci/scripts/check-doc-drift.py [--enforce] [--allow-strays] [--fix]
 
   Default (report mode): print every finding, always exit 0. This lets
   the gate land and surface existing drift without turning CI red before
   the drift itself is fixed.
 
-  --enforce: invariant 1 and 3 findings exit 1 (CI-blocking). Invariant 2
-  strays stay warning-only even under --enforce: registering a stray is a
-  manifest change, and apply_sequence layers additionally require a
-  coordinated MODULE_TO_CANON_KEY update in cflt-ai's
-  check-canon-parity.py -- so strays are surfaced here but gated in the
-  PR that registers them.
+  --enforce: invariant 1, 2, and 3 findings exit 1 (CI-blocking). Stray
+  assets (invariant 2) now block under --enforce so unregistered assets
+  cannot land silently.
+
+  --allow-strays: TEMPORARY rollout flag. Under --enforce, downgrades
+  stray findings back to warning-only (exit 0 on strays alone), matching
+  the pre-enforcement behavior. It exists solely so --enforce can be
+  turned on in CI while a handful of known strays (1 ADR + 2 accelerator
+  layers) are still awaiting their dedicated stray-registration PR --
+  registering a stray is a manifest change, and apply_sequence layers
+  additionally require a coordinated MODULE_TO_CANON_KEY update in
+  cflt-ai's check-canon-parity.py. Once that PR lands and registers the
+  remaining strays, this flag (and its use in the workflow) must be
+  removed so strays block unconditionally. Has no effect without
+  --enforce (report mode already treats strays as warnings).
+
+  --fix: rewrite drifted doc counts in place from the derived counts
+  (preserving digit vs number-word style) and append manifest-registered
+  roles missing from the README role table, then re-check. Counts in
+  docs are tool-generated, never hand-edited. Strays and missing
+  manifest paths are never auto-fixed (they need manifest/repo changes).
 """
 import argparse
 import re
@@ -47,6 +60,19 @@ NUMBER_WORDS = {
     "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19,
     "twenty": 20,
 }
+
+
+NUMBER_WORDS_INV = {v: k for k, v in NUMBER_WORDS.items()}
+
+
+def format_count(original_token: str, count: int) -> str:
+    """Render count in the same style as the token it replaces."""
+    if original_token.isdigit():
+        return str(count)
+    word = NUMBER_WORDS_INV.get(count)
+    if word is None:
+        return str(count)
+    return word.capitalize() if original_token[0].isupper() else word
 
 
 def parse_count(token: str) -> int:
@@ -70,6 +96,11 @@ def manifest_counts(manifest: dict) -> dict:
     counts = {}
     for cap in manifest["capabilities"]:
         counts[cap["type"]] = counts.get(cap["type"], 0) + 1
+        # Accelerator layers are apply_sequence sub-assets; docs claim their
+        # total (e.g. "layers five Kustomize Components").
+        counts["accelerator-layer"] = counts.get("accelerator-layer", 0) + len(
+            cap.get("apply_sequence", [])
+        )
     # Orchestration plays in the Ansible entrypoint ("N-play pipeline" claims)
     site_yml = REPO_ROOT / "ansible" / "site.yml"
     if site_yml.exists():
@@ -150,6 +181,7 @@ DOC_CLAIMS = [
     ("EXECSUMMARY.md", r"(\w+)-play orchestration", "site-play"),
     ("EXECSUMMARY.md", r"(\d+) ADRs", "adr"),
     ("README.md", r"(\w+) roles providing full lifecycle", "ansible-role"),
+    ("README.md", r"layers (\w+) Kustomize Components", "accelerator-layer"),
 ]
 
 
@@ -193,11 +225,72 @@ def check_readme_role_table(manifest: dict, failures: list):
         failures.append(f"README.md role table lists unregistered role: {stray}")
 
 
+def fix_doc_claims(manifest: dict) -> list:
+    """--fix: rewrite drifted counts in place, same style as the original.
+    Returns a list of 'file: old -> new' descriptions of applied fixes."""
+    applied = []
+    counts = manifest_counts(manifest)
+    for filename, pattern, cap_type in DOC_CLAIMS:
+        path = REPO_ROOT / filename
+        text = path.read_text()
+        m = re.search(pattern, text)
+        if not m:
+            continue  # pattern-not-found stays a finding; nothing to rewrite
+        try:
+            claimed = parse_count(m.group(1))
+        except ValueError:
+            continue
+        actual = counts.get(cap_type, 0)
+        if claimed == actual:
+            continue
+        replacement = format_count(m.group(1), actual)
+        text = text[: m.start(1)] + replacement + text[m.end(1):]
+        path.write_text(text)
+        applied.append(f"{filename}: {m.group(1)!r} -> {replacement!r} ({cap_type})")
+    return applied
+
+
+def fix_readme_role_table(manifest: dict) -> list:
+    """--fix: append manifest-registered roles missing from the README role
+    table, using the manifest description. Never removes rows."""
+    applied = []
+    roles = {
+        cap["name"]: cap.get("description", "")
+        for cap in manifest["capabilities"] if cap["type"] == "ansible-role"
+    }
+    path = REPO_ROOT / "README.md"
+    lines = path.read_text().splitlines(keepends=True)
+    row_idx = [i for i, l in enumerate(lines) if re.match(r"^\| `(\w+)` \|", l)]
+    if not row_idx:
+        return applied
+    present = {re.match(r"^\| `(\w+)` \|", lines[i]).group(1) for i in row_idx}
+    insert_at = row_idx[-1] + 1
+    new_rows = [
+        f"| `{name}` | {roles[name]} |\n"
+        for name in roles if name not in present
+    ]
+    if new_rows:
+        lines[insert_at:insert_at] = new_rows
+        path.write_text("".join(lines))
+        applied.extend(f"README.md: added role table row for `{r.split('`')[1]}`"
+                       for r in new_rows)
+    return applied
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1])
     parser.add_argument(
         "--enforce", action="store_true",
-        help="exit 1 on path/doc-claim drift (default: report only, exit 0)",
+        help="exit 1 on path/doc-claim/stray drift (default: report only, exit 0)",
+    )
+    parser.add_argument(
+        "--allow-strays", action="store_true",
+        help="TEMPORARY: under --enforce, keep strays warning-only (exit 0). "
+             "Remove once the stray-registration PR lands.",
+    )
+    parser.add_argument(
+        "--fix", action="store_true",
+        help="rewrite drifted doc counts/table rows from derived counts, then re-check",
     )
     args = parser.parse_args()
 
@@ -206,6 +299,13 @@ def main():
         sys.exit(1)
 
     manifest = load_manifest()
+
+    if args.fix:
+        applied = fix_doc_claims(manifest) + fix_readme_role_table(manifest)
+        for a in applied:
+            print(f"  FIXED: {a}")
+        print(f"--fix applied {len(applied)} change(s); re-checking.\n")
+
     failures = []
     warnings = []
 
@@ -219,9 +319,17 @@ def main():
     print(f"Doc-drift check ({mode} mode): MANIFEST v{manifest.get('version', '?')} -- "
           + ", ".join(f"{n} {t}" for t, n in sorted(counts.items())))
 
+    # Strays block under --enforce unless the temporary --allow-strays flag
+    # downgrades them to warning-only.
+    strays_block = args.enforce and not args.allow_strays
+
     if warnings:
+        if strays_block:
+            note = "blocking under --enforce; register them or pass --allow-strays"
+        else:
+            note = "warning-only; register them in a dedicated manifest PR"
         print(f"\n{len(warnings)} stray asset(s) on disk but not in MANIFEST "
-              f"(never blocking; register them in a dedicated manifest PR):")
+              f"({note}):")
         for w in warnings:
             print(f"  WARN: {w}")
 
@@ -229,12 +337,16 @@ def main():
         print(f"\n{len(failures)} drift issue(s) found:")
         for f in failures:
             print(f"  DRIFT: {f}")
+    else:
+        print("PASS: MANIFEST paths and doc count claims are in sync.")
+
+    # A finding blocks CI only under --enforce. Doc-claim/path failures always
+    # block; strays block too unless --allow-strays keeps them warning-only.
+    blocking = bool(failures) or (strays_block and bool(warnings))
+    if blocking:
         if args.enforce:
             sys.exit(1)
         print("\nReport mode: exiting 0. Run with --enforce to make these block CI.")
-        return
-
-    print("PASS: MANIFEST paths and doc count claims are in sync.")
 
 
 if __name__ == "__main__":
