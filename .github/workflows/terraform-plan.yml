@@ -7,11 +7,22 @@
 #   - terraform-plan-gcp.yml (scenarios/cc-gcp)
 #
 # Each calls the reusable terraform-scenario.yml workflow.
-# This file is retained for git history. It will not trigger on new PRs.
+# This file is retained for git history.
+#
+# NOTE: a workflow file without a `jobs:` section is invalid, and GitHub
+# records a failed workflow run for invalid files on EVERY push, ignoring
+# branch/path filters (it cannot evaluate filters on a file it cannot
+# parse). This stub is therefore kept minimally valid: manual-trigger
+# only, with a no-op job. It never runs automatically.
 # =============================================================================
 name: "Terraform Plan (Deprecated)"
 
 on:
-  pull_request:
-    paths:
-      - 'environments/**'  # Old path -- no longer exists
+  workflow_dispatch:
+
+jobs:
+  deprecated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deprecation notice
+        run: echo "Deprecated -- use terraform-plan-{aws,azure,gcp}.yml (per-scenario workflows)."
