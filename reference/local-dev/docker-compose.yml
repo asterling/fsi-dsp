@@ -45,7 +45,11 @@ services:
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
-      CLUSTER_ID: fsi-local-dev-cluster-001
+      # KRaft requires a base64-encoded UUID (exactly 22 chars). A friendly
+      # string like "fsi-local-dev-cluster-001" fails broker preflight with
+      # "too long to be decoded as a base64 UUID". Generate a fresh one with:
+      #   kafka-storage random-uuid
+      CLUSTER_ID: yDGK_USjTte0dgJBhXMqww
     healthcheck:
       test: kafka-broker-api-versions --bootstrap-server broker:29092
       interval: 10s
