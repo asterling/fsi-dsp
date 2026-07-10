@@ -68,19 +68,22 @@ echo "{\"test_key\": \"${TEST_KEY}\", \"test_value\": \"${TEST_VALUE}\", \"times
     --topic "${TOPIC}" \
     --property schema.registry.url=http://schema-registry:8081 \
     --property value.schema="$(echo "$SCHEMA" | tr -d '\n')" \
+    --property avro.use.logical.type.converters=true \
     2>/dev/null
 echo "  OK"
 
 # ── Step 4: Consume and verify ──
 echo "[4/5] Consuming record..."
+# Read ALL messages (not --max-messages 1): the topic may hold records from
+# earlier runs, and reading only the first would make every rerun fail.
+# The consumer exits non-zero on its read timeout, so tolerate that.
 CONSUMED=$(docker exec fsi-schema-registry kafka-avro-console-consumer \
   --bootstrap-server broker:29092 \
   --topic "${TOPIC}" \
   --from-beginning \
-  --max-messages 1 \
   --timeout-ms 10000 \
   --property schema.registry.url=http://schema-registry:8081 \
-  2>/dev/null)
+  2>/dev/null || true)
 
 if echo "$CONSUMED" | grep -q "${TEST_KEY}"; then
   echo "  OK — Record roundtripped successfully"
@@ -101,11 +104,17 @@ else
 fi
 
 # ── Cleanup ──
+# Delete the test topic so reruns start from a clean slate (the subject and
+# its schema versions stay registered in Schema Registry, which is fine —
+# repeat registrations of the same schema are idempotent).
+docker exec fsi-broker kafka-topics --delete \
+  --topic "${TOPIC}" \
+  --bootstrap-server broker:29092 2>/dev/null || true
+
 echo ""
 echo "=== ALL TESTS PASSED ==="
 echo "  Topic created:    ${TOPIC}"
 echo "  Schema registered: ID ${SCHEMA_ID}"
 echo "  Record produced:  key=${TEST_KEY}"
 echo "  Record consumed:  verified"
-echo ""
-echo "Clean up with: docker exec fsi-broker kafka-topics --delete --topic ${TOPIC} --bootstrap-server broker:29092"
+echo "  Test topic deleted (rerun-safe)"
