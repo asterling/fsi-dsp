@@ -1,0 +1,36 @@
+name: Doc Drift
+
+on:
+  pull_request:
+    paths:
+      - 'MANIFEST.yaml'
+      - 'README.md'
+      - 'EXECSUMMARY.md'
+      - 'scenarios/**'
+      - 'ansible/roles/**'
+      - 'ansible/site.yml'
+      - 'modules/**'
+      - 'docs/adr/**'
+      - 'accelerators/**'
+      - 'ci/scripts/check-doc-drift.py'
+      - '.github/workflows/doc-drift.yml'
+  push:
+    branches: [main]
+
+jobs:
+  check-doc-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      # Report mode: surfaces drift in the job log without failing CI.
+      # Flip to --enforce in a follow-up once the existing doc drift is fixed.
+      - name: Check MANIFEST/disk/doc parity
+        run: python ci/scripts/check-doc-drift.py
